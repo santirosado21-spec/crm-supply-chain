@@ -29,20 +29,8 @@ import { ServiciosPage } from './pages/servicios/ServiciosPage'
 import { ValidadorSKUPage } from './pages/sac/ValidadorSKUPage'
 import { ReceiptGeneratorPage } from './pages/almacen/ReceiptGeneratorPage'
 import { CartaInstruccionPage } from './pages/sac/CartaInstruccionPage'
-import { GuiasPaqueteriaPage } from './pages/tms/GuiasPaqueteriaPage'
 import { CartaPortePage } from './pages/tms/CartaPortePage'
 import { CartasRecibidasPage } from './pages/tms/CartasRecibidasPage'
-import { CarriersConfigPage } from './pages/tms/CarriersConfigPage'
-import { ShippingRulesPage } from './pages/tms/ShippingRulesPage'
-import { ParcelTrackingMapPage } from './pages/tms/ParcelTrackingMapPage'
-import { ParcelDashboardPage } from './pages/tms/ParcelDashboardPage'
-import { ParcelOrdersPage } from './pages/tms/ParcelOrdersPage'
-import { OrderTemplatesPage } from './pages/tms/OrderTemplatesPage'
-import { ManifestsPage } from './pages/tms/ManifestsPage'
-import { ShipmentProfilePage } from './pages/tms/ShipmentProfilePage'
-import { DeliveryPerformancePage } from './pages/tms/DeliveryPerformancePage'
-import { MarkupProfilesPage } from './pages/tms/MarkupProfilesPage'
-import { AddressesPage } from './pages/tms/AddressesPage'
 import { TaskInbox } from './pages/tasks/TaskInbox'
 import { TaskCalendar } from './pages/tasks/TaskCalendar'
 import { TaskCreate } from './pages/tasks/TaskCreate'
@@ -54,7 +42,7 @@ import { ExtensivBilling } from './pages/tasks/admin/ExtensivBilling'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES, PARCEL_ROLES } from './config/permissions'
+import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
 
 function App() {
   return (
@@ -157,46 +145,6 @@ function App() {
           <Route path="/sac/carta-instruccion" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><CartaInstruccionPage /></ProtectedRoute>
           } />
-          <Route path="/tms/guias-paqueteria" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><GuiasPaqueteriaPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/parcel-map" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ParcelTrackingMapPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/parcel-dashboard" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ParcelDashboardPage /></ProtectedRoute>
-          } />
-          {/* TMS Paquetería · Techship replica */}
-          <Route path="/tms/orders" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ParcelOrdersPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/orders/templates" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><OrderTemplatesPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/manifests" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ManifestsPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/insights/shipment-profile" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ShipmentProfilePage /></ProtectedRoute>
-          } />
-          <Route path="/tms/insights/delivery-performance" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><DeliveryPerformancePage /></ProtectedRoute>
-          } />
-          <Route path="/tms/addresses" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><AddressesPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/markup-profiles" element={
-            <ProtectedRoute allowedRoles={['admin']}><MarkupProfilesPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/carriers" element={
-            <ProtectedRoute allowedRoles={['admin']}><CarriersConfigPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/carriers/reglas" element={
-            <ProtectedRoute allowedRoles={['admin']}><ShippingRulesPage /></ProtectedRoute>
-          } />
-          {/* Compat redirect: la ruta vieja /sac/guias-paqueteria sigue funcionando
-              mientras los bookmarks/links externos se actualizan. */}
-          <Route path="/sac/guias-paqueteria" element={<Navigate to="/tms/guias-paqueteria" replace />} />
           {/* Task Tracker */}
           <Route path="/tasks" element={
             <ProtectedRoute allowedRoles={TASK_ROLES}><TaskInbox /></ProtectedRoute>
