@@ -4,7 +4,7 @@
 
 ## Qué es
 
-CRM operativo para **Supply Chain México** — operador logístico 3PL con CEDIS en Lerma, Edo. de México. Cubre WMS, transporte (TMS), paquetería, almacén y coordinación de tareas. En producción en Vercel.
+CRM operativo para **Supply Chain México** — operador logístico 3PL con CEDIS en Lerma, Edo. de México. Cubre WMS, transporte (TMS) y coordinación de tareas. En producción en Vercel.
 
 ## Stack
 
@@ -35,17 +35,15 @@ npm run db:status    # supabase migration list
 - Branch de producción: `main` (auto-deploy a Vercel)
 - Branches de trabajo: usar `feat/<nombre>`, NUNCA force-push a main
 
-## Módulos (5)
+## Módulos (3)
 
 | Módulo | Ruta base | Roles |
 |---|---|---|
-| Herramientas de WMS | `/wms`, `/sac/*` | admin, almacen, servicio_cliente |
-| Transportes (TMS) | `/tms`, `/cotizador`, `/tramites` | admin, transporte, servicio_cliente |
-| TMS Guías de Paquetería | `/tms/guias-paqueteria`, `/tms/parcel-*`, `/tms/carriers*` | admin, transporte, servicio_cliente |
-| Almacén | `/almacen` | admin, almacen, servicio_cliente |
+| Herramientas de WMS | `/wms`, `/sac/*`, `/almacen/*` | admin, almacen, servicio_cliente, cobranza |
+| Transportes (TMS) | `/tms`, `/cotizador`, `/tramites` | admin, transporte |
 | Task Tracker | `/tasks`, `/tasks/admin/*` | admin, almacen, servicio_cliente, cobranza, transporte |
 
-Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `transporte`. Definidos en `src/config/permissions.ts` (constantes `WMS_ROLES`, `TMS_ROLES`, `ALMACEN_ROLES`, `TASK_ROLES`, `PARCEL_ROLES`).
+Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `transporte`. Definidos en `src/config/permissions.ts` (constantes `WMS_ROLES`, `TMS_ROLES`, `ALMACEN_ROLES`, `TASK_ROLES`).
 
 ## Convenciones de UI — OBLIGATORIAS
 
@@ -66,7 +64,7 @@ Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `tr
 - Tablas nuevas: RLS habilitado con policy abierta (`FOR ALL USING (true) WITH CHECK (true)`) — consistente con el resto del schema
 - Migraciones: `supabase/migrations/YYYYMMDDHHMMSS_nombre.sql`, solo aditivas (no DROP/RENAME de columnas con datos)
 - Commits en español. Cerrar mensaje con: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
-- Patrones a copiar: tabla → `src/pages/admin/SekoBillingPage.tsx`; modal de import → `src/pages/admin/SekoImportModal.tsx`; hook CRUD+realtime → `src/hooks/useOperations.ts`; parser PT → `src/lib/ptParser.ts`
+- Patrones a copiar: hook CRUD+realtime → `src/hooks/useOperations.ts`; parser PT → `src/lib/ptParser.ts`
 
 ## Integración Extensiv
 
@@ -76,15 +74,13 @@ Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `tr
 
 ## Hechos del dominio (no obvios del código)
 
-- **Clientes Seko 365** (BSF, KST, BB=Burberry, LUL=Lululemon): su inventario NO vive en Extensiv. Se importa por Excel a la tabla `seko_movements`. Módulo: `/admin/seko-billing`.
 - **IFIT** (código `IFT`): cliente NordicTrack/ProForm. Setup de billing en Extensiv pendiente — contrato PDF V5c en USD, tasa 17.50 MXN/USD. Archivos de setup en `extensiv-setup/ifit/`.
-- **Billing legacy** (`ProformasPage`, `RCPage`, `SekoBillingPage`): siguen vivos hasta validar el Billing Wizard de Extensiv. NO eliminarlos.
+- **Billing operativo conservado:** `RCPage` y Extensiv Billing siguen activos; Proformas y Seko Billing fueron retirados de esta versión México.
 - El módulo "Generador CFDI 4.0" fue eliminado del WMS.
 
 ## Estado actual
 
-- Branch activo: `feat/almacen-pizarron` — Sprint Almacén + Task Tracker + Pizarrón. **Fase 1 completada** (calendario global de tareas + TaskCreate sin campo duración/cliente). Fases 2-5 pendientes (Receipt Generator → Almacén, flujo distribución, módulo Pizarrón de Operaciones).
-- Branch `feat/techship-replica`: réplica de Techship (TMS paquetería SaaS) — planeada, no ejecutada.
+- Branch activo: `feat/limpieza-modulos-mx` — limpieza de módulos para la versión Supply Chain México.
 - Planes de sprint viven en `.claude/plans/`.
 - Archivos de status de sprints autónomos en raíz: `MIGRATIONS_PENDING.md`, `SECRETS_PENDING.md`, `BLOCKERS.md`, `FIXMES.md`, `SCOPE_GAPS.md`, `SPRINT_REPORT.md`. Revisar después de cada sprint autónomo.
 - Backlog general: `PENDIENTES.md`.
