@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, LayoutDashboard, Truck, UserCheck, Route, PieChart, Calculator, CalendarClock, ArrowRight, Clock, DollarSign, TrendingUp, FileCheck2 } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Truck, UserCheck, Route, PieChart, Calculator, CalendarClock, ArrowRight, Clock, DollarSign, TrendingUp } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useViajes } from '../../hooks/useViajes'
 import { useVehiculos } from '../../hooks/useVehiculos'
@@ -21,7 +21,6 @@ const tools: Tool[] = [
   { to: '/tms/viajes',    title: 'Viajes',     description: 'Registro de viajes, asignaciones y estatus.',          icon: Route,           category: 'tms' },
   { to: '/tms/costos',    title: 'Costos',     description: 'Análisis de costos de transporte por viaje/ruta.',     icon: PieChart,        category: 'tms' },
   { to: '/cotizador',     title: 'Cotizador',  description: 'Cotizador de fletes locales y foráneos.',              icon: Calculator,      category: 'com' },
-  { to: '/tms/carta-porte', title: 'Carta Porte', description: 'Precaptura para revisión contable y timbrado en CONTPAQi.', icon: FileCheck2, category: 'com' },
   { to: '/tramites',      title: 'Trámites',   description: 'Vencimientos, verificaciones y trámites pendientes.',  icon: CalendarClock,   category: 'com' },
 ]
 

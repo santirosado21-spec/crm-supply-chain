@@ -2,7 +2,6 @@ import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Package, Truck, Warehouse, ArrowRight, ClipboardList } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
-import { PackingPerson } from '../../components/icons/PackingPerson'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
 
@@ -29,12 +28,12 @@ export function HomePage() {
       id: 'wms',
       title: 'Herramientas de WMS',
       subtitle: 'Warehouse Management',
-      description: 'Herramientas de SAC para la operación del almacén: validación de SKUs, generación de RC y proformas.',
+      description: 'Herramientas de SAC para la operación del almacén: validación de SKUs, generación de receipts, RC y clientes.',
       icon: Package,
       color: '#1e3a5f',
       accentColor: '#eff6ff',
       onClick: () => navigate('/wms'),
-      tools: ['Validador de SKUs', 'Generador Receipt', 'Generador de RC', 'Proformas y clientes'],
+      tools: ['Validador de SKUs', 'Generador Receipt', 'Generador de RC', 'Clientes'],
     },
     {
       id: 'tms',
@@ -69,17 +68,6 @@ export function HomePage() {
       onClick: () => navigate('/tasks'),
       tools: ['Bandeja de tareas', 'Calendario semanal', 'Plantillas recurrentes', 'Equipo y horarios'],
     },
-    {
-      id: 'parcel',
-      title: 'TMS Guías de Paquetería',
-      subtitle: 'Rate shopping · Auto-pick · Etiquetas',
-      description: 'Cotiza con Estafeta, UPS, FedEx, DHL y Castores en un solo paso. El sistema elige automáticamente el carrier más conveniente por costo, distancia y tiempo.',
-      icon: PackingPerson,
-      color: '#1e3a5f',
-      accentColor: '#eff6ff',
-      onClick: () => navigate('/tms/guias-paqueteria'),
-      tools: ['Cotizar y comprar', 'Auto-pick por CP', 'Reglas de routing', 'Configurar carriers'],
-    },
   ]
 
   return (
@@ -103,7 +91,7 @@ export function HomePage() {
           </div>
 
           {/* Module cards — todas las tiles del mismo tamaño exacto vía auto-rows-fr + h-full + flex column */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 lg:gap-3 auto-rows-fr">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-3 auto-rows-fr">
             {modules.filter(m => canAccessModule(user?.role, m.id)).map(m => {
               const Icon = m.icon
               return (
