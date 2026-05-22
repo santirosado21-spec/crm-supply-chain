@@ -1,6 +1,6 @@
 import type { UserRole } from '../types'
 
-export type AppModule = 'wms' | 'tms' | 'almacen' | 'tasks'
+export type AppModule = 'wms' | 'tms' | 'tasks'
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin:             'Administrador',
@@ -13,19 +13,18 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 export const MODULE_LABEL: Record<AppModule, string> = {
   wms:     'Herramientas de WMS / SAC',
   tms:     'Transportes',
-  almacen: 'Almacén',
   tasks:   'Task Manager',
 }
 
 export const MODULE_ACCESS: Record<UserRole, AppModule[]> = {
-  admin:             ['wms', 'tms', 'almacen', 'tasks'],
-  almacen:           ['almacen', 'tasks'],
-  servicio_cliente:  ['wms', 'almacen', 'tasks'],
+  admin:             ['wms', 'tms', 'tasks'],
+  almacen:           ['wms', 'tasks'],
+  servicio_cliente:  ['wms', 'tasks'],
   cobranza:          ['wms', 'tasks'],
   transporte:        ['tms', 'tasks'],
 }
 
-export const WMS_ROLES: UserRole[]     = ['admin', 'servicio_cliente', 'cobranza']
+export const WMS_ROLES: UserRole[]     = ['admin', 'almacen', 'servicio_cliente', 'cobranza']
 export const TMS_ROLES: UserRole[]     = ['admin', 'transporte']
 export const ALMACEN_ROLES: UserRole[] = ['admin', 'almacen', 'servicio_cliente']
 export const TASK_ROLES: UserRole[]    = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte']
@@ -49,15 +48,6 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
       'Revisa trámites y vencimientos de unidades con frecuencia.',
     ],
   },
-  almacen: {
-    title: 'Almacén CEDIS Lerma',
-    body: 'Muestra el layout del CEDIS, ocupación, posiciones y estado operativo de la bodega para que almacén trabaje sin entrar a módulos administrativos.',
-    tips: [
-      'Revisa ocupación y posiciones antes de confirmar movimientos.',
-      'Usa la vista de elevaciones para ubicar espacios disponibles.',
-      'Reporta diferencias por Task Manager para dejar trazabilidad.',
-    ],
-  },
   tasks: {
     title: 'Task Manager',
     body: 'Sirve para asignar, aceptar, pausar y cerrar tareas entre áreas, con medición de tiempo y disponibilidad del equipo.',
@@ -78,7 +68,7 @@ export function getModulesForRole(role: UserRole | undefined): AppModule[] {
 }
 
 export function moduleFromPath(path: string): AppModule | null {
-  if (path === '/almacen' || path.startsWith('/almacen/')) return 'almacen'
+  if (path === '/almacen' || path.startsWith('/almacen/')) return 'wms'
   if (path.startsWith('/tasks') || path.startsWith('/admin')) return 'tasks'
   if (path.startsWith('/tms') || path === '/cotizador' || path === '/tramites') return 'tms'
   if (
@@ -108,7 +98,6 @@ export function defaultRouteForRole(role: UserRole | undefined) {
   const first = getModulesForRole(role)[0]
   if (first === 'wms') return '/wms'
   if (first === 'tms') return '/tms'
-  if (first === 'almacen') return '/almacen'
   if (first === 'tasks') return '/tasks'
   return '/'
 }

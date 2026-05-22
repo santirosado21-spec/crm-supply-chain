@@ -23,6 +23,11 @@ const WMS_LINKS: Link[] = [
   { to: '/sac/validador',          label: 'Validador SKU',        icon: ScanBarcode },
   { to: '/rc',                     label: 'Rendición RC',         icon: FileCheck },
   { to: '/clients',                label: 'Clientes',             icon: Users },
+  { to: '/almacen',                   label: 'CEDIS Lerma',          icon: Warehouse,       section: 'Almacén' },
+  { to: '/almacen/receipt-generator', label: 'Generador Receipt',    icon: FileInput,       section: 'Almacén' },
+  { to: '/almacen/distribucion',      label: 'Distribución tareas',  icon: UserCheck,       section: 'Almacén' },
+  { to: '/almacen/pizarron',          label: 'Pizarrón Operaciones', icon: LayoutDashboard, section: 'Almacén' },
+  { to: '/almacen/pizarron-admin',    label: 'Pizarrón Admin',       icon: BarChart3,       section: 'Almacén' },
 ]
 
 const TMS_LINKS: Link[] = [
@@ -34,14 +39,6 @@ const TMS_LINKS: Link[] = [
   { to: '/tms/costos',     label: 'Costos',               icon: PieChart },
   { to: '/cotizador',      label: 'Cotizador',            icon: Calculator },
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
-]
-
-const ALMACEN_LINKS: Link[] = [
-  { to: '/almacen',                   label: 'CEDIS Lerma',         icon: Warehouse },
-  { to: '/almacen/receipt-generator', label: 'Generador Receipt',   icon: FileInput },
-  { to: '/almacen/distribucion',      label: 'Distribución tareas', icon: UserCheck },
-  { to: '/almacen/pizarron',          label: 'Pizarrón Operaciones', icon: LayoutDashboard },
-  { to: '/almacen/pizarron-admin',    label: 'Pizarrón Admin',       icon: BarChart3 },
 ]
 
 const TASKS_LINKS: Link[] = [
@@ -58,11 +55,10 @@ const TASKS_ADMIN_LINKS: Link[] = [
   { to: '/tasks/admin/extensiv-billing',  label: 'Extensiv Billing',    icon: Receipt },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'tasks'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'tasks'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                          return 'home'
-  if (pathname === '/almacen' || pathname.startsWith('/almacen/'))               return 'almacen'
   if (pathname.startsWith('/tasks') || pathname.startsWith('/admin'))            return 'tasks'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
@@ -73,7 +69,6 @@ function detectModule(pathname: string): ModuleKey {
 const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: Link[] }> = {
   wms:     { label: 'Herramientas de WMS',         links: WMS_LINKS },
   tms:     { label: 'Transportes',                 links: TMS_LINKS },
-  almacen: { label: 'Almacén',                     links: ALMACEN_LINKS },
   tasks:   { label: 'Task Tracker',                links: TASKS_LINKS },
 }
 

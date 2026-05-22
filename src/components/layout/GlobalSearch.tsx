@@ -21,7 +21,10 @@ const TOOL_RESULTS: Result[] = [
   { type: 'tool', label: 'Costos Transporte',         sub: 'Transportes',       to: '/tms/costos' },
   { type: 'tool', label: 'Cotizador de Fletes',       sub: 'Transportes',       to: '/cotizador' },
   { type: 'tool', label: 'Trámites',                  sub: 'Transportes',       to: '/tramites' },
-  { type: 'tool', label: 'Almacén CEDIS Lerma',       sub: 'Almacén',           to: '/almacen' },
+  { type: 'tool', label: 'Almacén CEDIS Lerma',       sub: 'WMS · Almacén',     to: '/almacen' },
+  { type: 'tool', label: 'Distribución almacén',      sub: 'WMS · Almacén',     to: '/almacen/distribucion' },
+  { type: 'tool', label: 'Pizarrón operaciones',      sub: 'WMS · Almacén',     to: '/almacen/pizarron' },
+  { type: 'tool', label: 'Pizarrón admin',            sub: 'WMS · Almacén',     to: '/almacen/pizarron-admin' },
 ]
 
 export function GlobalSearch() {

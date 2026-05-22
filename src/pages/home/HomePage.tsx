@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, Truck, Warehouse, ArrowRight, ClipboardList } from 'lucide-react'
+import { Package, Truck, ArrowRight, ClipboardList } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
@@ -47,17 +47,6 @@ export function HomePage() {
       tools: ['Cotizador de fletes', 'Dashboard flotas', 'Servicios unidades', 'Bitácora operaciones'],
     },
     {
-      id: 'almacen',
-      title: 'Almacén',
-      subtitle: 'CEDIS Lerma · Bodega 1',
-      description: 'Visualización en tiempo real del layout del CEDIS: ocupación, elevaciones y estado de posiciones.',
-      icon: Warehouse,
-      color: '#1e3a5f',
-      accentColor: '#eff6ff',
-      onClick: () => navigate('/almacen'),
-      tools: ['Planta', 'Elevaciones', 'Ocupación', 'Tabla de posiciones'],
-    },
-    {
       id: 'tasks',
       title: 'Task Tracker',
       subtitle: 'Coordinación · Tiempo · Costos',
@@ -91,7 +80,7 @@ export function HomePage() {
           </div>
 
           {/* Module cards — todas las tiles del mismo tamaño exacto vía auto-rows-fr + h-full + flex column */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-3 auto-rows-fr">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-3 auto-rows-fr">
             {modules.filter(m => canAccessModule(user?.role, m.id)).map(m => {
               const Icon = m.icon
               return (

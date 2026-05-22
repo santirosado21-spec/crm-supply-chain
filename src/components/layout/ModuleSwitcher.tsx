@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Home, Package, Truck, Warehouse, ClipboardList, ChevronRight, Menu,
+  Home, Package, Truck, ClipboardList, ChevronRight, Menu,
 } from 'lucide-react'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, moduleFromPath, type AppModule } from '../../config/permissions'
@@ -21,7 +21,6 @@ const NAVY = '#1e3a5f'
 const MODULES: ModuleEntry[] = [
   { id: 'wms',     to: '/wms',                   label: 'Herramientas de WMS',     icon: Package,       color: NAVY },
   { id: 'tms',     to: '/tms',                   label: 'Transportes',             icon: Truck,         color: NAVY },
-  { id: 'almacen', to: '/almacen',               label: 'Almacén CEDIS Lerma',     icon: Warehouse,     color: NAVY },
   { id: 'tasks',   to: '/tasks',                 label: 'Task Tracker',            icon: ClipboardList, color: NAVY },
 ]
 
