@@ -4,8 +4,38 @@ import type { Viaje } from '../types/tms'
 import type { Operation } from '../types'
 import type { Task } from '../types/tasks'
 import type { TaskAuditEntry } from '../types/tasks'
-import type { GuiaPaqueteria } from '../types/guias'
-import { PAQUETERIA_LABEL } from '../types/guias'
+
+type GuiaPaqueteria = {
+  fecha: string
+  paqueteria: string
+  tracking_number: string
+  cliente_codigo: string | null
+  from_postal_code?: string | null
+  to_postal_code?: string | null
+  weight_kg?: number | null
+  provider?: string | null
+  tracking_status?: string | null
+  auto_pick_carrier?: string | null
+  auto_pick_service?: string | null
+  costo: number
+  precio: number
+  margen: number
+  rate_quotes?: { price_mxn?: number }[]
+  override_reason?: string | null
+  origen: 'extensiv' | 'manual' | string
+  extensiv_transaction_type: string | null
+  extensiv_transaction_id: string | null
+  manual_reference: string | null
+  notas: string | null
+}
+
+const PAQUETERIA_LABEL: Record<string, string> = {
+  estafeta: 'Estafeta',
+  ups: 'UPS',
+  fedex: 'FedEx',
+  dhl: 'DHL',
+  castores: 'Castores',
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reporte ejecutivo — workbook multi-hoja con KPIs, viajes, operaciones,
