@@ -53,7 +53,6 @@ import { Reports } from './pages/tasks/admin/Reports'
 import { ExtensivBilling } from './pages/tasks/admin/ExtensivBilling'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
-import { SekoBillingPage } from './pages/admin/SekoBillingPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
 import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES, PARCEL_ROLES } from './config/permissions'
 
@@ -198,10 +197,6 @@ function App() {
           {/* Compat redirect: la ruta vieja /sac/guias-paqueteria sigue funcionando
               mientras los bookmarks/links externos se actualizan. */}
           <Route path="/sac/guias-paqueteria" element={<Navigate to="/tms/guias-paqueteria" replace />} />
-          <Route path="/seko-billing" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><SekoBillingPage /></ProtectedRoute>
-          } />
-
           {/* Task Tracker */}
           <Route path="/tasks" element={
             <ProtectedRoute allowedRoles={TASK_ROLES}><TaskInbox /></ProtectedRoute>
@@ -223,9 +218,6 @@ function App() {
           } />
           <Route path="/tasks/admin/extensiv-billing" element={
             <ProtectedRoute allowedRoles={['admin', 'cobranza']}><ExtensivBilling /></ProtectedRoute>
-          } />
-          <Route path="/tasks/admin/seko-billing" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><SekoBillingPage /></ProtectedRoute>
           } />
           <Route path="/tasks/admin/audit-log" element={
             <ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>
