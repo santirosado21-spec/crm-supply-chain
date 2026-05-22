@@ -23,7 +23,6 @@ import { CotizadorPage } from './pages/cotizador/CotizadorPage'
 import { TramitesPage } from './pages/tramites/TramitesPage'
 import { ClientsList } from './pages/clients/ClientsList'
 import { ClientDetail } from './pages/clients/ClientDetail'
-import { ProformasPage } from './pages/billing/ProformasPage'
 import { RCPage } from './pages/billing/RCPage'
 import { TarifariosPage } from './pages/tarifarios/TarifariosPage'
 import { ServiciosPage } from './pages/servicios/ServiciosPage'
@@ -142,9 +141,6 @@ function App() {
           } />
 
           {/* WMS Billing */}
-          <Route path="/proformas" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><ProformasPage /></ProtectedRoute>
-          } />
           <Route path="/rc" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><RCPage /></ProtectedRoute>
           } />
