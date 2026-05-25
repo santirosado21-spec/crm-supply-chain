@@ -112,6 +112,26 @@ export function PizarronBoard({ kiosk = false }: Props) {
                 })}
               </p>
             )}
+            {/* Designación phoneless: Guillermo nombra a alguien sin cuenta */}
+            {!taken && t.assigned_to_name && (
+              <p className="flex items-center gap-1.5 font-semibold" style={{ color }}>
+                <User size={kiosk ? 16 : 12} />
+                Designado: {t.assigned_to_name}
+              </p>
+            )}
+            {/* Duración estimada (Blue Yonder Labor Standards) */}
+            {t.estimated_duration_min && (
+              <p className="flex items-center gap-1.5 text-gray-500">
+                <Clock size={kiosk ? 16 : 12} className="text-gray-400" />
+                Estimado: ~{t.estimated_duration_min} min
+              </p>
+            )}
+            {/* Instrucciones de Guillermo */}
+            {t.designation_notes && (
+              <p className={`text-gray-500 italic ${kiosk ? 'text-base' : 'text-[11px]'}`}>
+                "{t.designation_notes}"
+              </p>
+            )}
             {taken && (
               <p className="flex items-center gap-1.5 font-semibold" style={{ color }}>
                 <User size={kiosk ? 16 : 12} />

@@ -7,6 +7,7 @@ import { Sidebar } from '../../components/layout/Sidebar'
 import { supabase } from '../../lib/supabase'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
+import { useLaborStandards } from '../../hooks/useLaborStandards'
 import {
   WAREHOUSE_AREAS, AREA_LABEL, AREA_COLOR, type WarehouseArea, type WarehouseTask,
 } from '../../types/pizarron'
@@ -39,6 +40,19 @@ export function PizarronAdminPage() {
   const [area, setArea] = useState<WarehouseArea>('picking')
   const [priority, setPriority] = useState(100)
   const [creating, setCreating] = useState(false)
+  // Campos nuevos (flujo phoneless + Blue Yonder Labor Standards)
+  const [assignedToName, setAssignedToName] = useState('')
+  const [estimatedDuration, setEstimatedDuration] = useState<number | ''>('')
+  const [designationNotes, setDesignationNotes] = useState('')
+  const { getStandard } = useLaborStandards()
+
+  // Pre-llena duración estimada cuando cambia el área (buscando un estándar
+  // para ese task_type — Guillermo puede sobreescribir).
+  useEffect(() => {
+    const std = getStandard(area)
+    if (std && estimatedDuration === '') setEstimatedDuration(std.base_duration_min)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area, getStandard])
 
   useEffect(() => {
     if (!user?.email) return
@@ -90,13 +104,27 @@ export function PizarronAdminPage() {
     }
     setCreating(true)
     try {
-      const { error: err } = await supabase
-        .from('warehouse_tasks')
-        .insert({ task_id: taskId, area, priority })
+      const payload: Record<string, unknown> = { task_id: taskId, area, priority }
+      const name = assignedToName.trim()
+      const notes = designationNotes.trim()
+      if (name)  payload.assigned_to_name = name
+      if (notes) payload.designation_notes = notes
+      if (typeof estimatedDuration === 'number' && estimatedDuration > 0) {
+        payload.estimated_duration_min = estimatedDuration
+      }
+      const { error: err } = await supabase.from('warehouse_tasks').insert(payload)
       if (err) throw err
-      toast.success('Tarea agregada al pizarrón', `${AREA_LABEL[area]} · prioridad ${priority}.`)
+      toast.success(
+        'Tarea agregada al pizarrón',
+        name
+          ? `Asignada a ${name} · ${AREA_LABEL[area]} · prioridad ${priority}.`
+          : `${AREA_LABEL[area]} · prioridad ${priority}.`
+      )
       setTaskId('')
       setPriority(100)
+      setAssignedToName('')
+      setEstimatedDuration('')
+      setDesignationNotes('')
       fetchData()
     } catch (e) {
       toast.error('No se pudo crear', e instanceof Error ? e.message : String(e))
@@ -209,6 +237,48 @@ export function PizarronAdminPage() {
                     />
                   </div>
                 </div>
+
+                {/* Flujo phoneless + duración estimada — opcionales pero recomendados */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                      Asignar por nombre <span className="text-gray-400 font-normal">(sin cuenta)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={assignedToName}
+                      onChange={e => setAssignedToName(e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                      className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                      Duración estimada <span className="text-gray-400 font-normal">(min)</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={estimatedDuration}
+                      onChange={e => setEstimatedDuration(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder={getStandard(area) ? `Estándar: ${getStandard(area)!.base_duration_min} min` : '—'}
+                      className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                      Instrucciones <span className="text-gray-400 font-normal">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={designationNotes}
+                      onChange={e => setDesignationNotes(e.target.value)}
+                      placeholder="Ej: usar montacargas chico, andén 3..."
+                      className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={handleCreate}
                   disabled={creating || !taskId}

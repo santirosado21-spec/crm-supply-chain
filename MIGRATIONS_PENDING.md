@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 3 MIGRACIONES PENDIENTES DE APLICAR
+## Estado: 4 MIGRACIONES PENDIENTES DE APLICAR
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -22,6 +22,15 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Engineered Labor Standards (Blue Yonder WLM): tiempo base por tipo de tarea
   para almacén. Se administra en `/almacen/estandares` y se usa como sugerencia
   al asignar en el Pizarrón.
+
+### 4. `20260525144000_warehouse_tasks_assignment_fields.sql`
+- `warehouse_tasks` gana 4 columnas aditivas:
+  `assigned_to_name`, `estimated_duration_min`, `actual_duration_min`,
+  `designation_notes`.
+- Soporta el flujo phoneless: Guillermo asigna una tarea a un trabajador sin
+  cuenta dictando nombre + duración estimada + instrucciones. El kiosko
+  muestra esa designación. `actual_duration_min` se captura al completar
+  (commit siguiente) como base para medición de productividad BY WLM.
 
 ## Cómo aplicar
 

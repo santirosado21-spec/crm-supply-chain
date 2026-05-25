@@ -13,18 +13,23 @@ export type WarehouseArea =
   | 'otro'
 
 export interface WarehouseTask {
-  id:             string
-  task_id:        string | null
-  area:           WarehouseArea
-  priority:       number
-  taken_by_name:  string | null
-  taken_by_email: string | null
-  taken_at:       string | null
-  completed_at:   string | null
-  notes:          string | null
-  created_at:     string
+  id:                       string
+  task_id:                  string | null
+  area:                     WarehouseArea
+  priority:                 number
+  taken_by_name:            string | null
+  taken_by_email:           string | null
+  taken_at:                 string | null
+  completed_at:             string | null
+  notes:                    string | null
+  created_at:               string
+  // Campos del flujo Blue Yonder WLM (migración 20260525144000):
+  assigned_to_name:         string | null   // designación pre-take para persona sin cuenta
+  estimated_duration_min:   number | null   // duración aproximada del estándar / manual
+  actual_duration_min:      number | null   // capturado al completar (commit siguiente)
+  designation_notes:        string | null   // instrucciones que Guillermo dicta
   // join opcional
-  task?:          Task | null
+  task?:                    Task | null
 }
 
 export const WAREHOUSE_AREAS: WarehouseArea[] = [
