@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, Truck, ArrowRight, ClipboardList } from 'lucide-react'
+import { Package, Truck, ArrowRight, Warehouse } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
@@ -47,15 +47,15 @@ export function HomePage() {
       tools: ['Cotizador de fletes', 'Dashboard flotas', 'Servicios unidades', 'Bitácora operaciones'],
     },
     {
-      id: 'tasks',
-      title: 'Task Tracker',
-      subtitle: 'Coordinación · Tiempo · Costos',
-      description: 'Asigna tareas entre SAC, Almacén y Transportes con disponibilidad tipo Calendly. Mide tiempo real para asignar costos por cliente.',
-      icon: ClipboardList,
+      id: 'almacen',
+      title: 'Calendario Almacén',
+      subtitle: 'Operación del CEDIS · Pizarrón · Estándares',
+      description: 'Centro de operación de almacén: recibe solicitudes del Calendario, distribuye por Pizarrón, asigna tiempos estándar y maneja la vista del día.',
+      icon: Warehouse,
       color: '#1e3a5f',
       accentColor: '#eff6ff',
-      onClick: () => navigate('/tasks'),
-      tools: ['Bandeja de tareas', 'Calendario semanal', 'Plantillas recurrentes', 'Equipo y horarios'],
+      onClick: () => navigate('/almacen'),
+      tools: ['Hoy (prioridades)', 'Pizarrón Operaciones', 'Distribución de tareas', 'Estándares de tiempo'],
     },
   ]
 
