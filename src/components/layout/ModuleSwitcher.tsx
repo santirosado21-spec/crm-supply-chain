@@ -2,9 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Home, Package, Truck, Warehouse, ClipboardList, ChevronRight, Menu,
+  Home, Package, Truck, ClipboardList, ChevronRight, Menu,
 } from 'lucide-react'
-import { PackingPerson } from '../icons/PackingPerson'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, moduleFromPath, type AppModule } from '../../config/permissions'
 
@@ -23,8 +22,6 @@ const NAVY = '#1e3a5f'
 const MODULES: ModuleEntry[] = [
   { id: 'wms',     to: '/wms',                   label: 'Herramientas de WMS',     icon: Package,       color: NAVY },
   { id: 'tms',     to: '/tms',                   label: 'Transportes',             icon: Truck,         color: NAVY },
-  { id: 'parcel',  to: '/tms/guias-paqueteria',  label: 'TMS Guías de Paquetería', icon: PackingPerson, color: NAVY },
-  { id: 'almacen', to: '/almacen',               label: 'Almacén CEDIS Lerma',     icon: Warehouse,     color: NAVY },
   { id: 'tasks',   to: '/tasks',                 label: 'Task Tracker',            icon: ClipboardList, color: NAVY },
 ]
 
@@ -97,8 +94,7 @@ export function ModuleSwitcher({ label }: Props) {
   useEffect(() => { setOpen(false) }, [pathname])
 
   const visibleModules = MODULES.filter(m => canAccessModule(user?.role, m.id))
-  // Módulo activo real — moduleFromPath distingue tms vs parcel (ambos viven
-  // bajo /tms/*), cosa que un simple startsWith del primer segmento no hace.
+  // Módulo activo real basado en las reglas de permisos/rutas.
   const activeModule = moduleFromPath(pathname)
 
   return (

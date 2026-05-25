@@ -1,27 +1,46 @@
-# BLOCKERS — Sprint Techship
+# BLOCKERS — Sprint Almacén + Task Tracker + Pizarrón
 
-## Estado: SIN BLOQUEOS CRITICOS
+## Estado: SIN BLOQUEOS QUE DETUVIERAN LA EJECUCIÓN
 
-El sprint completo las 10 fases sin bloqueos que detuvieran la ejecucion.
+Las Fases 2–5 se ejecutaron completas. Hubo un bloqueo de entorno (no de código)
+que se resolvió con un workaround; se documenta abajo.
 
-## Notas de ejecucion
+## ⚠️ Bloqueo de entorno — macOS revocó acceso al repo en ~/Desktop
 
-1. **Codex CLI**: estaba instalado (`which codex` OK). Se opto por construir
-   directamente con Claude para mantener control total sobre la correctitud de
-   tipos y la coherencia entre fases — el patron de delegacion habria anadido
-   overhead de coordinacion sin ganancia neta dada la naturaleza interdependiente
-   de las fases. No es un bloqueo: decision de eficiencia.
+Durante la sesión, macOS (TCC / Privacy & Security) revocó el acceso de lectura
+a archivos dentro de `~/Desktop/CRM SUPPLY CHAIN DEFINITIVO/crm-supply-chain/`.
+Síntoma: todo `cat`/`open()`/`git` sobre el repo fallaba con
+`Operation not permitted`, incluso con el sandbox deshabilitado. No es un
+problema de código — es permiso del sistema operativo.
 
-2. **react-simple-maps**: peer-dependency conflict con React 19. Se instalo con
-   `--legacy-peer-deps`. La libreria quedo en node_modules pero el dashboard
-   Shipment Profile usa graficas de barras/dona de Recharts en lugar del mapa
-   SVG (ver SCOPE_GAPS.md).
+### Workaround aplicado
+Se clonó el repo desde GitHub a una ubicación accesible (`~/crm-sprint-work`),
+se ejecutó todo el sprint ahí, y se hicieron commit + push a
+`feat/almacen-pizarron`. El resultado está en el remoto.
 
-3. **react-is**: el build de Vite fallo porque `react-is` (dep transitiva de
-   recharts) no estaba resuelta tras los installs con legacy-peer-deps. Se
-   resolvio con `npm i react-is`. No bloqueante.
+### ACCIÓN REQUERIDA DEL USUARIO (importante)
+El working tree de `~/Desktop/.../crm-supply-chain` quedó con un estado
+intermedio roto de un intento previo. Para sincronizar con el trabajo real:
 
-## Deploy pendiente (no bloqueante — codigo completo)
+1. Conceder **Full Disk Access** a la terminal en
+   System Settings → Privacy & Security → Full Disk Access, y reiniciar la sesión.
+2. En el repo de Desktop:
+   ```bash
+   git fetch origin
+   git reset --hard origin/feat/almacen-pizarron
+   ```
+3. Recomendado a futuro: mover el repo fuera de `~/Desktop` (p. ej. `~/dev/`)
+   para que TCC no vuelva a interferir.
 
-- `fedex-proxy` y `carrier-tracking-webhook`: edge functions listas, requieren
-  `supabase functions deploy`. Ver SECRETS_PENDING.md y WEBHOOKS_PENDING.md.
+## Codex CLI
+
+`which codex` OK (instalado). Se optó por construir directamente con Claude
+para garantizar coherencia de tipos entre fases interdependientes y porque el
+entorno ya estaba degradado por el bloqueo de TCC. Decisión de eficiencia, no
+bloqueo.
+
+## Migraciones
+
+Ver `MIGRATIONS_PENDING.md` — 2 migraciones nuevas quedan pendientes de aplicar
+(el clon de trabajo no está vinculado al proyecto Supabase). No bloqueante para
+el código; sí necesario antes de usar Distribución y Pizarrón en producción.

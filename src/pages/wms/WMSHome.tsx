@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, ClipboardList, Receipt } from 'lucide-react'
+import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, Warehouse, UserCheck, LayoutDashboard, BarChart3 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { useWMSOperationsData } from '../../hooks/useWMSOperationsData'
@@ -9,7 +9,7 @@ interface Tool {
   title: string
   description: string
   icon: typeof ScanBarcode
-  category: 'sac' | 'facturacion' | 'catalogo'
+  category: 'sac' | 'facturacion' | 'catalogo' | 'almacen'
 }
 
 const tools: Tool[] = [
@@ -28,31 +28,10 @@ const tools: Tool[] = [
     category: 'sac',
   },
   {
-    to: '/sac/carta-instruccion',
-    title: 'Cartas de instrucción',
-    description: 'Genera instrucciones operativas para Transportes con ruta, mercancía, contactos y documentos.',
-    icon: ClipboardList,
-    category: 'sac',
-  },
-  {
     to: '/rc',
     title: 'Generador de RC',
     description: 'Genera Relaciones de Cobro mensuales por cliente con servicios y operaciones.',
     icon: FileCheck,
-    category: 'facturacion',
-  },
-  {
-    to: '/proformas',
-    title: 'Generador de Proformas',
-    description: 'Crea proformas con breakdown de almacenaje, transporte y servicios.',
-    icon: FileText,
-    category: 'facturacion',
-  },
-  {
-    to: '/seko-billing',
-    title: 'Billing Seko 365',
-    description: 'Consolida BASF, KST, Burberry y Lululemon con viajes TMS y guías para proforma SAC.',
-    icon: Receipt,
     category: 'facturacion',
   },
   {
@@ -62,6 +41,34 @@ const tools: Tool[] = [
     icon: Users,
     category: 'catalogo',
   },
+  {
+    to: '/almacen',
+    title: 'CEDIS Lerma',
+    description: 'Vista operativa de posiciones, ocupación y layout de bodega.',
+    icon: Warehouse,
+    category: 'almacen',
+  },
+  {
+    to: '/almacen/distribucion',
+    title: 'Distribución',
+    description: 'Inbox de tareas y distribución operativa para almacén.',
+    icon: UserCheck,
+    category: 'almacen',
+  },
+  {
+    to: '/almacen/pizarron',
+    title: 'Pizarrón',
+    description: 'Tablero de operaciones del CEDIS para seguimiento diario.',
+    icon: LayoutDashboard,
+    category: 'almacen',
+  },
+  {
+    to: '/almacen/pizarron-admin',
+    title: 'Pizarrón Admin',
+    description: 'Administración de tareas y configuración del pizarrón.',
+    icon: BarChart3,
+    category: 'almacen',
+  },
 ]
 
 // Identidad visual unificada: todas las categorías navy.
@@ -69,6 +76,7 @@ const categories = [
   { key: 'sac', label: 'SAC', color: '#1e3a5f' },
   { key: 'facturacion', label: 'Facturación', color: '#1e3a5f' },
   { key: 'catalogo', label: 'Catálogos', color: '#1e3a5f' },
+  { key: 'almacen', label: 'Almacén', color: '#1e3a5f' },
 ] as const
 
 export function WMSHome() {
@@ -124,7 +132,6 @@ export function WMSHome() {
                 value={ops.proformasPendientes}
                 icon={FileText}
                 color="#d97706"
-                onClick={() => navigate('/proformas')}
               />
               <KPI
                 label="RC en progreso"

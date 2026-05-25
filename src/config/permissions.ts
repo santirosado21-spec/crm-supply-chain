@@ -1,6 +1,6 @@
 import type { UserRole } from '../types'
 
-export type AppModule = 'wms' | 'tms' | 'almacen' | 'tasks' | 'parcel'
+export type AppModule = 'wms' | 'tms' | 'tasks'
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin:             'Administrador',
@@ -13,34 +13,29 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 export const MODULE_LABEL: Record<AppModule, string> = {
   wms:     'Herramientas de WMS / SAC',
   tms:     'Transportes',
-  almacen: 'Almacén',
   tasks:   'Task Manager',
-  parcel:  'TMS Guías de Paquetería',
 }
 
 export const MODULE_ACCESS: Record<UserRole, AppModule[]> = {
-  admin:             ['wms', 'tms', 'almacen', 'tasks', 'parcel'],
-  almacen:           ['almacen', 'tasks'],
-  servicio_cliente:  ['wms', 'almacen', 'tasks', 'parcel'],
+  admin:             ['wms', 'tms', 'tasks'],
+  almacen:           ['wms', 'tasks'],
+  servicio_cliente:  ['wms', 'tasks'],
   cobranza:          ['wms', 'tasks'],
-  transporte:        ['tms', 'tasks', 'parcel'],
+  transporte:        ['tms', 'tasks'],
 }
 
-export const WMS_ROLES: UserRole[]     = ['admin', 'servicio_cliente', 'cobranza']
+export const WMS_ROLES: UserRole[]     = ['admin', 'almacen', 'servicio_cliente', 'cobranza']
 export const TMS_ROLES: UserRole[]     = ['admin', 'transporte']
 export const ALMACEN_ROLES: UserRole[] = ['admin', 'almacen', 'servicio_cliente']
 export const TASK_ROLES: UserRole[]    = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte']
-// PARCEL_ROLES: el TMS de paquetería vive bajo /tms/* pero SAC también
-// genera y compra guías, así que lo dejamos accesible a transporte + SAC.
-export const PARCEL_ROLES: UserRole[]  = ['admin', 'transporte', 'servicio_cliente']
 
 export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tips: string[] }> = {
   wms: {
     title: 'Herramientas WMS / SAC',
-    body: 'Centraliza herramientas de Servicio al Cliente y facturación operativa: clientes, validación de SKUs, receipts, proformas, RC y documentos fiscales.',
+    body: 'Centraliza herramientas de Servicio al Cliente y facturación operativa: clientes, validación de SKUs, receipts, RC y documentos fiscales.',
     tips: [
       'Usa Validador SKU antes de generar documentación.',
-      'Genera receipts y proformas desde datos revisados.',
+      'Genera receipts y RC desde datos revisados.',
       'Consulta clientes y documentos antes de pasar a cobranza.',
     ],
   },
@@ -53,15 +48,6 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
       'Revisa trámites y vencimientos de unidades con frecuencia.',
     ],
   },
-  almacen: {
-    title: 'Almacén CEDIS Lerma',
-    body: 'Muestra el layout del CEDIS, ocupación, posiciones y estado operativo de la bodega para que almacén trabaje sin entrar a módulos administrativos.',
-    tips: [
-      'Revisa ocupación y posiciones antes de confirmar movimientos.',
-      'Usa la vista de elevaciones para ubicar espacios disponibles.',
-      'Reporta diferencias por Task Manager para dejar trazabilidad.',
-    ],
-  },
   tasks: {
     title: 'Task Manager',
     body: 'Sirve para asignar, aceptar, pausar y cerrar tareas entre áreas, con medición de tiempo y disponibilidad del equipo.',
@@ -69,15 +55,6 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
       'Acepta o rechaza tareas para que el solicitante tenga visibilidad.',
       'Usa el timer cuando una tarea deba medirse para costos internos.',
       'Consulta calendario y plantillas para trabajo recurrente.',
-    ],
-  },
-  parcel: {
-    title: 'TMS Guías de Paquetería',
-    body: 'Cotiza con todas las paqueterías al mismo tiempo (Estafeta, UPS, FedEx, DHL, Castores), elige automáticamente la mejor por costo + distancia + tiempo, y compra la etiqueta sin salir del sistema.',
-    tips: [
-      'Auto-pick recomienda el carrier más conveniente; puedes overridear con justificación.',
-      'Configura reglas para forzar carriers según distancia y costo.',
-      'En modo demo los rates son simulados — registra credenciales en Configurar carriers para activar APIs reales.',
     ],
   },
 }
@@ -91,54 +68,21 @@ export function getModulesForRole(role: UserRole | undefined): AppModule[] {
 }
 
 export function moduleFromPath(path: string): AppModule | null {
-  if (path === '/almacen') return 'almacen'
+  if (path === '/almacen' || path.startsWith('/almacen/')) return 'wms'
   if (path.startsWith('/tasks') || path.startsWith('/admin')) return 'tasks'
-  // TMS de Paqueterías es un módulo separado aunque sus URLs vivan bajo /tms/*
-  if (
-    path === '/parcel' ||
-    path.startsWith('/parcel') ||
-    path === '/tms/guias-paqueteria' ||
-    path.startsWith('/tms/guias-paqueteria/') ||
-    path === '/tms/parcel-map' ||
-    path === '/tms/parcel-dashboard' ||
-    path === '/tms/carriers' ||
-    path.startsWith('/tms/carriers/') ||
-    path.startsWith('/tms/orders') ||
-    path.startsWith('/tms/manifests') ||
-    path.startsWith('/tms/insights') ||
-    path.startsWith('/tms/addresses') ||
-    path.startsWith('/tms/markup-profiles')
-  ) return 'parcel'
   if (path.startsWith('/tms') || path === '/cotizador' || path === '/tramites') return 'tms'
   if (
     path.startsWith('/wms') ||
     path.startsWith('/sac') ||
     path === '/rc' ||
-    path === '/proformas' ||
     path === '/tarifarios' ||
     path === '/servicios' ||
-    path === '/seko-billing' ||
     path.startsWith('/clients')
   ) return 'wms'
   return null
 }
 
-// Overrides por path específico cuando la regla "rol ⊂ módulo" no aplica.
-// Útil para casos cross-módulo como Guías de paquetería: vive bajo /tms/* pero
-// SAC también necesita entrar.
-const PATH_ROLE_OVERRIDES: { prefix: string; roles: UserRole[] }[] = [
-  { prefix: '/tms/guias-paqueteria', roles: PARCEL_ROLES },
-  { prefix: '/tms/parcel-map',       roles: PARCEL_ROLES },
-  { prefix: '/tms/parcel-dashboard', roles: PARCEL_ROLES },
-  { prefix: '/tms/orders',           roles: PARCEL_ROLES },
-  { prefix: '/tms/manifests',        roles: PARCEL_ROLES },
-  { prefix: '/tms/insights',         roles: PARCEL_ROLES },
-  { prefix: '/tms/addresses',        roles: PARCEL_ROLES },
-  // /tms/carriers (credenciales), /tms/carriers/reglas (routing) y
-  // /tms/markup-profiles (precios) son admin-only.
-  { prefix: '/tms/markup-profiles',  roles: ['admin'] },
-  { prefix: '/tms/carriers',         roles: ['admin'] },
-]
+const PATH_ROLE_OVERRIDES: { prefix: string; roles: UserRole[] }[] = []
 
 export function canAccessPath(role: UserRole | undefined, path: string) {
   for (const { prefix, roles } of PATH_ROLE_OVERRIDES) {
@@ -154,8 +98,6 @@ export function defaultRouteForRole(role: UserRole | undefined) {
   const first = getModulesForRole(role)[0]
   if (first === 'wms') return '/wms'
   if (first === 'tms') return '/tms'
-  if (first === 'almacen') return '/almacen'
   if (first === 'tasks') return '/tasks'
-  if (first === 'parcel') return '/tms/guias-paqueteria'
   return '/'
 }

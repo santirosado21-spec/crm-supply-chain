@@ -5,8 +5,6 @@ import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
 import { TimerPill } from './TimerPill'
 import { LanguageToggle } from './LanguageToggle'
-import { PrintQueueBadge } from '../parcel/PrintQueueBadge'
-import { moduleFromPath } from '../../config/permissions'
 import { useAuthContext } from '../../context/AuthContext'
 import { useActiveTimer } from '../../hooks/useActiveTimer'
 import { useToast } from '../../hooks/useToast'
@@ -22,8 +20,6 @@ export function Header() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   // Hamburger solo cuando hay sidebar (no en home)
   const showHamburger = pathname !== '/'
-  // El badge de cola de impresión solo aplica al módulo de paquetería.
-  const isParcelModule = moduleFromPath(pathname) === 'parcel'
 
   const doSignOut = async () => {
     await signOut()
@@ -96,7 +92,6 @@ export function Header() {
       {/* Actions */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <LanguageToggle />
-        {isParcelModule && <PrintQueueBadge />}
         <TimerPill />
         <NotificationBell />
         <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 font-medium max-w-[260px]">

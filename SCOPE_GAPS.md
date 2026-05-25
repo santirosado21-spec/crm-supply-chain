@@ -1,52 +1,56 @@
-# SCOPE_GAPS — Sprint Techship
+# SCOPE_GAPS — Sprint Almacén + Task Tracker + Pizarrón
 
 Simplificaciones y desviaciones respecto al spec original. Todo lo listado es
-funcional; son decisiones de pragmatismo dentro del modo autonomo.
+funcional; son decisiones de pragmatismo dentro del modo autónomo.
 
-## Fase 5 — Shipment Profile Dashboard
+## Fase 2 — Receipt Generator
 
-- **PackagesByCountryMap**: el spec pedia un mapa SVG con `react-simple-maps`.
-  Decision final: el panel "Paquetes por pais" usa una grafica de dona
-  (Recharts) — apropiado para una operacion mayoritariamente domestica MX, y
-  evita la dependencia de un topojson mundial via CDN. `react-simple-maps`
-  (que habia requerido `--legacy-peer-deps` con React 19 y no traia tipos) se
-  DESINSTALO para dejar el arbol de dependencias limpio. Reintroducir un mapa
-  real solo requiere reinstalar la libreria y reemplazar ese unico `PiePanel`.
-- **TopStatesBarChart**: no existe lookup CP->estado eficiente en el cliente
-  (la tabla mx_postal_codes solo tiene ~100 CPs seed). Se reemplazo por
-  "Top destinos (CP)" agrupando por codigo postal destino. Para estados reales
-  habria que cruzar contra mx_postal_codes completo o agregar columna estado.
+- **Sin fallback de inventario manual.** El Validador SKU permite subir un
+  Excel de inventario si Extensiv no está configurado. El Receipt Generator
+  movido usa **solo** el dropdown de cliente Extensiv como fuente de validación
+  (Extensiv está configurado en producción). Si `isExtensivConfigured()` es
+  falso, se muestra un aviso y la validación queda deshabilitada.
+- **Autocomplete vía `<datalist>`** con el catálogo completo de SKUs del
+  cliente. Suficiente para los tamaños de catálogo actuales; si un cliente
+  tuviera decenas de miles de SKUs convendría un combobox virtualizado.
 
-## Fase 3 — Addresses
+## Fase 3 — Distribución de tareas
 
-- **AddressPicker en ParcelOrdersPage**: se integro el picker de remitente en
-  el `ParcelOrderImportModal` (flujo de creacion de ordenes de esa pagina) en
-  lugar de un picker suelto en la grid. El picker de destinatario si esta en
-  CotizarShipmentModal como pedia el spec.
+- **Visibilidad del link en el Sidebar.** El spec pedía mostrar
+  "Distribución tareas" / "Pizarrón Admin" solo si `can_distribute_tasks=true`.
+  Se simplificó: los links están siempre visibles en `ALMACEN_LINKS` y el
+  **gating real es a nivel de página** (cada página consulta el flag y muestra
+  un estado "Acceso restringido" a los no-distribuidores). Razón: filtrar links
+  por flag exigía exponer `can_distribute_tasks` en `useAuth`/`LocalUser` y
+  añadir lógica condicional en `Sidebar.tsx` — el riesgo nº4 del spec pedía no
+  tocar `Sidebar.tsx` fuera de `ALMACEN_LINKS`. El gating de página es seguro.
+- **`detectModule` / `moduleFromPath`.** Se ajustó la detección de módulo para
+  reconocer `/almacen/*` (no solo `/almacen`) como módulo "almacen" — necesario
+  para que las páginas nuevas muestren el Sidebar de Almacén. Cambio mínimo de
+  una línea en `Sidebar.tsx` y otra en `permissions.ts`.
+- **Cuenta receptora.** El email de la cuenta "Almacén Receptor" vive en
+  `src/config/almacen.ts` (`ALMACEN_RECEPTOR_EMAIL`), overridable por env var,
+  en lugar de hardcodearse repartido por el código.
 
-## Fase 10 — i18n
+## Fase 4 — Pizarrón de Operaciones
 
-- Cobertura i18n: titulos, subtitulos, encabezados de tabla, KPIs y navegacion
-  de las 7 paginas nuevas estan en `t()` (EN/ES). Microcopy operativo de menor
-  visibilidad (algunos placeholders, mensajes de toast, labels de modales)
-  permanece en espanol. El toggle EN/ES funciona y persiste en localStorage.
+- **`PizarronBoard` como componente compartido.** El spec listaba PizarronPage
+  y PizarronKioskPage por separado; para que el kiosk "reutilice componentes"
+  se extrajo `src/components/almacen/PizarronBoard.tsx`, usado por ambas con un
+  prop `kiosk`.
+- **Layout.** El tablero es un grid responsivo de tarjetas (4 col / 2 / 1) tipo
+  comandas, cada tarjeta coloreada por área — en vez de columnas-kanban fijas
+  por área (hay 8 áreas, no caben como columnas en una pantalla).
+- **Completar tarea** se ejecuta directo al pulsar COMPLETAR (sin modal de
+  notas). El RPC `pizarron_complete_task` acepta notas opcionales; el campo
+  `notes` queda disponible para un futuro flujo de cierre con observaciones.
+- **Auto-fullscreen del kiosk.** `requestFullscreen()` se intenta al montar,
+  pero los navegadores suelen exigir gesto del usuario; por eso hay un botón
+  "Pantalla completa" de respaldo.
 
-## Fases 7 y 8 — Edge functions
+## Arquitectura Claude + Codex
 
-- `fedex-proxy` y `carrier-tracking-webhook` estan completas pero requieren
-  `supabase functions deploy` manual + secrets. Ver SECRETS_PENDING.md y
-  WEBHOOKS_PENDING.md.
-
-## Arquitectura Claude+Codex
-
-- El spec sugeria delegar paginas grandes a Codex. Se construyo todo
-  directamente con Claude para garantizar coherencia de tipos entre fases
-  interdependientes (los hooks/types de fases tempranas alimentan las tardias).
-  Resultado: 10/10 fases con build verde.
-
-## Modelo de datos "ordenes"
-
-- No se creo tabla `parcel_orders` separada: las "ordenes" del TMS son filas de
-  `guias_paqueteria` (que ya es la tabla de envios). Las importadas nacen con
-  `tracking_status='cotizado'` y placeholders de costo/precio=0 hasta que se
-  procesan. Esto evita duplicar el modelo de envios.
+- El spec sugería delegar páginas grandes a Codex. Se construyó todo
+  directamente con Claude — coherencia de tipos entre fases y, sobre todo,
+  porque el entorno estaba degradado por el bloqueo de TCC (ver `BLOCKERS.md`).
+  Resultado: 4/4 fases con type-check y build verdes.

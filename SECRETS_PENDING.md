@@ -1,44 +1,50 @@
-# SECRETS_PENDING — Sprint Techship
+# SECRETS_PENDING — Sprint Almacén + Task Tracker + Pizarrón
 
-Secrets que deben configurarse manualmente. El codigo esta completo; sin estos
-secrets el provider opera en modo degradado / mock.
+Este sprint **no introduce credenciales ni API keys nuevas**. Solo quedan dos
+tareas de configuración manual (no son secretos, pero requieren acción humana).
 
-## FedEx REST (Fase 7)
+## 1. Seed de `team_members` — cuenta receptora + distribuidores
 
-El edge function `fedex-proxy` requiere 3 secrets de Supabase:
+Necesario para que funcione el flujo de Distribución (Fase 3). Correr en el
+SQL Editor de Supabase **después** de aplicar `20260521000001_task_distribution.sql`:
 
-```bash
-npx supabase secrets set FEDEX_CLIENT_ID=xxx
-npx supabase secrets set FEDEX_CLIENT_SECRET=xxx
-npx supabase secrets set FEDEX_ACCOUNT=xxx
-# Opcional - sandbox de pruebas:
-npx supabase secrets set FEDEX_BASE_URL=https://apis-sandbox.fedex.com
+```sql
+-- Cuenta "Almacén Receptor": recibe las tareas que SAC manda a almacén.
+INSERT INTO team_members (user_email, user_name, role, active, can_distribute_tasks)
+VALUES ('almacen@supplychain.mx', 'Almacén Receptor', 'almacen', true, false)
+ON CONFLICT (user_email) DO UPDATE
+  SET user_name = EXCLUDED.user_name, role = EXCLUDED.role, active = EXCLUDED.active;
+
+-- Distribuidores: pueden reasignar tareas desde /almacen/distribucion.
+INSERT INTO team_members (user_email, user_name, role, active, can_distribute_tasks)
+VALUES
+  ('luis.trujillo@supplychain.mx',  'Luis Trujillo',  'almacen', true, true),
+  ('guillermo.luna@supplychain.mx', 'Guillermo Luna', 'almacen', true, true)
+ON CONFLICT (user_email) DO UPDATE
+  SET can_distribute_tasks = EXCLUDED.can_distribute_tasks;
 ```
 
-El edge function `fedex-proxy` YA ESTA DESPLEGADO (2026-05-15, proyecto
-`uifrgmiqpkbgyvzbcldn`). Smoke-test confirma que corre — responde
-"FedEx credentials missing" mientras no se configuren los 3 secrets de arriba.
+> Los emails de ejemplo (`@supplychain.mx`) deben ajustarse a las cuentas
+> reales de Supabase Auth. Para que el usuario pueda iniciar sesión, el email
+> debe existir también en Supabase Auth (Authentication → Users).
 
-```bash
-# (deploy ya hecho — re-ejecutar solo si se cambia el codigo)
-npx supabase functions deploy fedex-proxy
+## 2. Variable de entorno opcional — `VITE_ALMACEN_RECEPTOR_EMAIL`
+
+`src/config/almacen.ts` lee el email de la cuenta receptora de
+`VITE_ALMACEN_RECEPTOR_EMAIL`, con fallback `almacen@supplychain.mx`.
+
+Si la cuenta receptora real tiene otro email, agregarlo en Vercel
+(Environment Variables) y en `.env` local:
+
+```
+VITE_ALMACEN_RECEPTOR_EMAIL=<email-real-de-la-cuenta-receptora>
 ```
 
-Tras configurar los secrets, en `/tms/carriers` marcar el provider
-**FedEx directo** como activo.
-
-Origen de credenciales: portal FedEx Developer -> My Projects -> API key + secret.
-El Account Number es el de la cuenta comercial FedEx MX.
-
-## Skydropx (Fase 1 - buyLabel real)
-
-La API key de Skydropx se registra desde la UI en `/tms/carriers` (no es secret
-de Supabase). El `buyLabel` real ya esta implementado en `src/lib/carriers/skydropx.ts`.
+No es un secreto — es un identificador de ruteo. Si el default
+`almacen@supplychain.mx` coincide con la cuenta real, no se necesita nada.
 
 ## Estado
 
-- [x] `fedex-proxy` desplegado (2026-05-15, smoke-test OK)
-- [ ] FEDEX_CLIENT_ID configurado
-- [ ] FEDEX_CLIENT_SECRET configurado
-- [ ] FEDEX_ACCOUNT configurado
-- [ ] Provider FedEx activado en `/tms/carriers`
+- [ ] Migración `20260521000001` aplicada
+- [ ] Seed de `team_members` ejecutado
+- [ ] (Opcional) `VITE_ALMACEN_RECEPTOR_EMAIL` configurada si difiere del default

@@ -1,17 +1,19 @@
-# FIXMES — Sprint Techship
+# FIXMES — Sprint Almacén + Task Tracker + Pizarrón
 
-## Estado: SIN FIXMES AUTONOMOS
+## Estado: SIN FIXMES AUTÓNOMOS
 
 No se insertaron marcadores `// FIXME-AUTONOMOUS` durante el sprint.
 
-Todas las fases compilaron limpio en los archivos nuevos/tocados
-(`npx tsc --noEmit` sin errores en archivos del sprint) y `npm run build`
-(Vite) termino exitosamente tras cada fase.
+## Verificación
 
-## Nota sobre tsc del repo completo
+- `npx tsc -b --noEmit` — **limpio** (sin errores) tras cada fase.
+- `npm run build` (Vite) — **exitoso**. Solo warnings pre-existentes de tamaño
+  de chunk y de import dinámico/estático de `jspdf` (ajenos al sprint).
+- `npx eslint` sobre los archivos nuevos — limpio. Se corrigió de paso un
+  `no-useless-escape` pre-existente en `receiptExport.ts` (`[^\w\-]` → `[^\w-]`)
+  al moverlo a `src/pages/almacen/`.
 
-El repo tenia errores de TypeScript PRE-EXISTENTES en archivos ajenos al
-sprint (CotizadorPage, CostosTransportePage, ProformasPage, RCPage,
-OperationModal, etc.). No se modificaron — quedan como estaban antes del
-sprint. El build de produccion (`vite build`) no hace type-check, por lo que
-no afectan el deploy.
+## Nota
+
+El sprint se desarrolló en un clon de trabajo (ver `BLOCKERS.md`). El código
+quedó verde en type-check y build de producción.

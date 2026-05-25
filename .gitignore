@@ -60,3 +60,7 @@ dist-ssr
 
 # Embedded subrepo (legacy, not used)
 scm-dashboard/
+
+# Scratch files and credential docs (do not commit)
+API OPEN ROUTER*.pdf
+SPRINT_PROMPT.txt

@@ -9,6 +9,10 @@ import { WMSHome } from './pages/wms/WMSHome'
 import { StorageBridgePage } from './pages/wms/StorageBridgePage'
 import { EmisorConfigPage } from './pages/wms/EmisorConfigPage'
 import { AlmacenPage } from './pages/almacen/AlmacenPage'
+import { DistributionInboxPage } from './pages/almacen/DistributionInboxPage'
+import { PizarronPage } from './pages/almacen/PizarronPage'
+import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
+import { PizarronAdminPage } from './pages/almacen/PizarronAdminPage'
 import { TMSHome } from './pages/tms/TMSHome'
 import { TMSDashboard } from './pages/tms/TMSDashboard'
 import { VehiculosPage } from './pages/tms/VehiculosPage'
@@ -19,27 +23,11 @@ import { CotizadorPage } from './pages/cotizador/CotizadorPage'
 import { TramitesPage } from './pages/tramites/TramitesPage'
 import { ClientsList } from './pages/clients/ClientsList'
 import { ClientDetail } from './pages/clients/ClientDetail'
-import { ProformasPage } from './pages/billing/ProformasPage'
 import { RCPage } from './pages/billing/RCPage'
 import { TarifariosPage } from './pages/tarifarios/TarifariosPage'
 import { ServiciosPage } from './pages/servicios/ServiciosPage'
 import { ValidadorSKUPage } from './pages/sac/ValidadorSKUPage'
-import { ReceiptGeneratorPage } from './pages/sac/ReceiptGeneratorPage'
-import { CartaInstruccionPage } from './pages/sac/CartaInstruccionPage'
-import { GuiasPaqueteriaPage } from './pages/tms/GuiasPaqueteriaPage'
-import { CartaPortePage } from './pages/tms/CartaPortePage'
-import { CartasRecibidasPage } from './pages/tms/CartasRecibidasPage'
-import { CarriersConfigPage } from './pages/tms/CarriersConfigPage'
-import { ShippingRulesPage } from './pages/tms/ShippingRulesPage'
-import { ParcelTrackingMapPage } from './pages/tms/ParcelTrackingMapPage'
-import { ParcelDashboardPage } from './pages/tms/ParcelDashboardPage'
-import { ParcelOrdersPage } from './pages/tms/ParcelOrdersPage'
-import { OrderTemplatesPage } from './pages/tms/OrderTemplatesPage'
-import { ManifestsPage } from './pages/tms/ManifestsPage'
-import { ShipmentProfilePage } from './pages/tms/ShipmentProfilePage'
-import { DeliveryPerformancePage } from './pages/tms/DeliveryPerformancePage'
-import { MarkupProfilesPage } from './pages/tms/MarkupProfilesPage'
-import { AddressesPage } from './pages/tms/AddressesPage'
+import { ReceiptGeneratorPage } from './pages/almacen/ReceiptGeneratorPage'
 import { TaskInbox } from './pages/tasks/TaskInbox'
 import { TaskCalendar } from './pages/tasks/TaskCalendar'
 import { TaskCreate } from './pages/tasks/TaskCreate'
@@ -50,9 +38,8 @@ import { Reports } from './pages/tasks/admin/Reports'
 import { ExtensivBilling } from './pages/tasks/admin/ExtensivBilling'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
-import { SekoBillingPage } from './pages/admin/SekoBillingPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES, PARCEL_ROLES } from './config/permissions'
+import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
 
 function App() {
   return (
@@ -82,6 +69,20 @@ function App() {
           <Route path="/almacen" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenPage /></ProtectedRoute>
           } />
+          <Route path="/almacen/receipt-generator" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/distribucion" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DistributionInboxPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/pizarron" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><PizarronPage /></ProtectedRoute>
+          } />
+          {/* Kiosk: sin ProtectedRoute — pantalla compartida en LAN del CEDIS */}
+          <Route path="/almacen/pizarron-kiosk" element={<PizarronKioskPage />} />
+          <Route path="/almacen/pizarron-admin" element={
+            <ProtectedRoute allowedRoles={['admin', 'almacen']}><PizarronAdminPage /></ProtectedRoute>
+          } />
 
           {/* TMS */}
           <Route path="/tms" element={
@@ -105,12 +106,6 @@ function App() {
           <Route path="/cotizador" element={
             <ProtectedRoute allowedRoles={TMS_ROLES}><CotizadorPage /></ProtectedRoute>
           } />
-          <Route path="/tms/carta-porte" element={
-            <ProtectedRoute allowedRoles={TMS_ROLES}><CartaPortePage /></ProtectedRoute>
-          } />
-          <Route path="/tms/cartas-recibidas" element={
-            <ProtectedRoute allowedRoles={TMS_ROLES}><CartasRecibidasPage /></ProtectedRoute>
-          } />
           <Route path="/tramites" element={
             <ProtectedRoute allowedRoles={TMS_ROLES}><TramitesPage /></ProtectedRoute>
           } />
@@ -124,9 +119,6 @@ function App() {
           } />
 
           {/* WMS Billing */}
-          <Route path="/proformas" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><ProformasPage /></ProtectedRoute>
-          } />
           <Route path="/rc" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><RCPage /></ProtectedRoute>
           } />
@@ -139,56 +131,8 @@ function App() {
           <Route path="/sac/validador" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><ValidadorSKUPage /></ProtectedRoute>
           } />
-          <Route path="/sac/receipt-generator" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
-          } />
-          <Route path="/sac/carta-instruccion" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><CartaInstruccionPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/guias-paqueteria" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><GuiasPaqueteriaPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/parcel-map" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ParcelTrackingMapPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/parcel-dashboard" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ParcelDashboardPage /></ProtectedRoute>
-          } />
-          {/* TMS Paquetería · Techship replica */}
-          <Route path="/tms/orders" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ParcelOrdersPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/orders/templates" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><OrderTemplatesPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/manifests" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ManifestsPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/insights/shipment-profile" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><ShipmentProfilePage /></ProtectedRoute>
-          } />
-          <Route path="/tms/insights/delivery-performance" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><DeliveryPerformancePage /></ProtectedRoute>
-          } />
-          <Route path="/tms/addresses" element={
-            <ProtectedRoute allowedRoles={PARCEL_ROLES}><AddressesPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/markup-profiles" element={
-            <ProtectedRoute allowedRoles={['admin']}><MarkupProfilesPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/carriers" element={
-            <ProtectedRoute allowedRoles={['admin']}><CarriersConfigPage /></ProtectedRoute>
-          } />
-          <Route path="/tms/carriers/reglas" element={
-            <ProtectedRoute allowedRoles={['admin']}><ShippingRulesPage /></ProtectedRoute>
-          } />
-          {/* Compat redirect: la ruta vieja /sac/guias-paqueteria sigue funcionando
-              mientras los bookmarks/links externos se actualizan. */}
-          <Route path="/sac/guias-paqueteria" element={<Navigate to="/tms/guias-paqueteria" replace />} />
-          <Route path="/seko-billing" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><SekoBillingPage /></ProtectedRoute>
-          } />
-
+          {/* Compat redirect: ruta vieja /sac/receipt-generator → /almacen */}
+          <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
           {/* Task Tracker */}
           <Route path="/tasks" element={
             <ProtectedRoute allowedRoles={TASK_ROLES}><TaskInbox /></ProtectedRoute>
@@ -210,9 +154,6 @@ function App() {
           } />
           <Route path="/tasks/admin/extensiv-billing" element={
             <ProtectedRoute allowedRoles={['admin', 'cobranza']}><ExtensivBilling /></ProtectedRoute>
-          } />
-          <Route path="/tasks/admin/seko-billing" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><SekoBillingPage /></ProtectedRoute>
           } />
           <Route path="/tasks/admin/audit-log" element={
             <ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>

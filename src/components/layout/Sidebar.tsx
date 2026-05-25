@@ -1,4 +1,4 @@
-import { Home, Users, FileText, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, Receipt, History, FileSpreadsheet, Package, MapPin, Menu, ClipboardList, FileStack, Gauge, Percent } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, Receipt, History, FileSpreadsheet, Menu } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -21,12 +21,13 @@ interface Link {
 const WMS_LINKS: Link[] = [
   { to: '/wms',                    label: 'Herramientas de WMS', icon: Warehouse },
   { to: '/sac/validador',          label: 'Validador SKU',        icon: ScanBarcode },
-  { to: '/sac/receipt-generator',  label: 'Generador Receipt',    icon: FileInput },
-  { to: '/sac/carta-instruccion', label: 'Carta Instrucción', icon: FileText },
-  { to: '/seko-billing',           label: 'Billing Seko 365',     icon: Receipt },
   { to: '/rc',                     label: 'Rendición RC',         icon: FileCheck },
-  { to: '/proformas',              label: 'Proformas',            icon: FileText },
   { to: '/clients',                label: 'Clientes',             icon: Users },
+  { to: '/almacen',                   label: 'CEDIS Lerma',          icon: Warehouse,       section: 'Almacén' },
+  { to: '/almacen/receipt-generator', label: 'Generador Receipt',    icon: FileInput,       section: 'Almacén' },
+  { to: '/almacen/distribucion',      label: 'Distribución tareas',  icon: UserCheck,       section: 'Almacén' },
+  { to: '/almacen/pizarron',          label: 'Pizarrón Operaciones', icon: LayoutDashboard, section: 'Almacén' },
+  { to: '/almacen/pizarron-admin',    label: 'Pizarrón Admin',       icon: BarChart3,       section: 'Almacén' },
 ]
 
 const TMS_LINKS: Link[] = [
@@ -37,31 +38,7 @@ const TMS_LINKS: Link[] = [
   { to: '/tms/viajes',     label: 'Viajes',               icon: Route },
   { to: '/tms/costos',     label: 'Costos',               icon: PieChart },
   { to: '/cotizador',      label: 'Cotizador',            icon: Calculator },
-  { to: '/tms/cartas-recibidas', label: 'Cartas recibidas', icon: Inbox },
-  { to: '/tms/carta-porte', label: 'Carta Porte', icon: FileCheck },
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
-]
-
-const PARCEL_LINKS: Link[] = [
-  // Operaciones
-  { to: '/tms/orders',           label: 'Órdenes',             icon: Package,         section: 'Operaciones' },
-  { to: '/tms/guias-paqueteria', label: 'Guías paquetería',    icon: FileCheck,       section: 'Operaciones' },
-  { to: '/tms/manifests',        label: 'Manifiestos',         icon: ClipboardList,   section: 'Operaciones' },
-  { to: '/tms/parcel-map',       label: 'Mapa de tracking',    icon: MapPin,          section: 'Operaciones' },
-  // Insights
-  { to: '/tms/parcel-dashboard', label: 'Dashboard paquetes',  icon: LayoutDashboard, section: 'Insights' },
-  { to: '/tms/insights/shipment-profile',     label: 'Perfil de envíos',     icon: PieChart, section: 'Insights' },
-  { to: '/tms/insights/delivery-performance', label: 'Desempeño de entrega', icon: Gauge,    section: 'Insights' },
-  // Catálogos
-  { to: '/tms/orders/templates', label: 'Plantillas de orden', icon: FileStack,       section: 'Catálogos' },
-  { to: '/tms/addresses',        label: 'Direcciones',         icon: MapPin,          section: 'Catálogos' },
-  { to: '/tms/markup-profiles',  label: 'Perfiles de markup',  icon: Percent,         section: 'Catálogos' },
-  { to: '/tms/carriers',         label: 'Configurar carriers', icon: UserCog,         section: 'Catálogos' },
-  { to: '/tms/carriers/reglas',  label: 'Reglas de routing',   icon: FileSpreadsheet, section: 'Catálogos' },
-]
-
-const ALMACEN_LINKS: Link[] = [
-  { to: '/almacen',        label: 'CEDIS Lerma',          icon: Warehouse },
 ]
 
 const TASKS_LINKS: Link[] = [
@@ -76,39 +53,23 @@ const TASKS_ADMIN_LINKS: Link[] = [
   { to: '/admin/executive-report',        label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
   { to: '/tasks/admin/audit-log',         label: 'Auditoría',           icon: History },
   { to: '/tasks/admin/extensiv-billing',  label: 'Extensiv Billing',    icon: Receipt },
-  { to: '/tasks/admin/seko-billing',      label: 'Billing Seko 365',    icon: FileSpreadsheet },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'tasks' | 'parcel'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'tasks'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                          return 'home'
-  if (pathname === '/almacen')                                                   return 'almacen'
   if (pathname.startsWith('/tasks') || pathname.startsWith('/admin'))            return 'tasks'
-  // TMS de Paqueterías es módulo separado aunque vive bajo /tms/* por ahora.
-  if (pathname === '/tms/guias-paqueteria' ||
-      pathname.startsWith('/tms/guias-paqueteria/') ||
-      pathname === '/tms/parcel-map' ||
-      pathname === '/tms/parcel-dashboard' ||
-      pathname === '/tms/carriers' ||
-      pathname.startsWith('/tms/carriers/') ||
-      pathname.startsWith('/tms/orders') ||
-      pathname.startsWith('/tms/manifests') ||
-      pathname.startsWith('/tms/insights') ||
-      pathname.startsWith('/tms/addresses') ||
-      pathname.startsWith('/tms/markup-profiles'))                               return 'parcel'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
-  // Default: WMS (/, /wms, /sac/*, /rc, /proformas, /clients, etc.)
+  // Default: WMS (/, /wms, /sac/*, /rc, /clients, etc.)
   return 'wms'
 }
 
 const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: Link[] }> = {
   wms:     { label: 'Herramientas de WMS',         links: WMS_LINKS },
   tms:     { label: 'Transportes',                 links: TMS_LINKS },
-  almacen: { label: 'Almacén',                     links: ALMACEN_LINKS },
   tasks:   { label: 'Task Tracker',                links: TASKS_LINKS },
-  parcel:  { label: 'TMS Guías de Paquetería',     links: PARCEL_LINKS },
 }
 
 export function Sidebar() {
@@ -131,7 +92,7 @@ export function Sidebar() {
   // o a cobranza (solo billing).
   const showAdminTasks = currentModule === 'tasks' && (isAdmin || isCobranza)
   const visibleAdminLinks = TASKS_ADMIN_LINKS.filter(l =>
-    isAdmin || l.to === '/tasks/admin/extensiv-billing' || l.to === '/tasks/admin/seko-billing'
+    isAdmin || l.to === '/tasks/admin/extensiv-billing'
   )
 
   // Agrupa los links por sub-grupo (section). Si el módulo no usa sections,

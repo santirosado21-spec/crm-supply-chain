@@ -5,7 +5,6 @@ import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { AvailabilityPicker } from '../../components/tasks/AvailabilityPicker'
 import { useTasks, getTaskCategories } from '../../hooks/useTasks'
-import { useClients } from '../../hooks/useClients'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
 import { supabase } from '../../lib/supabase'
@@ -21,7 +20,6 @@ export function TaskCreate() {
   const myEmail = user?.email ?? ''
   const toast = useToast()
   const { create } = useTasks()
-  const { clients, getClients } = useClients()
 
   const [team, setTeam] = useState<TeamMember[]>([])
   const [categories, setCategories] = useState<TaskCategory[]>([])
@@ -31,15 +29,12 @@ export function TaskCreate() {
   const [title, setTitle]                 = useState('')
   const [description, setDescription]     = useState('')
   const [categoryId, setCategoryId]       = useState<string>('')
-  const [clientId, setClientId]           = useState<string>('')
   const [assigneeEmail, setAssigneeEmail] = useState<string>('')
-  const [duration, setDuration]           = useState<number>(60)
   const [scheduledStart, setScheduledStart] = useState<Date | null>(null)
   const [scheduledEnd, setScheduledEnd]     = useState<Date | null>(null)
   const [extensivPick, setExtensivPick]     = useState<ExtensivPickResult | null>(null)
 
   useEffect(() => {
-    getClients()
     getTaskCategories().then(setCategories)
     // Lista de empleados activos del equipo
     Promise.all([
@@ -53,7 +48,7 @@ export function TaskCreate() {
       arr.sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email))
       setTeam(arr)
     })
-  }, [getClients])
+  }, [])
 
   // Sprint E · Roles operativos (SAC, almacén, transporte) deben ligar la
   // tarea a un Transaction Extensiv o explicitar modo manual. Admin y
@@ -78,7 +73,7 @@ export function TaskCreate() {
         title:           title.trim(),
         description:     description.trim(),
         category_id:     categoryId || null,
-        client_id:       clientId || null,
+        client_id:       null,
         operation_id:    null,
         assigner_email:  myEmail,
         assignee_email:  assigneeEmail,
@@ -145,47 +140,15 @@ export function TaskCreate() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Categoría</label>
-                  <select
-                    value={categoryId}
-                    onChange={e => setCategoryId(e.target.value)}
-                    className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
-                  >
-                    <option value="">— sin categoría —</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Duración (min)</label>
-                  <input
-                    type="number"
-                    min={15}
-                    step={15}
-                    inputMode="numeric"
-                    value={duration}
-                    onChange={e => {
-                      const v = Math.max(15, Number(e.target.value) || 15)
-                      setDuration(v)
-                      if (scheduledStart) {
-                        setScheduledEnd(new Date(scheduledStart.getTime() + v * 60_000))
-                      }
-                    }}
-                    className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Cliente (opcional)</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Categoría</label>
                 <select
-                  value={clientId}
-                  onChange={e => setClientId(e.target.value)}
+                  value={categoryId}
+                  onChange={e => setCategoryId(e.target.value)}
                   className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
                 >
-                  <option value="">— interno (no facturable) —</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.codigo ? `${c.codigo} · ` : ''}{c.name}</option>)}
+                  <option value="">— sin categoría —</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
@@ -248,7 +211,7 @@ export function TaskCreate() {
               {assigneeEmail ? (
                 <AvailabilityPicker
                   userEmail={assigneeEmail}
-                  durationMinutes={duration}
+                  durationMinutes={60}
                   selectedStart={scheduledStart}
                   onSelect={(s, e) => { setScheduledStart(s); setScheduledEnd(e) }}
                 />

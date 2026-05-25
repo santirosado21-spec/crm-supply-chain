@@ -26,12 +26,17 @@ export function TaskCalendar() {
   const [activeDay, setActiveDay] = useState<Date>(() => {
     const t = new Date(); t.setHours(0, 0, 0, 0); return t
   })
+  // Calendario global: por default se ven TODAS las tareas del equipo.
+  // El toggle "Mías" filtra (cliente-side) a las que me involucran.
+  const [viewMode, setViewMode] = useState<'todas' | 'mias'>('todas')
 
   useEffect(() => {
     if (!email) return
     const from = weekStart.toISOString()
     const to = addDays(weekStart, 7).toISOString()
-    list({ forEmail: email, fromDate: from, toDate: to })
+    // Sin forEmail → trae TODAS las tareas del rango. La RLS ya permite
+    // SELECT global a cualquier miembro activo del equipo.
+    list({ fromDate: from, toDate: to })
   }, [email, weekStart, list])
 
   const days = useMemo(
@@ -39,21 +44,28 @@ export function TaskCalendar() {
     [weekStart],
   )
 
+  const isMine = (t: Task) => t.assignee_email === email || t.assigner_email === email
+
+  const visibleTasks = useMemo(
+    () => (viewMode === 'mias' ? tasks.filter(isMine) : tasks),
+    [tasks, viewMode, email],
+  )
+
   const dayTasks = useMemo(() => {
-    return tasks
+    return visibleTasks
       .filter(t => sameDate(new Date(t.scheduled_start), activeDay))
       .sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
-  }, [tasks, activeDay])
+  }, [visibleTasks, activeDay])
 
   const tasksByDay = useMemo(() => {
     const m = new Map<string, Task[]>()
-    for (const t of tasks) {
+    for (const t of visibleTasks) {
       const k = new Date(t.scheduled_start).toDateString()
       if (!m.has(k)) m.set(k, [])
       m.get(k)!.push(t)
     }
     return m
-  }, [tasks])
+  }, [visibleTasks])
 
   return (
     <div className="flex h-dvh min-h-dvh flex-col overflow-hidden" style={{ background: 'var(--page-bg)' }}>
@@ -64,14 +76,41 @@ export function TaskCalendar() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h1 className="text-xl font-bold text-[#1e3a5f]">Calendario</h1>
-              <p className="text-xs text-gray-400 mt-0.5">Mis tareas (asignadas y enviadas)</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {viewMode === 'todas'
+                  ? 'Calendario global — todas las tareas del equipo'
+                  : 'Mis tareas (asignadas y enviadas)'}
+              </p>
             </div>
-            <Link
-              to="/tasks/new"
-              className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity shrink-0"
-            >
-              <Plus size={16} /> Nueva tarea
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Toggle global / mías */}
+              <div className="inline-flex rounded-xl border border-gray-200 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('todas')}
+                  className={`px-3 py-2.5 text-xs font-semibold transition-colors ${
+                    viewMode === 'todas' ? 'bg-[#1e3a5f] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('mias')}
+                  className={`px-3 py-2.5 text-xs font-semibold transition-colors ${
+                    viewMode === 'mias' ? 'bg-[#1e3a5f] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Mías
+                </button>
+              </div>
+              <Link
+                to="/tasks/new"
+                className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity"
+              >
+                <Plus size={16} /> Nueva tarea
+              </Link>
+            </div>
           </div>
 
           {/* Week navigator */}
@@ -150,13 +189,20 @@ export function TaskCalendar() {
               const start = new Date(t.scheduled_start)
               const end   = new Date(t.scheduled_end)
               const fmt = (d: Date) => d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-              const counterpart = t.assignee_email === email ? `← ${t.assigner_email}` : `→ ${t.assignee_email}`
+              const mine = isMine(t)
+              // Mía: muestra contraparte (← quien me la mandó, → a quien se la mandé).
+              // Ajena: muestra el par assigner → assignee completo.
+              const relation = mine
+                ? (t.assignee_email === email ? `← ${t.assigner_email}` : `→ ${t.assignee_email}`)
+                : `${t.assigner_email} → ${t.assignee_email}`
               return (
                 <Link
                   key={t.id}
                   to={`/tasks/${t.id}`}
-                  className="block bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all p-3 sm:p-4"
-                  style={{ borderLeft: `3px solid ${TASK_STATUS_COLOR[t.status]}` }}
+                  className={`block bg-white rounded-xl shadow-sm hover:shadow-md transition-all p-3 sm:p-4 ${
+                    mine ? 'border border-gray-100' : 'border border-gray-100 opacity-75'
+                  }`}
+                  style={{ borderLeft: `${mine ? 5 : 3}px solid ${mine ? TASK_STATUS_COLOR[t.status] : '#cbd5e1'}` }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -164,16 +210,23 @@ export function TaskCalendar() {
                         {fmt(start)} – {fmt(end)} · {t.ref ?? ''}
                       </p>
                       <h3 className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{t.title}</h3>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {counterpart} {t.client?.name ? ` · ${t.client.name}` : ''}
+                      <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                        {relation}{t.client?.name ? ` · ${t.client.name}` : ''}
                       </p>
                     </div>
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-full"
-                      style={{ background: `${TASK_STATUS_COLOR[t.status]}1a`, color: TASK_STATUS_COLOR[t.status] }}
-                    >
-                      {t.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                        style={{ background: `${TASK_STATUS_COLOR[t.status]}1a`, color: TASK_STATUS_COLOR[t.status] }}
+                      >
+                        {t.status}
+                      </span>
+                      {!mine && (
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                          solo lectura
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </Link>
               )
