@@ -29,6 +29,7 @@ const WMS_LINKS: Link[] = [
 
 const ALMACEN_LINKS: Link[] = [
   { to: '/almacen',                label: 'Inicio',              icon: Home },
+  { to: '/almacen/hoy',            label: 'Hoy',                 icon: Calendar },
   { to: '/almacen/distribucion',   label: 'Distribución tareas', icon: UserCheck },
   { to: '/almacen/pizarron',       label: 'Pizarrón',            icon: LayoutDashboard },
   { to: '/almacen/pizarron-admin', label: 'Pizarrón Admin',      icon: BarChart3 },

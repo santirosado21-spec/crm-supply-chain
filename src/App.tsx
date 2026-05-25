@@ -10,6 +10,7 @@ import { StorageBridgePage } from './pages/wms/StorageBridgePage'
 import { EmisorConfigPage } from './pages/wms/EmisorConfigPage'
 import { AlmacenPage } from './pages/almacen/AlmacenPage'
 import { AlmacenHome } from './pages/almacen/AlmacenHome'
+import { HoyPage } from './pages/almacen/HoyPage'
 import { DistributionInboxPage } from './pages/almacen/DistributionInboxPage'
 import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
@@ -81,6 +82,9 @@ function App() {
           {/* Calendario Almacén — módulo exclusivo de admin + almacén */}
           <Route path="/almacen" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenHome /></ProtectedRoute>
+          } />
+          <Route path="/almacen/hoy" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><HoyPage /></ProtectedRoute>
           } />
           <Route path="/almacen/distribucion" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DistributionInboxPage /></ProtectedRoute>

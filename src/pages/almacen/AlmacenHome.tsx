@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 
@@ -12,6 +12,13 @@ interface Tool {
 }
 
 const tools: Tool[] = [
+  {
+    to: '/almacen/hoy',
+    title: 'Hoy',
+    description: 'Lista de prioridades del día — qué se trabaja ahora y qué sigue.',
+    icon: Calendar,
+    category: 'operacion',
+  },
   {
     to: '/almacen/pizarron',
     title: 'Pizarrón Operaciones',
