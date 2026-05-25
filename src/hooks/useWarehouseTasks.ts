@@ -55,13 +55,31 @@ export function useWarehouseTasks() {
   }, [refetch])
 
   const completeTask = useCallback(async (id: string, notes?: string | null) => {
+    // 1. Snapshot taken_at antes de que la RPC marque completed_at (la RPC
+    //    no expone los timestamps en el return, así que lo leemos del state
+    //    local — ya está cargado en `tasks` por el realtime).
+    const task = tasks.find(t => t.id === id)
+    const takenAt = task?.taken_at ? new Date(task.taken_at) : null
+
+    // 2. RPC que cierra la warehouse_task + la tarea origen.
     const { error: err } = await supabase.rpc('pizarron_complete_task', {
       p_warehouse_task_id: id,
       p_notes: notes ?? null,
     })
     if (err) throw err
+
+    // 3. Captura actual_duration_min (Blue Yonder WLM: Productivity Measurement).
+    //    No bloqueamos el flujo si falla — es métrica complementaria.
+    if (takenAt) {
+      const minutes = Math.max(1, Math.round((Date.now() - takenAt.getTime()) / 60000))
+      await supabase
+        .from('warehouse_tasks')
+        .update({ actual_duration_min: minutes })
+        .eq('id', id)
+    }
+
     await refetch()
-  }, [refetch])
+  }, [tasks, refetch])
 
   return { tasks, loading, error, refetch, claimTask, completeTask }
 }
