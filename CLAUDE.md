@@ -39,11 +39,31 @@ npm run db:status    # supabase migration list
 
 | Módulo | Ruta base | Roles |
 |---|---|---|
-| Herramientas de WMS | `/wms`, `/sac/*`, `/almacen/*` | admin, almacen, servicio_cliente, cobranza |
+| Herramientas de WMS | `/wms`, `/sac/*`, `/wms/cedis`, `/wms/receipt-generator` | admin, servicio_cliente, cobranza |
 | Transportes (TMS) | `/tms`, `/cotizador`, `/tramites` | admin, transporte |
-| Task Tracker | `/tasks`, `/tasks/admin/*` | admin, almacen, servicio_cliente, cobranza, transporte |
+| Calendario Almacén | `/almacen/*` (hoy, pizarrón, distribución, estándares) | admin, almacen |
 
-Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `transporte`. Definidos en `src/config/permissions.ts` (constantes `WMS_ROLES`, `TMS_ROLES`, `ALMACEN_ROLES`, `TASK_ROLES`).
+Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `transporte`. Definidos en `src/config/permissions.ts` (constantes `WMS_ROLES`, `TMS_ROLES`, `ALMACEN_ROLES`, `CALENDARIO_ROLES`).
+
+### Calendario cross-team (no es AppModule)
+
+El ex-Task Tracker se renombró a **Calendario** y vive bajo `/calendario/*`,
+expuesto como **tarjeta tool** dentro de WMSHome (para SAC/cobranza) y
+TMSHome (para transporte). Es cross-team — el rol `almacen` queda EXCLUIDO
+(ellos operan en su propio módulo Calendario Almacén). Permisos via
+`CALENDARIO_ROLES = [admin, servicio_cliente, cobranza, transporte]` con
+PATH_ROLE_OVERRIDES en `permissions.ts`. Compat: las rutas `/tasks/*` siguen
+funcionando como Navigate redirects.
+
+### Flujo operativo (cross-module)
+
+SAC crea solicitud en `/calendario/nueva` → tarea entra a la cuenta compartida
+de almacén (`ALMACEN_RECEPTOR_EMAIL`) → aparece en `/almacen/distribucion` y
+`/almacen/hoy` → Guillermo (admin/distribuidor) la promueve al Pizarrón desde
+`/almacen/pizarron-admin` (puede asignarla por nombre a alguien sin cuenta +
+duración estimada + instrucciones) → el kiosko `/almacen/pizarron-kiosk`
+muestra la designación → quien tome la tarea cierra desde el board, lo que
+captura `actual_duration_min` automáticamente.
 
 ## Convenciones de UI — OBLIGATORIAS
 
@@ -75,12 +95,15 @@ Roles del sistema: `admin`, `almacen`, `servicio_cliente` (SAC), `cobranza`, `tr
 ## Hechos del dominio (no obvios del código)
 
 - **IFIT** (código `IFT`): cliente NordicTrack/ProForm. Setup de billing en Extensiv pendiente — contrato PDF V5c en USD, tasa 17.50 MXN/USD. Archivos de setup en `extensiv-setup/ifit/`.
-- **Billing operativo conservado:** `RCPage` y Extensiv Billing siguen activos; Proformas y Seko Billing fueron retirados de esta versión México.
+- **Billing operativo conservado:** `RCPage` sigue activo. Proformas, Seko Billing y ExtensivBilling (la página de admin) fueron retirados; `src/lib/extensivBilling.ts` se conservó porque lo usa ViajesPage.
 - El módulo "Generador CFDI 4.0" fue eliminado del WMS.
+- **Cuenta compartida de almacén** (`ALMACEN_RECEPTOR_EMAIL` en `src/config/almacen.ts`): no hay logins individuales por trabajador. Quienes tienen celular ven sus tareas asignadas vía el kiosko o por nombre; sin celular Guillermo dicta y la card del kiosko muestra el designado.
+- **Engineered Labor Standards** (`labor_standards`): tiempo base por tipo de tarea (Blue Yonder WLM). Se administra en `/almacen/estandares` y se usa como sugerencia al crear warehouse_task. `warehouse_tasks.actual_duration_min` captura el tiempo real al completar — base para futuras métricas de productividad.
 
 ## Estado actual
 
-- Branch activo: `feat/limpieza-modulos-mx` — limpieza de módulos para la versión Supply Chain México.
+- Branch activo: `feat/limpieza-modulos-mx` — Fase 1 (limpieza) + Fase 2 (Calendario Almacén + restructura Task Tracker + Blue Yonder WLM subset). PR #1 contra `main` (https://github.com/santirosado21-spec/crm-supply-chain/pull/1).
+- **Migraciones pendientes** (4): ver `MIGRATIONS_PENDING.md`. Las 2 últimas son `labor_standards` + `warehouse_tasks_assignment_fields` — deben aplicarse en Supabase SQL Editor para que las features nuevas (Estándares + flujo phoneless) funcionen.
 - Planes de sprint viven en `.claude/plans/`.
 - Archivos de status de sprints autónomos en raíz: `MIGRATIONS_PENDING.md`, `SECRETS_PENDING.md`, `BLOCKERS.md`, `FIXMES.md`, `SCOPE_GAPS.md`, `SPRINT_REPORT.md`. Revisar después de cada sprint autónomo.
 - Backlog general: `PENDIENTES.md`.
