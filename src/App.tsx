@@ -9,6 +9,7 @@ import { WMSHome } from './pages/wms/WMSHome'
 import { StorageBridgePage } from './pages/wms/StorageBridgePage'
 import { EmisorConfigPage } from './pages/wms/EmisorConfigPage'
 import { AlmacenPage } from './pages/almacen/AlmacenPage'
+import { AlmacenHome } from './pages/almacen/AlmacenHome'
 import { DistributionInboxPage } from './pages/almacen/DistributionInboxPage'
 import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
@@ -69,13 +70,17 @@ function App() {
           <Route path="/wms/emisor-config" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><EmisorConfigPage /></ProtectedRoute>
           } />
-
-          {/* Almacén */}
-          <Route path="/almacen" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenPage /></ProtectedRoute>
+          {/* Tools de consulta WMS — vienen de almacén pero son herramientas para SAC/cobranza */}
+          <Route path="/wms/cedis" element={
+            <ProtectedRoute allowedRoles={['admin', 'almacen', 'servicio_cliente', 'cobranza']}><AlmacenPage /></ProtectedRoute>
           } />
-          <Route path="/almacen/receipt-generator" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          <Route path="/wms/receipt-generator" element={
+            <ProtectedRoute allowedRoles={WMS_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          } />
+
+          {/* Calendario Almacén — módulo exclusivo de admin + almacén */}
+          <Route path="/almacen" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenHome /></ProtectedRoute>
           } />
           <Route path="/almacen/distribucion" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DistributionInboxPage /></ProtectedRoute>
@@ -88,6 +93,9 @@ function App() {
           <Route path="/almacen/pizarron-admin" element={
             <ProtectedRoute allowedRoles={['admin', 'almacen']}><PizarronAdminPage /></ProtectedRoute>
           } />
+          {/* Compat redirects: CEDIS layout y Receipt se mudaron a /wms/* */}
+          <Route path="/almacen/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />
+          <Route path="/almacen-layout" element={<Navigate to="/wms/cedis" replace />} />
 
           {/* TMS */}
           <Route path="/tms" element={
@@ -136,8 +144,8 @@ function App() {
           <Route path="/sac/validador" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><ValidadorSKUPage /></ProtectedRoute>
           } />
-          {/* Compat redirect: ruta vieja /sac/receipt-generator → /almacen */}
-          <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
+          {/* Compat redirect: ruta vieja /sac/receipt-generator → /wms/receipt-generator */}
+          <Route path="/sac/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />
           {/* Calendario (cross-team) — antes Task Tracker, ahora expuesto desde WMS / TMS */}
           <Route path="/calendario" element={
             <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskInbox /></ProtectedRoute>

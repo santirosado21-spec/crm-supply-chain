@@ -19,15 +19,19 @@ interface Link {
   To switch modules, user must return to the main menu (/) and pick another.
 */
 const WMS_LINKS: Link[] = [
-  { to: '/wms',                    label: 'Herramientas de WMS', icon: Warehouse },
-  { to: '/sac/validador',          label: 'Validador SKU',        icon: ScanBarcode },
-  { to: '/rc',                     label: 'Rendición RC',         icon: FileCheck },
-  { to: '/clients',                label: 'Clientes',             icon: Users },
-  { to: '/almacen',                   label: 'CEDIS Lerma',          icon: Warehouse,       section: 'Almacén' },
-  { to: '/almacen/receipt-generator', label: 'Generador Receipt',    icon: FileInput,       section: 'Almacén' },
-  { to: '/almacen/distribucion',      label: 'Distribución tareas',  icon: UserCheck,       section: 'Almacén' },
-  { to: '/almacen/pizarron',          label: 'Pizarrón Operaciones', icon: LayoutDashboard, section: 'Almacén' },
-  { to: '/almacen/pizarron-admin',    label: 'Pizarrón Admin',       icon: BarChart3,       section: 'Almacén' },
+  { to: '/wms',                   label: 'Herramientas de WMS', icon: Warehouse },
+  { to: '/sac/validador',         label: 'Validador SKU',       icon: ScanBarcode },
+  { to: '/wms/receipt-generator', label: 'Generador Receipt',   icon: FileInput },
+  { to: '/rc',                    label: 'Rendición RC',        icon: FileCheck },
+  { to: '/clients',               label: 'Clientes',            icon: Users },
+  { to: '/wms/cedis',             label: 'CEDIS Lerma',         icon: Warehouse },
+]
+
+const ALMACEN_LINKS: Link[] = [
+  { to: '/almacen',                label: 'Inicio',              icon: Home },
+  { to: '/almacen/distribucion',   label: 'Distribución tareas', icon: UserCheck },
+  { to: '/almacen/pizarron',       label: 'Pizarrón',            icon: LayoutDashboard },
+  { to: '/almacen/pizarron-admin', label: 'Pizarrón Admin',      icon: BarChart3 },
 ]
 
 const TMS_LINKS: Link[] = [
@@ -54,22 +58,24 @@ const CALENDARIO_ADMIN_LINKS: Link[] = [
   { to: '/calendario/admin/auditoria',    label: 'Auditoría',           icon: History },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'calendario'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                              return 'home'
+  if (pathname === '/almacen' || pathname.startsWith('/almacen/'))                   return 'almacen'
   if (pathname.startsWith('/calendario') ||
       pathname.startsWith('/tasks') ||
       pathname.startsWith('/admin'))                                                 return 'calendario'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
-  // Default: WMS (/, /wms, /sac/*, /rc, /clients, /almacen/* etc.)
+  // Default: WMS (/, /wms, /sac/*, /rc, /clients, etc.)
   return 'wms'
 }
 
 const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: Link[] }> = {
   wms:        { label: 'Herramientas de WMS', links: WMS_LINKS },
   tms:        { label: 'Transportes',         links: TMS_LINKS },
+  almacen:    { label: 'Calendario Almacén',  links: ALMACEN_LINKS },
   calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
 }
 
