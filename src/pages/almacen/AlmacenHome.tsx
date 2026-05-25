@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar } from 'lucide-react'
+import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 
@@ -38,6 +38,13 @@ const tools: Tool[] = [
     title: 'Pizarrón Admin',
     description: 'Administrar áreas, asignar personas (con o sin cuenta) y dar tiempos estimados.',
     icon: BarChart3,
+    category: 'admin',
+  },
+  {
+    to: '/almacen/estandares',
+    title: 'Estándares de tiempo',
+    description: 'Define duración base por tipo de tarea — sugerencia al asignar y baseline de productividad.',
+    icon: Clock,
     category: 'admin',
   },
 ]

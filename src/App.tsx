@@ -11,6 +11,7 @@ import { EmisorConfigPage } from './pages/wms/EmisorConfigPage'
 import { AlmacenPage } from './pages/almacen/AlmacenPage'
 import { AlmacenHome } from './pages/almacen/AlmacenHome'
 import { HoyPage } from './pages/almacen/HoyPage'
+import { LaborStandardsPage } from './pages/almacen/LaborStandardsPage'
 import { DistributionInboxPage } from './pages/almacen/DistributionInboxPage'
 import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
@@ -96,6 +97,9 @@ function App() {
           <Route path="/almacen/pizarron-kiosk" element={<PizarronKioskPage />} />
           <Route path="/almacen/pizarron-admin" element={
             <ProtectedRoute allowedRoles={['admin', 'almacen']}><PizarronAdminPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/estandares" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><LaborStandardsPage /></ProtectedRoute>
           } />
           {/* Compat redirects: CEDIS layout y Receipt se mudaron a /wms/* */}
           <Route path="/almacen/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />

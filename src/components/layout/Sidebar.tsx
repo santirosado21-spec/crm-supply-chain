@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -33,6 +33,7 @@ const ALMACEN_LINKS: Link[] = [
   { to: '/almacen/distribucion',   label: 'Distribución tareas', icon: UserCheck },
   { to: '/almacen/pizarron',       label: 'Pizarrón',            icon: LayoutDashboard },
   { to: '/almacen/pizarron-admin', label: 'Pizarrón Admin',      icon: BarChart3 },
+  { to: '/almacen/estandares',     label: 'Estándares',          icon: Clock },
 ]
 
 const TMS_LINKS: Link[] = [

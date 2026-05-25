@@ -1,6 +1,6 @@
-# MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón
+# MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 2 MIGRACIONES PENDIENTES DE APLICAR
+## Estado: 3 MIGRACIONES PENDIENTES DE APLICAR
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -15,6 +15,13 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Tabla `warehouse_tasks` (8 áreas) + índices + RLS abierta + realtime.
 - RPC `pizarron_claim_task(...)` — toma una tarea (anti doble-claim con FOR UPDATE).
 - RPC `pizarron_complete_task(...)` — completa y finaliza la tarea origen.
+
+### 3. `20260525143000_labor_standards.sql`
+- Tabla `labor_standards` (task_type UNIQUE, base_duration_min, unit_label, notes)
+  + RLS abierta + trigger de updated_at.
+- Engineered Labor Standards (Blue Yonder WLM): tiempo base por tipo de tarea
+  para almacén. Se administra en `/almacen/estandares` y se usa como sugerencia
+  al asignar en el Pizarrón.
 
 ## Cómo aplicar
 
