@@ -28,6 +28,9 @@ export const WMS_ROLES: UserRole[]     = ['admin', 'almacen', 'servicio_cliente'
 export const TMS_ROLES: UserRole[]     = ['admin', 'transporte']
 export const ALMACEN_ROLES: UserRole[] = ['admin', 'almacen', 'servicio_cliente']
 export const TASK_ROLES: UserRole[]    = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte']
+// CALENDARIO_ROLES: nuevo módulo cross-team renombrado desde Task Tracker.
+// Almacén queda EXCLUIDO — opera en su propio módulo (Calendario Almacén) que se introduce en commits posteriores.
+export const CALENDARIO_ROLES: UserRole[] = ['admin', 'servicio_cliente', 'cobranza', 'transporte']
 
 export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tips: string[] }> = {
   wms: {

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SidebarProvider } from './context/SidebarContext'
 import { ToastProvider } from './hooks/useToast'
@@ -39,7 +39,13 @@ import { ExtensivBilling } from './pages/tasks/admin/ExtensivBilling'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { ALMACEN_ROLES, CALENDARIO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+
+// Preserva el :id en el redirect compat /tasks/:id → /calendario/:id
+function RedirectTaskToCalendario() {
+  const { id } = useParams()
+  return <Navigate to={id ? `/calendario/${id}` : '/calendario'} replace />
+}
 
 function App() {
   return (
@@ -133,36 +139,49 @@ function App() {
           } />
           {/* Compat redirect: ruta vieja /sac/receipt-generator → /almacen */}
           <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
-          {/* Task Tracker */}
-          <Route path="/tasks" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskInbox /></ProtectedRoute>
+          {/* Calendario (cross-team) — antes Task Tracker, ahora expuesto desde WMS / TMS */}
+          <Route path="/calendario" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskInbox /></ProtectedRoute>
           } />
-          <Route path="/tasks/calendar" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskCalendar /></ProtectedRoute>
+          <Route path="/calendario/semana" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskCalendar /></ProtectedRoute>
           } />
-          <Route path="/tasks/new" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskCreate /></ProtectedRoute>
+          <Route path="/calendario/nueva" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskCreate /></ProtectedRoute>
           } />
-          <Route path="/tasks/templates" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskTemplates /></ProtectedRoute>
+          <Route path="/calendario/plantillas" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskTemplates /></ProtectedRoute>
           } />
-          <Route path="/tasks/admin/team" element={
+          <Route path="/calendario/admin/equipo" element={
             <ProtectedRoute allowedRoles={['admin']}><TeamSettings /></ProtectedRoute>
           } />
-          <Route path="/tasks/admin/reports" element={
+          <Route path="/calendario/admin/reportes" element={
             <ProtectedRoute allowedRoles={['admin']}><Reports /></ProtectedRoute>
           } />
+          <Route path="/calendario/admin/auditoria" element={
+            <ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>
+          } />
+          <Route path="/calendario/:id" element={
+            <ProtectedRoute><TaskDetail /></ProtectedRoute>
+          } />
+
+          {/* Compat redirects /tasks/* → /calendario/* */}
+          <Route path="/tasks" element={<Navigate to="/calendario" replace />} />
+          <Route path="/tasks/calendar" element={<Navigate to="/calendario/semana" replace />} />
+          <Route path="/tasks/new" element={<Navigate to="/calendario/nueva" replace />} />
+          <Route path="/tasks/templates" element={<Navigate to="/calendario/plantillas" replace />} />
+          <Route path="/tasks/admin/team" element={<Navigate to="/calendario/admin/equipo" replace />} />
+          <Route path="/tasks/admin/reports" element={<Navigate to="/calendario/admin/reportes" replace />} />
+          <Route path="/tasks/admin/audit-log" element={<Navigate to="/calendario/admin/auditoria" replace />} />
+          <Route path="/tasks/:id" element={<RedirectTaskToCalendario />} />
+
+          {/* Temporal hasta commit siguiente: ExtensivBilling se elimina */}
           <Route path="/tasks/admin/extensiv-billing" element={
             <ProtectedRoute allowedRoles={['admin', 'cobranza']}><ExtensivBilling /></ProtectedRoute>
           } />
-          <Route path="/tasks/admin/audit-log" element={
-            <ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>
-          } />
+
           <Route path="/admin/executive-report" element={
             <ProtectedRoute allowedRoles={['admin']}><ExecutiveReportPage /></ProtectedRoute>
-          } />
-          <Route path="/tasks/:id" element={
-            <ProtectedRoute><TaskDetail /></ProtectedRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" replace />} />

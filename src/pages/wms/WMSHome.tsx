@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, Warehouse, UserCheck, LayoutDashboard, BarChart3 } from 'lucide-react'
+import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, Warehouse, UserCheck, LayoutDashboard, BarChart3, Calendar } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { useWMSOperationsData } from '../../hooks/useWMSOperationsData'
@@ -13,6 +13,13 @@ interface Tool {
 }
 
 const tools: Tool[] = [
+  {
+    to: '/calendario',
+    title: 'Calendario',
+    description: 'Bandeja de tareas — crea y sigue solicitudes hacia almacén.',
+    icon: Calendar,
+    category: 'sac',
+  },
   {
     to: '/sac/validador',
     title: 'Validador de SKUs',

@@ -41,35 +41,37 @@ const TMS_LINKS: Link[] = [
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
 ]
 
-const TASKS_LINKS: Link[] = [
-  { to: '/tasks',                  label: 'Mi bandeja',     icon: Inbox },
-  { to: '/tasks/calendar',         label: 'Calendario',     icon: Calendar },
-  { to: '/tasks/templates',        label: 'Plantillas',     icon: Repeat },
+const CALENDARIO_LINKS: Link[] = [
+  { to: '/calendario',             label: 'Mi bandeja',     icon: Inbox },
+  { to: '/calendario/semana',      label: 'Calendario',     icon: Calendar },
+  { to: '/calendario/plantillas',  label: 'Plantillas',     icon: Repeat },
 ]
 
-const TASKS_ADMIN_LINKS: Link[] = [
-  { to: '/tasks/admin/team',              label: 'Equipo y horarios',   icon: UserCog },
-  { to: '/tasks/admin/reports',           label: 'Reportes operativos', icon: BarChart3 },
+const CALENDARIO_ADMIN_LINKS: Link[] = [
+  { to: '/calendario/admin/equipo',       label: 'Equipo y horarios',   icon: UserCog },
+  { to: '/calendario/admin/reportes',     label: 'Reportes operativos', icon: BarChart3 },
   { to: '/admin/executive-report',        label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
-  { to: '/tasks/admin/audit-log',         label: 'Auditoría',           icon: History },
+  { to: '/calendario/admin/auditoria',    label: 'Auditoría',           icon: History },
   { to: '/tasks/admin/extensiv-billing',  label: 'Extensiv Billing',    icon: Receipt },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'tasks'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'calendario'
 
 function detectModule(pathname: string): ModuleKey {
-  if (pathname === '/')                                                          return 'home'
-  if (pathname.startsWith('/tasks') || pathname.startsWith('/admin'))            return 'tasks'
+  if (pathname === '/')                                                              return 'home'
+  if (pathname.startsWith('/calendario') ||
+      pathname.startsWith('/tasks') ||
+      pathname.startsWith('/admin'))                                                 return 'calendario'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
-  // Default: WMS (/, /wms, /sac/*, /rc, /clients, etc.)
+  // Default: WMS (/, /wms, /sac/*, /rc, /clients, /almacen/* etc.)
   return 'wms'
 }
 
 const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: Link[] }> = {
-  wms:     { label: 'Herramientas de WMS',         links: WMS_LINKS },
-  tms:     { label: 'Transportes',                 links: TMS_LINKS },
-  tasks:   { label: 'Task Tracker',                links: TASKS_LINKS },
+  wms:        { label: 'Herramientas de WMS', links: WMS_LINKS },
+  tms:        { label: 'Transportes',         links: TMS_LINKS },
+  calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
 }
 
 export function Sidebar() {
@@ -88,10 +90,11 @@ export function Sidebar() {
   const visibleLinks = links.filter(link => canAccessPath(user?.role, link.to))
   const isAdmin    = user?.role === 'admin'
   const isCobranza = user?.role === 'cobranza'
-  // En el módulo tasks, mostramos sección admin a admin (todos los links)
-  // o a cobranza (solo billing).
-  const showAdminTasks = currentModule === 'tasks' && (isAdmin || isCobranza)
-  const visibleAdminLinks = TASKS_ADMIN_LINKS.filter(l =>
+  // En el módulo calendario, mostramos sección admin a admin (todos los links)
+  // o a cobranza (solo Extensiv Billing — sigue en /tasks/admin/extensiv-billing
+  // hasta el commit que lo elimina).
+  const showAdminCalendario = currentModule === 'calendario' && (isAdmin || isCobranza)
+  const visibleAdminLinks = CALENDARIO_ADMIN_LINKS.filter(l =>
     isAdmin || l.to === '/tasks/admin/extensiv-billing'
   )
 
@@ -208,7 +211,7 @@ export function Sidebar() {
           </div>
         ))}
 
-        {showAdminTasks && (
+        {showAdminCalendario && (
           <div>
             <p className="text-[9px] font-bold tracking-widest uppercase px-3 mb-1.5" style={{ color: '#94a3b8' }}>
               Administración
