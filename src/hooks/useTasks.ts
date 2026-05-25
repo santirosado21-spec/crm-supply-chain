@@ -118,12 +118,19 @@ export function useTasks() {
   return { tasks, loading, error, list, get, create, updateStatus }
 }
 
-// ── Categorías (cache simple) ────────────────────────────────────────────────
-let _categoryCache: TaskCategory[] | null = null
+// ── Categorías (cache con TTL) ───────────────────────────────────────────────
+// TTL para que una categoría creada/editada en TeamSettings aparezca sin
+// necesidad de recargar la página (antes el cache vivía para siempre).
+let _categoryCache: { data: TaskCategory[]; at: number } | null = null
+const CATEGORY_TTL_MS = 5 * 60 * 1000
+
 export async function getTaskCategories(): Promise<TaskCategory[]> {
-  if (_categoryCache) return _categoryCache
+  if (_categoryCache && Date.now() - _categoryCache.at < CATEGORY_TTL_MS) {
+    return _categoryCache.data
+  }
   const { data, error } = await supabase.from('task_categories').select('*').order('name')
   if (error) throw new Error(error.message)
-  _categoryCache = (data ?? []) as TaskCategory[]
-  return _categoryCache
+  const rows = (data ?? []) as TaskCategory[]
+  _categoryCache = { data: rows, at: Date.now() }
+  return rows
 }

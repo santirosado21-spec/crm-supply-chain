@@ -52,8 +52,12 @@ export function useTaskAvailability() {
           .select('id, ref, title, scheduled_start, scheduled_end')
           .eq('assignee_email', userEmail)
           .in('status', BUSY_STATUSES)
-          .gte('scheduled_start', dayStart.toISOString())
-          .lt('scheduled_start', dayEnd.toISOString()),
+          // Tareas que SE TRASLAPAN con el rango — no solo las que empiezan
+          // dentro de él. Una tarea iniciada ayer que sigue corriendo hoy
+          // también ocupa slots; filtrar por scheduled_start la perdía y
+          // permitía agendar tareas encimadas.
+          .lt('scheduled_start', dayEnd.toISOString())
+          .gte('scheduled_end', dayStart.toISOString()),
       ])
 
       if (scheduleErr) throw scheduleErr

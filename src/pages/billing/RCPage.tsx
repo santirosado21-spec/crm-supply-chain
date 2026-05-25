@@ -67,13 +67,16 @@ export function RCPage() {
       .select('extensiv_customer_id')
       .eq('name', clienteF)
       .eq('is_active', true)
-      .single()
+      // maybeSingle: no lanza con 0 filas (cliente sin match) ni con varias
+      // (nombres duplicados) — .single() reventaba la promesa en ambos casos.
+      .maybeSingle()
       .then(
-        ({ data }) => {
+        ({ data, error }) => {
           setExtensivId(data?.extensiv_customer_id ?? null)
+          if (error) setExtError('No se pudo verificar el cliente en Extensiv')
           setLoadingExtId(false)
         },
-        () => setLoadingExtId(false),
+        () => { setExtError('No se pudo verificar el cliente en Extensiv'); setLoadingExtId(false) },
       )
   }, [clienteF])
 

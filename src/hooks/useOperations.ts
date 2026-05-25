@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Operation, OperationStatus, OperationType } from '../types'
 
@@ -15,13 +15,17 @@ export interface OperationFilters {
 }
 
 // ── Reference generation ──────────────────────────────────────────────────────
+// Genera la referencia vía RPC: el conteo en el cliente (count + 1) tenía race
+// — dos creaciones simultáneas producían la misma referencia. La RPC
+// next_operation_reference incrementa un contador por cliente de forma atómica.
 async function nextReference(clienteCodigo: string): Promise<string> {
-  const { count } = await supabase
-    .from('operations')
-    .select('*', { count: 'exact', head: true })
-    .eq('cliente_codigo', clienteCodigo)
-  const seq = String((count ?? 0) + 1).padStart(4, '0')
-  return `SC${clienteCodigo}${seq}`
+  const { data, error } = await supabase.rpc('next_operation_reference', {
+    p_cliente_codigo: clienteCodigo,
+  })
+  if (error || typeof data !== 'string') {
+    throw new Error(`No se pudo generar la referencia: ${error?.message ?? 'respuesta inválida'}`)
+  }
+  return data
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -65,34 +69,33 @@ export function useOperations(filters?: OperationFilters) {
 
   useEffect(() => { fetchOperations() }, [fetchOperations])
 
-  // Realtime: refleja INSERT/UPDATE/DELETE de operations sin refresh manual.
-  // El webhook de Extensiv hace UPSERT (no solo INSERT), así que necesitamos
-  // escuchar '*' para que ediciones del SAC y refreshes de Extensiv aparezcan
-  // en vivo. DELETEs (raros, solo admin) también se reflejan.
+  // Mantiene una referencia a la última fetchOperations (cambia con los
+  // filtros) sin re-suscribir el canal realtime en cada cambio de filtro.
+  const fetchRef = useRef(fetchOperations)
+  useEffect(() => { fetchRef.current = fetchOperations }, [fetchOperations])
+
+  // Realtime: ante cualquier cambio en operations, re-ejecuta la consulta
+  // FILTRADA. Antes insertaba/actualizaba la fila a ciegas, lo que metía en la
+  // lista operaciones que no cumplían los filtros activos y dejaba los stats
+  // (total, totalMXN) incorrectos. El debounce colapsa ráfagas — p. ej. el
+  // webhook de Extensiv haciendo upsert de muchas filas seguidas.
   useEffect(() => {
+    let debounce: ReturnType<typeof setTimeout> | null = null
     const channel = supabase
       .channel('operations-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'operations' },
-        (payload) => {
-          if (payload.eventType === 'DELETE') {
-            const old = payload.old as Operation
-            setAllOps(prev => prev.filter(o => o.id !== old.id))
-            return
-          }
-          const op = payload.new as Operation
-          setAllOps(prev => {
-            const idx = prev.findIndex(o => o.id === op.id)
-            if (idx === -1) return [op, ...prev]
-            const next = [...prev]
-            next[idx] = op
-            return next
-          })
+        () => {
+          if (debounce) clearTimeout(debounce)
+          debounce = setTimeout(() => { fetchRef.current() }, 300)
         },
       )
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      if (debounce) clearTimeout(debounce)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Client-side filtered view (para filtros que no se enviaron al servidor)

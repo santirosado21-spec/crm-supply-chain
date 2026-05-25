@@ -7,7 +7,19 @@
 //
 // Funciones puras, sin dependencias de React ni de Supabase — testeables.
 
-const DAY_MS = 86_400_000
+/** Parte YYYY-MM-DD de una fecha o timestamp ISO. Normalizar a fecha-sin-hora
+ *  antes de comparar evita falsos "retrasado": comparar una fecha (medianoche
+ *  UTC) contra un timestamp con hora/zona da resultados incorrectos. */
+function dateOnly(s: string): string {
+  return s.slice(0, 10)
+}
+
+/** Suma días a una fecha YYYY-MM-DD y devuelve YYYY-MM-DD. */
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
 
 export interface SLAInput {
   promised_delivery_date?: string | null
@@ -35,12 +47,13 @@ export function evaluateSLA(g: SLAInput): SLAResult {
   const induction = g.induction_date
 
   const hasDelivery = !!(promised && actual)
-  const onTime  = hasDelivery && new Date(actual!).getTime() <= new Date(promised!).getTime()
-  const delayed = hasDelivery && new Date(actual!).getTime() >  new Date(promised!).getTime()
+  // Comparación lexicográfica de YYYY-MM-DD — correcta para fechas ISO.
+  const onTime  = hasDelivery && dateOnly(actual!) <= dateOnly(promised!)
+  const delayed = hasDelivery && dateOnly(actual!) >  dateOnly(promised!)
 
   const hasInduction = !!(induction && g.created_at)
   const onTimeInduction = hasInduction &&
-    new Date(induction!).getTime() <= new Date(g.created_at!).getTime() + DAY_MS
+    dateOnly(induction!) <= addDays(dateOnly(g.created_at!), 1)
 
   return {
     hasDelivery, onTime, delayed, hasInduction, onTimeInduction,

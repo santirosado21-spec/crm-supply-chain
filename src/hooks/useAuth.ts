@@ -78,11 +78,17 @@ export function useAuth() {
       // Supabase recomienda no encadenar llamadas async al cliente dentro de
       // onAuthStateChange. Las diferimos para evitar que el login quede colgado.
       setTimeout(async () => {
-        const u = await hydrate(session?.user?.email)
-        if (!mountedRef.current) return
-        setUser(u)
-        if (event === 'SIGNED_IN' && session?.user?.email && !u) {
-          await supabase.auth.signOut()
+        try {
+          const u = await hydrate(session?.user?.email)
+          if (!mountedRef.current) return
+          setUser(u)
+          if (event === 'SIGNED_IN' && session?.user?.email && !u) {
+            await supabase.auth.signOut()
+          }
+        } catch (e) {
+          // Sin este catch, un fallo de red en hydrate quedaba como un
+          // unhandled rejection y el estado de usuario se quedaba colgado.
+          console.error('[auth] hidratación de usuario falló:', e)
         }
       }, 0)
     })

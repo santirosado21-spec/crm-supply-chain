@@ -116,9 +116,19 @@ export function useServiciosAdicionales(filters?: ServicioFilters) {
     id: string,
     input: Partial<CreateServicioData>
   ): Promise<ServicioAdicional> => {
-    const updates = { ...input }
-    if (input.cantidad !== undefined && input.precio_unitario !== undefined) {
-      (updates as Record<string, unknown>).subtotal = input.cantidad * input.precio_unitario
+    const updates: Record<string, unknown> = { ...input }
+    // Recalcula subtotal si cambió cantidad O precio_unitario (antes solo lo
+    // hacía cuando venían AMBOS, dejando el subtotal viejo si se editaba uno
+    // solo). El valor que no venga en el patch se lee del registro actual.
+    if (input.cantidad !== undefined || input.precio_unitario !== undefined) {
+      const { data: current } = await supabase
+        .from('servicios_adicionales')
+        .select('cantidad, precio_unitario')
+        .eq('id', id)
+        .single()
+      const cantidad = input.cantidad ?? current?.cantidad ?? 0
+      const precio   = input.precio_unitario ?? current?.precio_unitario ?? 0
+      updates.subtotal = cantidad * precio
     }
 
     const { data, error: err } = await supabase

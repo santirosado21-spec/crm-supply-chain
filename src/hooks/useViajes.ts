@@ -74,8 +74,14 @@ export function useViajes(filters?: ViajeFilters) {
   }, [])
 
   const updateViaje = useCallback(async (id: string, data: UpdateViajeData) => {
-    // Recalculate totals if cost fields are being updated
-    const existing = viajes.find(v => v.id === id)
+    // Recalcula costo_total/margen leyendo los costos ACTUALES del registro en
+    // la BD, no del estado local — que puede estar desactualizado si otro
+    // usuario o pestaña editó el viaje (useViajes no tiene canal realtime).
+    const { data: existing } = await supabase
+      .from('viajes')
+      .select('costo_combustible, costo_casetas, costo_viaticos, costo_proveedor, ingreso_cliente')
+      .eq('id', id)
+      .single()
     const combustible = data.costo_combustible ?? existing?.costo_combustible ?? 0
     const casetas = data.costo_casetas ?? existing?.costo_casetas ?? 0
     const viaticos = data.costo_viaticos ?? existing?.costo_viaticos ?? 0
@@ -94,7 +100,7 @@ export function useViajes(filters?: ViajeFilters) {
     const v = updated as Viaje
     setViajes(prev => prev.map(x => x.id === id ? v : x))
     return v
-  }, [viajes])
+  }, [])
 
   const deleteViaje = useCallback(async (id: string) => {
     const { error: err } = await supabase.from('viajes').delete().eq('id', id)

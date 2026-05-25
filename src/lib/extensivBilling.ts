@@ -61,11 +61,32 @@ interface ExtensivBillingChargesResponse {
   [k: string]: any
 }
 
+// Lock de envíos en vuelo — evita que un doble-click dispare dos POST a
+// Extensiv antes de que el primero termine (el log es idempotente, el POST no).
+const _inFlightCharges = new Set<string>()
+
 /**
  * Empuja un charge a Extensiv Billing Wizard. Maneja todo el ciclo de vida
- * en `extensiv_billing_log` con idempotencia.
+ * en `extensiv_billing_log` con idempotencia. Serializa por (source, charge):
+ * un segundo intento mientras el primero está en vuelo se rechaza.
  */
 export async function pushChargeToExtensiv(input: PushChargeInput): Promise<PushChargeResult> {
+  const lockKey = `${input.sourceTable}:${input.sourceId}:${input.chargeType}`
+  if (_inFlightCharges.has(lockKey)) {
+    return {
+      ok: false, logId: '', extensivChargeId: null, httpStatus: 0,
+      error: 'Ya hay un envío en curso para este cargo',
+    }
+  }
+  _inFlightCharges.add(lockKey)
+  try {
+    return await pushChargeInner(input)
+  } finally {
+    _inFlightCharges.delete(lockKey)
+  }
+}
+
+async function pushChargeInner(input: PushChargeInput): Promise<PushChargeResult> {
   const chargeDate = input.chargeDate ?? new Date().toISOString().slice(0, 10)
 
   // 1. Reservar fila en log (status='pending')

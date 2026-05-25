@@ -57,6 +57,10 @@ export function GlobalSearch() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Limpia el timer de debounce al desmontar — evita un setState sobre un
+  // componente desmontado si se cierra dentro de la ventana de 200 ms.
+  useEffect(() => () => clearTimeout(timer.current), [])
+
   const search = useCallback((q: string) => {
     if (!q.trim()) { setResults([]); setOpen(false); return }
     const tokens = q.toLowerCase().trim().split(/\s+/)

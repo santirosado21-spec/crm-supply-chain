@@ -16,6 +16,8 @@
 
 // @ts-ignore — Deno-only import, resuelto en deploy
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// @ts-ignore
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // @ts-ignore — Deno global disponible en runtime
 declare const Deno: { env: { get(key: string): string | undefined } }
@@ -24,6 +26,22 @@ const CLIENT_ID     = Deno.env.get('FEDEX_CLIENT_ID')     ?? ''
 const CLIENT_SECRET = Deno.env.get('FEDEX_CLIENT_SECRET') ?? ''
 const ACCOUNT       = Deno.env.get('FEDEX_ACCOUNT')       ?? ''
 const BASE_URL      = Deno.env.get('FEDEX_BASE_URL')      ?? 'https://apis.fedex.com'
+const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')        ?? ''
+const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')   ?? ''
+
+// Verifica que la petición venga de un usuario autenticado del CRM. El proxy
+// crea envíos FedEx reales y facturables — sin esta comprobación cualquiera
+// con la URL pública podría gastar dinero en la cuenta de la empresa.
+async function isAuthenticated(req: Request): Promise<boolean> {
+  const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!jwt || !SUPABASE_URL || !ANON_KEY) return false
+  try {
+    const { data, error } = await createClient(SUPABASE_URL, ANON_KEY).auth.getUser(jwt)
+    return !error && !!data.user
+  } catch {
+    return false
+  }
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
@@ -51,7 +69,10 @@ async function getAccessToken(): Promise<string> {
     }),
   })
   if (!res.ok) {
-    throw new Error(`FedEx auth failed (${res.status}): ${await res.text()}`)
+    // Log server-side; el cuerpo del error de FedEx puede incluir client_id u
+    // otros detalles de credenciales — no se devuelve al cliente.
+    console.error(`[fedex-proxy] OAuth failed (${res.status}):`, await res.text())
+    throw new Error('FedEx authentication failed')
   }
   const data = await res.json()
   _token = data.access_token
@@ -75,6 +96,10 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS_HEADERS })
+  }
+
+  if (!(await isAuthenticated(req))) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS })
   }
 
   let body: ProxyBody

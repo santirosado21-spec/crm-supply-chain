@@ -12,6 +12,10 @@
 
 import { supabase } from './supabase'
 
+// Tope de páginas por consulta — guard de runaway: si el proxy devolviera
+// siempre una página llena (respuesta malformada), el while saldría igual.
+const MAX_PAGES = 200
+
 const DEFAULT_CUSTOMER_ID = Number(import.meta.env.VITE_EXTENSIV_CUSTOMER_ID ?? 0)
 const DEFAULT_FACILITY_ID = Number(import.meta.env.VITE_EXTENSIV_FACILITY_ID ?? 1)
 
@@ -99,7 +103,7 @@ export async function getExtensivInventoryByCustomer(
   let page = 1
   const pageSize = 500
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const data = await callProxy<{
       totalResults?: number
       _embedded?: { item?: Array<{
@@ -247,7 +251,7 @@ export async function getExtensivOrdersByCustomer(
   const ORDER_REL = 'http://api.3plCentral.com/rels/orders/order'
   const ITEM_REL  = 'http://api.3plCentral.com/rels/orders/item'
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const rql = `ReadOnly.customerIdentifier.id==${customerId};ReadOnly.creationDate=ge=${from};ReadOnly.creationDate=le=${to}T23:59:59`
     const data = await callProxy<{
       totalResults?: number
@@ -317,7 +321,7 @@ export async function getExtensivReceiversByCustomer(
   const RCV_REL  = 'http://api.3plCentral.com/rels/inventory/receiver'
   const ITEM_REL = 'http://api.3plCentral.com/rels/inventory/receiveritem'
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const rql = `ReadOnly.customerIdentifier.id==${customerId};ReadOnly.creationDate=ge=${from};ReadOnly.creationDate=le=${to}T23:59:59`
     const data = await callProxy<{
       totalResults?: number
@@ -370,7 +374,7 @@ export async function getExtensivLocations(
   let page = 1
   const pageSize = 500
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const data = await callProxy<{
       totalResults?: number
       _embedded?: { 'http://api.3plCentral.com/rels/locations/location'?: Array<{
@@ -431,7 +435,7 @@ export async function getExtensivInventoryByLocation(
   let page = 1
   const pageSize = 500
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const data = await callProxy<{
       totalResults?: number
       _embedded?: { item?: ExtensivInventoryItem[] }
@@ -472,7 +476,7 @@ export async function getExtensivInventoryByLocationAndCustomer(
   let page = 1
   const pageSize = 500
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const data = await callProxy<{
       totalResults?: number
       _embedded?: { item?: Array<ExtensivInventoryItem & { customerIdentifier?: { id?: number; name?: string } }> }
