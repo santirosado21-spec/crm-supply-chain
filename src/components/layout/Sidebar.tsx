@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, Receipt, History, FileSpreadsheet, Menu } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -52,7 +52,6 @@ const CALENDARIO_ADMIN_LINKS: Link[] = [
   { to: '/calendario/admin/reportes',     label: 'Reportes operativos', icon: BarChart3 },
   { to: '/admin/executive-report',        label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
   { to: '/calendario/admin/auditoria',    label: 'Auditoría',           icon: History },
-  { to: '/tasks/admin/extensiv-billing',  label: 'Extensiv Billing',    icon: Receipt },
 ]
 
 type ModuleKey = 'home' | 'wms' | 'tms' | 'calendario'
@@ -88,15 +87,11 @@ export function Sidebar() {
 
   const { label, links } = MODULE_CONFIG[currentModule]
   const visibleLinks = links.filter(link => canAccessPath(user?.role, link.to))
-  const isAdmin    = user?.role === 'admin'
-  const isCobranza = user?.role === 'cobranza'
-  // En el módulo calendario, mostramos sección admin a admin (todos los links)
-  // o a cobranza (solo Extensiv Billing — sigue en /tasks/admin/extensiv-billing
-  // hasta el commit que lo elimina).
-  const showAdminCalendario = currentModule === 'calendario' && (isAdmin || isCobranza)
-  const visibleAdminLinks = CALENDARIO_ADMIN_LINKS.filter(l =>
-    isAdmin || l.to === '/tasks/admin/extensiv-billing'
-  )
+  const isAdmin = user?.role === 'admin'
+  // En el módulo calendario, la sección admin solo aplica a admin (los links
+  // que tenía cobranza vivían en ExtensivBilling, ya eliminado).
+  const showAdminCalendario = currentModule === 'calendario' && isAdmin
+  const visibleAdminLinks = CALENDARIO_ADMIN_LINKS
 
   // Agrupa los links por sub-grupo (section). Si el módulo no usa sections,
   // todo cae bajo un único grupo con el nombre del módulo.

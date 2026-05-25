@@ -35,7 +35,6 @@ import { TaskDetail } from './pages/tasks/TaskDetail'
 import { TaskTemplates } from './pages/tasks/TaskTemplates'
 import { TeamSettings } from './pages/tasks/admin/TeamSettings'
 import { Reports } from './pages/tasks/admin/Reports'
-import { ExtensivBilling } from './pages/tasks/admin/ExtensivBilling'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
@@ -174,11 +173,6 @@ function App() {
           <Route path="/tasks/admin/reports" element={<Navigate to="/calendario/admin/reportes" replace />} />
           <Route path="/tasks/admin/audit-log" element={<Navigate to="/calendario/admin/auditoria" replace />} />
           <Route path="/tasks/:id" element={<RedirectTaskToCalendario />} />
-
-          {/* Temporal hasta commit siguiente: ExtensivBilling se elimina */}
-          <Route path="/tasks/admin/extensiv-billing" element={
-            <ProtectedRoute allowedRoles={['admin', 'cobranza']}><ExtensivBilling /></ProtectedRoute>
-          } />
 
           <Route path="/admin/executive-report" element={
             <ProtectedRoute allowedRoles={['admin']}><ExecutiveReportPage /></ProtectedRoute>
