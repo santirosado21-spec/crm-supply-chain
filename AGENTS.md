@@ -1,4 +1,4 @@
-# CLAUDE.md — CRM Supply Chain MX
+# AGENTS.md — CRM Supply Chain MX
 
 > Contexto que toda conversación nueva debe conocer. Mantener conciso y actualizado.
 
@@ -83,7 +83,7 @@ captura `actual_duration_min` automáticamente.
 - Supabase joins: `.select('*, clients(name)')`
 - Tablas nuevas: RLS habilitado con policy abierta (`FOR ALL USING (true) WITH CHECK (true)`) — consistente con el resto del schema
 - Migraciones: `supabase/migrations/YYYYMMDDHHMMSS_nombre.sql`, solo aditivas (no DROP/RENAME de columnas con datos)
-- Commits en español. Cerrar mensaje con: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
+- Commits en español. Cerrar mensaje con: `Co-Authored-By: Codex Opus 4.7 (1M context) <noreply@anthropic.com>`
 - Patrones a copiar: hook CRUD+realtime → `src/hooks/useOperations.ts`; parser PT → `src/lib/ptParser.ts`
 
 ## Integración Extensiv
@@ -104,7 +104,7 @@ captura `actual_duration_min` automáticamente.
 
 - Branch activo: `feat/limpieza-modulos-mx` — Fase 1 (limpieza) + Fase 2 (Calendario Almacén + restructura Task Tracker + Blue Yonder WLM subset). PR #1 contra `main` (https://github.com/santirosado21-spec/crm-supply-chain/pull/1).
 - **Migraciones pendientes** (4): ver `MIGRATIONS_PENDING.md`. Las 2 últimas son `labor_standards` + `warehouse_tasks_assignment_fields` — deben aplicarse en Supabase SQL Editor para que las features nuevas (Estándares + flujo phoneless) funcionen.
-- Planes de sprint viven en `.claude/plans/`.
+- Planes de sprint viven en `.Codex/plans/`.
 - Archivos de status de sprints autónomos en raíz: `MIGRATIONS_PENDING.md`, `SECRETS_PENDING.md`, `BLOCKERS.md`, `FIXMES.md`, `SCOPE_GAPS.md`, `SPRINT_REPORT.md`. Revisar después de cada sprint autónomo.
 - Backlog general: `PENDIENTES.md`.
 

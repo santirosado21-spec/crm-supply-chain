@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Upload, FileSpreadsheet, Download, Trash2, XCircle, AlertTriangle,
-  Loader2, FileInput, Plus, CheckCircle2, Database,
+  Loader2, FileInput, Plus, CheckCircle2, Database, Sparkles,
 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
-import { extractReceiptItemsFromPT } from '../../lib/ptParser'
+import { extractReceiptItemsFromPT, type PTLineItem } from '../../lib/ptParser'
+import { extractReceiptItemsWithVision } from '../../lib/visionExtract'
 import { generateReceiptExcel } from './receiptExport'
 import {
   isExtensivConfigured,
@@ -96,6 +97,8 @@ export function ReceiptGeneratorPage() {
   const [ref, setRef] = useState('')
   const [items, setItems] = useState<ReceiptItem[]>([])
   const [processing, setProcessing] = useState(false)
+  const [visionLoading, setVisionLoading] = useState(false)
+  const [extractedVia, setExtractedVia] = useState<'vision' | 'text' | null>(null)
   const [error, setError] = useState('')
 
   const [customers, setCustomers] = useState<ExtensivCustomer[]>([])
@@ -155,35 +158,85 @@ export function ReceiptGeneratorPage() {
     }
   }
 
+  const validateExtraction = useCallback((
+    extracted: PTLineItem[],
+    inv: Record<string, number> | null,
+    keys: string[],
+  ): ReceiptItem[] => extracted.map(it => {
+    const m = classifySku(it.sku, inv, keys)
+    return {
+      sku: it.sku,
+      qty: it.qty,
+      serialNumber: it.serialNumber,
+      matchType: m.matchType,
+      matchedSKUs: m.matchedSKUs,
+      confirmed: false,
+    }
+  }), [])
+
   const handleExtract = useCallback(async (file: File, inv: Record<string, number> | null, keys: string[]) => {
-    setProcessing(true)
     setError('')
     setItems([])
     setRef('')
+    setExtractedVia(null)
+    const isPDF = file.name.toLowerCase().endsWith('.pdf')
+
     try {
+      // PDFs → visión primero (identifica también los escaneados / imagen).
+      if (isPDF) {
+        setVisionLoading(true)
+        try {
+          const ext = await extractReceiptItemsWithVision(file)
+          if (ext.items.length > 0) {
+            setRef(ext.ref ?? '')
+            setItems(validateExtraction(ext.items, inv, keys))
+            setExtractedVia('vision')
+            return
+          }
+        } catch (visionErr) {
+          console.warn('Extracción con IA falló, usando lector local:', visionErr)
+        } finally {
+          setVisionLoading(false)
+        }
+      }
+
+      // Excel/CSV, o fallback si la visión falló / no encontró nada.
+      setProcessing(true)
       const { ref: detectedRef, items: extracted } = await extractReceiptItemsFromPT(file)
       setRef(detectedRef ?? '')
-      const validated: ReceiptItem[] = extracted.map(it => {
-        const m = classifySku(it.sku, inv, keys)
-        return {
-          sku: it.sku,
-          qty: it.qty,
-          serialNumber: it.serialNumber,
-          matchType: m.matchType,
-          matchedSKUs: m.matchedSKUs,
-          confirmed: false,
-        }
-      })
+      const validated = validateExtraction(extracted, inv, keys)
       setItems(validated)
+      setExtractedVia(validated.length > 0 ? 'text' : null)
       if (validated.length === 0) {
-        setError('No se encontraron items en el PT. Verifica que tenga columnas SKU y Cantidad identificables.')
+        setError(isPDF
+          ? 'No se encontraron items en el PT, ni con IA ni con el lector local. Verifica el archivo.'
+          : 'No se encontraron items en el PT. Verifica que tenga columnas SKU y Cantidad identificables.')
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al procesar PT')
     } finally {
       setProcessing(false)
+      setVisionLoading(false)
     }
-  }, [])
+  }, [validateExtraction])
+
+  const handleVisionReextract = useCallback(async () => {
+    if (!ptFile) return
+    setVisionLoading(true)
+    setError('')
+    try {
+      const ext = await extractReceiptItemsWithVision(ptFile)
+      setRef(ext.ref ?? '')
+      const validated = validateExtraction(ext.items, inventory, invKeys)
+      setItems(validated)
+      setExtractedVia('vision')
+      if (validated.length === 0) setError('La IA no encontró items en el PT.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error en la extracción con IA')
+    } finally {
+      setVisionLoading(false)
+    }
+  }, [ptFile, inventory, invKeys, validateExtraction])
 
   const handleFileChange = (file: File) => {
     setPtFile(file)
@@ -195,8 +248,11 @@ export function ReceiptGeneratorPage() {
     setRef('')
     setItems([])
     setError('')
+    setExtractedVia(null)
     if (ptRef.current) ptRef.current.value = ''
   }
+
+  const isPdfFile = !!ptFile && ptFile.name.toLowerCase().endsWith('.pdf')
 
   const updateSku = (idx: number, value: string) => {
     setItems(prev => prev.map((it, i) => {
@@ -345,22 +401,30 @@ export function ReceiptGeneratorPage() {
             </div>
           </div>
 
-          {/* Loading */}
-          {processing && (
+          {/* Loading — visión IA */}
+          {visionLoading && (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-[#1e3a5f]">
+              <Sparkles size={16} className="animate-pulse" />
+              Analizando con IA (visión)… esto puede tardar unos segundos.
+            </div>
+          )}
+
+          {/* Loading — lector local */}
+          {processing && !visionLoading && (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-blue-600">
               <Loader2 size={16} className="animate-spin" /> Procesando PT...
             </div>
           )}
 
           {/* Error */}
-          {error && !processing && (
+          {error && !processing && !visionLoading && (
             <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
               <AlertTriangle size={16} className="shrink-0" /> {error}
             </div>
           )}
 
           {/* Datos extraídos */}
-          {!processing && ptFile && items.length > 0 && (
+          {!processing && !visionLoading && ptFile && items.length > 0 && (
             <>
               {/* Banner de validación */}
               <div className={`mb-4 p-3 rounded-lg border text-sm flex items-center gap-3 flex-wrap ${
@@ -415,9 +479,21 @@ export function ReceiptGeneratorPage() {
               {/* Items table */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-4">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
-                  <p className="text-xs font-semibold text-gray-600">
-                    Items extraídos ({items.length})
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold text-gray-600">
+                      Items extraídos ({items.length})
+                    </p>
+                    {extractedVia === 'vision' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#1e3a5f] bg-[#1e3a5f]/10 rounded-full px-2 py-0.5">
+                        <Sparkles size={10} /> IA (visión)
+                      </span>
+                    )}
+                    {extractedVia === 'text' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                        Lector local
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={addEmptyItem}
                     className="flex items-center gap-1 text-[11px] font-medium text-[#1e3a5f] hover:underline"
@@ -544,6 +620,15 @@ export function ReceiptGeneratorPage() {
                   <Download size={16} />
                   Generar Receipt_Import.xlsx
                 </button>
+                {isPdfFile && (
+                  <button
+                    onClick={handleVisionReextract}
+                    disabled={visionLoading}
+                    className="h-10 px-4 rounded-lg border border-[#1e3a5f]/30 bg-white text-sm font-medium text-[#1e3a5f] flex items-center gap-2 hover:bg-[#1e3a5f]/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles size={16} /> Reintentar con IA
+                  </button>
+                )}
                 <button
                   onClick={handleReset}
                   className="h-10 px-4 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 flex items-center gap-2 hover:bg-gray-50 transition-colors"

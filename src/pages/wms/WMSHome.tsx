@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, Warehouse, UserCheck, LayoutDashboard, BarChart3 } from 'lucide-react'
+import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, Warehouse, Calendar } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { useWMSOperationsData } from '../../hooks/useWMSOperationsData'
@@ -9,10 +9,17 @@ interface Tool {
   title: string
   description: string
   icon: typeof ScanBarcode
-  category: 'sac' | 'facturacion' | 'catalogo' | 'almacen'
+  category: 'sac' | 'facturacion' | 'catalogo'
 }
 
 const tools: Tool[] = [
+  {
+    to: '/calendario',
+    title: 'Calendario',
+    description: 'Bandeja de tareas — crea y sigue solicitudes hacia almacén.',
+    icon: Calendar,
+    category: 'sac',
+  },
   {
     to: '/sac/validador',
     title: 'Validador de SKUs',
@@ -21,7 +28,7 @@ const tools: Tool[] = [
     category: 'sac',
   },
   {
-    to: '/sac/receipt-generator',
+    to: '/wms/receipt-generator',
     title: 'Generador Receipt',
     description: 'Genera el Excel Receipt_Import_Template para Extensiv desde un PT (PDF o Excel).',
     icon: FileInput,
@@ -42,32 +49,11 @@ const tools: Tool[] = [
     category: 'catalogo',
   },
   {
-    to: '/almacen',
+    to: '/wms/cedis',
     title: 'CEDIS Lerma',
     description: 'Vista operativa de posiciones, ocupación y layout de bodega.',
     icon: Warehouse,
-    category: 'almacen',
-  },
-  {
-    to: '/almacen/distribucion',
-    title: 'Distribución',
-    description: 'Inbox de tareas y distribución operativa para almacén.',
-    icon: UserCheck,
-    category: 'almacen',
-  },
-  {
-    to: '/almacen/pizarron',
-    title: 'Pizarrón',
-    description: 'Tablero de operaciones del CEDIS para seguimiento diario.',
-    icon: LayoutDashboard,
-    category: 'almacen',
-  },
-  {
-    to: '/almacen/pizarron-admin',
-    title: 'Pizarrón Admin',
-    description: 'Administración de tareas y configuración del pizarrón.',
-    icon: BarChart3,
-    category: 'almacen',
+    category: 'catalogo',
   },
 ]
 
@@ -76,7 +62,6 @@ const categories = [
   { key: 'sac', label: 'SAC', color: '#1e3a5f' },
   { key: 'facturacion', label: 'Facturación', color: '#1e3a5f' },
   { key: 'catalogo', label: 'Catálogos', color: '#1e3a5f' },
-  { key: 'almacen', label: 'Almacén', color: '#1e3a5f' },
 ] as const
 
 export function WMSHome() {

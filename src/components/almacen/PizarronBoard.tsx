@@ -1,21 +1,46 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, AlertTriangle, Hand, CheckCircle2, Clock, User, PackageCheck } from 'lucide-react'
+import {
+  Loader2, AlertTriangle, Hand, CheckCircle2, Clock, User, UserPlus,
+  PackageCheck, X,
+} from 'lucide-react'
 import { useWarehouseTasks } from '../../hooks/useWarehouseTasks'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
-import { AREA_COLOR, AREA_LABEL, type WarehouseTask } from '../../types/pizarron'
+import {
+  AREA_COLOR, AREA_LABEL,
+  type WarehouseTask, type WarehouseTaskTaker,
+} from '../../types/pizarron'
+
+const KIOSK_DEVICE_ID_KEY = 'kiosk-device-id'
+
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem(KIOSK_DEVICE_ID_KEY)
+    if (!id) {
+      id = `kiosk-${crypto.randomUUID()}`
+      localStorage.setItem(KIOSK_DEVICE_ID_KEY, id)
+    }
+    return id
+  } catch {
+    return 'kiosk-unknown'
+  }
+}
+
+function formatHHMM(iso: string | null | undefined): string {
+  if (!iso) return ''
+  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+}
 
 interface Props {
-  /** Modo kiosk: tipografía más grande, pensado para pantalla compartida. */
+  /** Modo kiosk: tipografía más grande, sin info de auth, multi-usuario. */
   kiosk?: boolean
 }
 
 export function PizarronBoard({ kiosk = false }: Props) {
-  const { tasks, loading, error, refetch, claimTask, completeTask } = useWarehouseTasks()
+  const { tasks, loading, error, refetch, completeTask, addTaker, endTaker } = useWarehouseTasks()
   const { user } = useAuthContext()
   const toast = useToast()
 
-  // Kiosk: refresco cada 30s como fallback si realtime falla.
   useEffect(() => {
     if (!kiosk) return
     const id = window.setInterval(() => { refetch() }, 30_000)
@@ -26,8 +51,18 @@ export function PizarronBoard({ kiosk = false }: Props) {
   const [nameInput, setNameInput] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const pending = useMemo(() => tasks.filter(t => !t.taken_at), [tasks])
-  const inProgress = useMemo(() => tasks.filter(t => t.taken_at), [tasks])
+  // En multi-taker, "en proceso" = tiene al menos 1 taker activo.
+  const activeTakersOf = (t: WarehouseTask): WarehouseTaskTaker[] =>
+    (t.takers ?? []).filter(x => x.ended_at === null)
+
+  const pending = useMemo(
+    () => tasks.filter(t => activeTakersOf(t).length === 0),
+    [tasks],
+  )
+  const inProgress = useMemo(
+    () => tasks.filter(t => activeTakersOf(t).length > 0),
+    [tasks],
+  )
 
   const today = new Date().toLocaleDateString('es-MX', {
     weekday: 'long', day: '2-digit', month: 'long',
@@ -35,23 +70,39 @@ export function PizarronBoard({ kiosk = false }: Props) {
 
   const openClaim = (t: WarehouseTask) => {
     setClaiming(t)
-    setNameInput(user?.name ?? '')
+    // Kiosk: NO recordar nombre — multi-usuario simultáneo.
+    // No-kiosk: pre-rellenar con el usuario logueado.
+    setNameInput(kiosk ? '' : (user?.name ?? ''))
   }
 
   const confirmClaim = async () => {
     if (!claiming) return
-    if (!nameInput.trim()) {
+    const name = nameInput.trim()
+    if (!name) {
       toast.error('Falta tu nombre', 'Escribe tu nombre para tomar la tarea.')
       return
     }
     setBusy(true)
     try {
-      await claimTask(claiming.id, nameInput.trim(), user?.email ?? null)
-      toast.success('Tarea tomada', `${nameInput.trim()} tomó la tarea.`)
+      const deviceId = kiosk ? getDeviceId() : null
+      await addTaker(claiming.id, name, kiosk ? null : (user?.email ?? null), deviceId)
+      toast.success('Turno iniciado', `${name} en "${claiming.task?.title ?? 'la tarea'}".`)
       setClaiming(null)
       setNameInput('')
     } catch (e) {
-      toast.error('No se pudo tomar', e instanceof Error ? e.message : String(e))
+      toast.error('No se pudo iniciar', e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleEndTaker = async (taker: WarehouseTaskTaker) => {
+    setBusy(true)
+    try {
+      await endTaker(taker.id)
+      toast.success('Turno cerrado', `${taker.taker_name} terminó su parte.`)
+    } catch (e) {
+      toast.error('No se pudo cerrar', e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
     }
@@ -72,9 +123,30 @@ export function PizarronBoard({ kiosk = false }: Props) {
   const titleSize = kiosk ? 'text-2xl' : 'text-base'
   const metaSize  = kiosk ? 'text-base' : 'text-xs'
 
+  const renderTakerChip = (taker: WarehouseTaskTaker, color: string) => (
+    <div
+      key={taker.id}
+      className={`inline-flex items-center gap-1.5 rounded-full bg-white border px-2 py-1 ${kiosk ? 'text-sm' : 'text-[11px]'}`}
+      style={{ borderColor: color }}
+    >
+      <User size={kiosk ? 14 : 11} style={{ color }} />
+      <span className="font-semibold text-gray-800">{taker.taker_name}</span>
+      <span className="text-gray-400">· {formatHHMM(taker.started_at)}</span>
+      <button
+        onClick={() => handleEndTaker(taker)}
+        disabled={busy}
+        title="Cerrar turno"
+        className="ml-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 p-0.5 disabled:opacity-50"
+      >
+        <X size={kiosk ? 14 : 11} />
+      </button>
+    </div>
+  )
+
   const renderCard = (t: WarehouseTask) => {
     const color = AREA_COLOR[t.area]
-    const taken = !!t.taken_at
+    const active = activeTakersOf(t)
+    const taken = active.length > 0
     return (
       <div
         key={t.id}
@@ -94,7 +166,7 @@ export function PizarronBoard({ kiosk = false }: Props) {
               {AREA_LABEL[t.area]}
             </span>
             <span className={`font-bold text-gray-400 ${kiosk ? 'text-base' : 'text-[11px]'}`}>
-              #{t.priority}
+              #{Math.round(t.priority)}
             </span>
           </div>
           <p className={`font-bold text-gray-800 leading-snug ${titleSize}`}>
@@ -112,29 +184,50 @@ export function PizarronBoard({ kiosk = false }: Props) {
                 })}
               </p>
             )}
-            {taken && (
+            {!taken && t.assigned_to_name && (
               <p className="flex items-center gap-1.5 font-semibold" style={{ color }}>
                 <User size={kiosk ? 16 : 12} />
-                {t.taken_by_name}
-                {t.taken_at && (
-                  <span className="font-normal text-gray-400">
-                    · {new Date(t.taken_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
+                Designado: {t.assigned_to_name}
               </p>
+            )}
+            {t.estimated_duration_min && (
+              <p className="flex items-center gap-1.5 text-gray-500">
+                <Clock size={kiosk ? 16 : 12} className="text-gray-400" />
+                Estimado: ~{t.estimated_duration_min} min
+              </p>
+            )}
+            {t.designation_notes && (
+              <p className={`text-gray-500 italic ${kiosk ? 'text-base' : 'text-[11px]'}`}>
+                "{t.designation_notes}"
+              </p>
+            )}
+            {taken && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {active.map(taker => renderTakerChip(taker, color))}
+              </div>
             )}
           </div>
         </div>
-        <div className="p-3 pt-0">
+        <div className="p-3 pt-0 space-y-2">
           {taken ? (
-            <button
-              onClick={() => handleComplete(t)}
-              disabled={busy}
-              className={`w-full rounded-lg font-bold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 ${kiosk ? 'h-14 text-lg' : 'h-10 text-sm'}`}
-              style={{ background: '#28a745' }}
-            >
-              <CheckCircle2 size={kiosk ? 22 : 16} /> COMPLETAR
-            </button>
+            <>
+              <button
+                onClick={() => openClaim(t)}
+                disabled={busy}
+                className={`w-full rounded-lg border-2 border-dashed font-bold flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 ${kiosk ? 'h-12 text-base' : 'h-9 text-xs'}`}
+                style={{ borderColor: color, color }}
+              >
+                <UserPlus size={kiosk ? 18 : 14} /> Agregar persona
+              </button>
+              <button
+                onClick={() => handleComplete(t)}
+                disabled={busy}
+                className={`w-full rounded-lg font-bold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 ${kiosk ? 'h-14 text-lg' : 'h-10 text-sm'}`}
+                style={{ background: '#28a745' }}
+              >
+                <CheckCircle2 size={kiosk ? 22 : 16} /> COMPLETAR
+              </button>
+            </>
           ) : (
             <button
               onClick={() => openClaim(t)}
@@ -151,7 +244,6 @@ export function PizarronBoard({ kiosk = false }: Props) {
 
   return (
     <div className={kiosk ? 'p-6' : ''}>
-      {/* Banner */}
       <div className="mb-5">
         <h1 className={`font-bold text-[#1e3a5f] ${kiosk ? 'text-4xl' : 'text-xl'}`}>
           Pizarrón de Operaciones
@@ -187,7 +279,6 @@ export function PizarronBoard({ kiosk = false }: Props) {
         </div>
       )}
 
-      {/* Modal TOMAR */}
       {claiming && (
         <div
           className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4 animate-fade-in"
@@ -197,7 +288,9 @@ export function PizarronBoard({ kiosk = false }: Props) {
             className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
             onClick={e => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold text-[#1e3a5f] mb-1">Tomar tarea</h2>
+            <h2 className="text-lg font-bold text-[#1e3a5f] mb-1">
+              {activeTakersOf(claiming).length > 0 ? 'Agregar persona' : 'Tomar tarea'}
+            </h2>
             <p className="text-xs text-gray-500 mb-4">
               {claiming.task?.title ?? 'Tarea de almacén'} · {AREA_LABEL[claiming.area]}
             </p>

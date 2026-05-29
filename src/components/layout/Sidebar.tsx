@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, Receipt, History, FileSpreadsheet, Menu } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -19,15 +19,22 @@ interface Link {
   To switch modules, user must return to the main menu (/) and pick another.
 */
 const WMS_LINKS: Link[] = [
-  { to: '/wms',                    label: 'Herramientas de WMS', icon: Warehouse },
-  { to: '/sac/validador',          label: 'Validador SKU',        icon: ScanBarcode },
-  { to: '/rc',                     label: 'Rendición RC',         icon: FileCheck },
-  { to: '/clients',                label: 'Clientes',             icon: Users },
-  { to: '/almacen',                   label: 'CEDIS Lerma',          icon: Warehouse,       section: 'Almacén' },
-  { to: '/almacen/receipt-generator', label: 'Generador Receipt',    icon: FileInput,       section: 'Almacén' },
-  { to: '/almacen/distribucion',      label: 'Distribución tareas',  icon: UserCheck,       section: 'Almacén' },
-  { to: '/almacen/pizarron',          label: 'Pizarrón Operaciones', icon: LayoutDashboard, section: 'Almacén' },
-  { to: '/almacen/pizarron-admin',    label: 'Pizarrón Admin',       icon: BarChart3,       section: 'Almacén' },
+  { to: '/wms',                   label: 'Herramientas de WMS', icon: Warehouse },
+  { to: '/sac/validador',         label: 'Validador SKU',       icon: ScanBarcode },
+  { to: '/wms/receipt-generator', label: 'Generador Receipt',   icon: FileInput },
+  { to: '/rc',                    label: 'Rendición RC',        icon: FileCheck },
+  { to: '/clients',               label: 'Clientes',            icon: Users },
+  { to: '/wms/cedis',             label: 'CEDIS Lerma',         icon: Warehouse },
+]
+
+const ALMACEN_LINKS: Link[] = [
+  { to: '/almacen',                label: 'Inicio',              icon: Home },
+  { to: '/almacen/hoy',            label: 'Hoy',                 icon: Calendar },
+  { to: '/almacen/dia',            label: 'Día (timeline)',      icon: CalendarClock },
+  { to: '/almacen/distribucion',   label: 'Distribución tareas', icon: UserCheck },
+  { to: '/almacen/pizarron',       label: 'Pizarrón',            icon: LayoutDashboard },
+  { to: '/almacen/pizarron-admin', label: 'Pizarrón Admin',      icon: BarChart3 },
+  { to: '/almacen/estandares',     label: 'Estándares',          icon: Clock },
 ]
 
 const TMS_LINKS: Link[] = [
@@ -41,25 +48,28 @@ const TMS_LINKS: Link[] = [
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
 ]
 
-const TASKS_LINKS: Link[] = [
-  { to: '/tasks',                  label: 'Mi bandeja',     icon: Inbox },
-  { to: '/tasks/calendar',         label: 'Calendario',     icon: Calendar },
-  { to: '/tasks/templates',        label: 'Plantillas',     icon: Repeat },
+const CALENDARIO_LINKS: Link[] = [
+  { to: '/calendario',             label: 'Mi bandeja',         icon: Inbox },
+  { to: '/calendario/semana',      label: 'Calendario',         icon: Calendar },
+  { to: '/calendario/ejecutivo',   label: 'Cal. Ejecutivo',     icon: CalendarClock },
+  { to: '/calendario/plantillas',  label: 'Plantillas',         icon: Repeat },
 ]
 
-const TASKS_ADMIN_LINKS: Link[] = [
-  { to: '/tasks/admin/team',              label: 'Equipo y horarios',   icon: UserCog },
-  { to: '/tasks/admin/reports',           label: 'Reportes operativos', icon: BarChart3 },
+const CALENDARIO_ADMIN_LINKS: Link[] = [
+  { to: '/calendario/admin/equipo',       label: 'Equipo y horarios',   icon: UserCog },
+  { to: '/calendario/admin/reportes',     label: 'Reportes operativos', icon: BarChart3 },
   { to: '/admin/executive-report',        label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
-  { to: '/tasks/admin/audit-log',         label: 'Auditoría',           icon: History },
-  { to: '/tasks/admin/extensiv-billing',  label: 'Extensiv Billing',    icon: Receipt },
+  { to: '/calendario/admin/auditoria',    label: 'Auditoría',           icon: History },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'tasks'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario'
 
 function detectModule(pathname: string): ModuleKey {
-  if (pathname === '/')                                                          return 'home'
-  if (pathname.startsWith('/tasks') || pathname.startsWith('/admin'))            return 'tasks'
+  if (pathname === '/')                                                              return 'home'
+  if (pathname === '/almacen' || pathname.startsWith('/almacen/'))                   return 'almacen'
+  if (pathname.startsWith('/calendario') ||
+      pathname.startsWith('/tasks') ||
+      pathname.startsWith('/admin'))                                                 return 'calendario'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
   // Default: WMS (/, /wms, /sac/*, /rc, /clients, etc.)
@@ -67,9 +77,10 @@ function detectModule(pathname: string): ModuleKey {
 }
 
 const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: Link[] }> = {
-  wms:     { label: 'Herramientas de WMS',         links: WMS_LINKS },
-  tms:     { label: 'Transportes',                 links: TMS_LINKS },
-  tasks:   { label: 'Task Tracker',                links: TASKS_LINKS },
+  wms:        { label: 'Herramientas de WMS', links: WMS_LINKS },
+  tms:        { label: 'Transportes',         links: TMS_LINKS },
+  almacen:    { label: 'Calendario Almacén',  links: ALMACEN_LINKS },
+  calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
 }
 
 export function Sidebar() {
@@ -86,14 +97,11 @@ export function Sidebar() {
 
   const { label, links } = MODULE_CONFIG[currentModule]
   const visibleLinks = links.filter(link => canAccessPath(user?.role, link.to))
-  const isAdmin    = user?.role === 'admin'
-  const isCobranza = user?.role === 'cobranza'
-  // En el módulo tasks, mostramos sección admin a admin (todos los links)
-  // o a cobranza (solo billing).
-  const showAdminTasks = currentModule === 'tasks' && (isAdmin || isCobranza)
-  const visibleAdminLinks = TASKS_ADMIN_LINKS.filter(l =>
-    isAdmin || l.to === '/tasks/admin/extensiv-billing'
-  )
+  const isAdmin = user?.role === 'admin'
+  // En el módulo calendario, la sección admin solo aplica a admin (los links
+  // que tenía cobranza vivían en ExtensivBilling, ya eliminado).
+  const showAdminCalendario = currentModule === 'calendario' && isAdmin
+  const visibleAdminLinks = CALENDARIO_ADMIN_LINKS
 
   // Agrupa los links por sub-grupo (section). Si el módulo no usa sections,
   // todo cae bajo un único grupo con el nombre del módulo.
@@ -208,7 +216,7 @@ export function Sidebar() {
           </div>
         ))}
 
-        {showAdminTasks && (
+        {showAdminCalendario && (
           <div>
             <p className="text-[9px] font-bold tracking-widest uppercase px-3 mb-1.5" style={{ color: '#94a3b8' }}>
               Administración

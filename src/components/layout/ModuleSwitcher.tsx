@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Home, Package, Truck, ClipboardList, ChevronRight, Menu,
+  Home, Package, Truck, Warehouse, CalendarClock, ChevronRight, Menu,
 } from 'lucide-react'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, moduleFromPath, type AppModule } from '../../config/permissions'
@@ -20,9 +20,10 @@ interface ModuleEntry {
 const NAVY = '#1e3a5f'
 
 const MODULES: ModuleEntry[] = [
-  { id: 'wms',     to: '/wms',                   label: 'Herramientas de WMS',     icon: Package,       color: NAVY },
-  { id: 'tms',     to: '/tms',                   label: 'Transportes',             icon: Truck,         color: NAVY },
-  { id: 'tasks',   to: '/tasks',                 label: 'Task Tracker',            icon: ClipboardList, color: NAVY },
+  { id: 'wms',        to: '/wms',                  label: 'Herramientas de WMS', icon: Package,       color: NAVY },
+  { id: 'tms',        to: '/tms',                  label: 'Transportes',         icon: Truck,         color: NAVY },
+  { id: 'calendario', to: '/calendario/ejecutivo', label: 'Calendario Ejecutivo', icon: CalendarClock, color: NAVY },
+  { id: 'almacen',    to: '/almacen',              label: 'Calendario Almacén',  icon: Warehouse,     color: NAVY },
 ]
 
 // Ancho del panel: 22rem (352px) o el viewport menos 2rem, lo que sea menor.

@@ -7,6 +7,7 @@ import { Sidebar } from '../../components/layout/Sidebar'
 import { supabase } from '../../lib/supabase'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
+import { useLaborStandards } from '../../hooks/useLaborStandards'
 import {
   WAREHOUSE_AREAS, AREA_LABEL, AREA_COLOR, type WarehouseArea, type WarehouseTask,
 } from '../../types/pizarron'
@@ -39,6 +40,19 @@ export function PizarronAdminPage() {
   const [area, setArea] = useState<WarehouseArea>('picking')
   const [priority, setPriority] = useState(100)
   const [creating, setCreating] = useState(false)
+  // Campos nuevos (flujo phoneless + Blue Yonder Labor Standards)
+  const [assignedToName, setAssignedToName] = useState('')
+  const [estimatedDuration, setEstimatedDuration] = useState<number | ''>('')
+  const [designationNotes, setDesignationNotes] = useState('')
+  const { getStandard } = useLaborStandards()
+
+  // Pre-llena duración estimada cuando cambia el área (buscando un estándar
+  // para ese task_type — Guillermo puede sobreescribir).
+  useEffect(() => {
+    const std = getStandard(area)
+    if (std && estimatedDuration === '') setEstimatedDuration(std.base_duration_min)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area, getStandard])
 
   useEffect(() => {
     if (!user?.email) return
@@ -66,7 +80,7 @@ export function PizarronAdminPage() {
           .order('scheduled_start', { ascending: true }),
         supabase
           .from('warehouse_tasks')
-          .select('*, task:tasks(title, ref)')
+          .select('*, task:tasks(title, ref), takers:warehouse_task_takers(*)')
           .gte('completed_at', start)
           .order('completed_at', { ascending: false }),
       ])
@@ -90,13 +104,27 @@ export function PizarronAdminPage() {
     }
     setCreating(true)
     try {
-      const { error: err } = await supabase
-        .from('warehouse_tasks')
-        .insert({ task_id: taskId, area, priority })
+      const payload: Record<string, unknown> = { task_id: taskId, area, priority }
+      const name = assignedToName.trim()
+      const notes = designationNotes.trim()
+      if (name)  payload.assigned_to_name = name
+      if (notes) payload.designation_notes = notes
+      if (typeof estimatedDuration === 'number' && estimatedDuration > 0) {
+        payload.estimated_duration_min = estimatedDuration
+      }
+      const { error: err } = await supabase.from('warehouse_tasks').insert(payload)
       if (err) throw err
-      toast.success('Tarea agregada al pizarrón', `${AREA_LABEL[area]} · prioridad ${priority}.`)
+      toast.success(
+        'Tarea agregada al pizarrón',
+        name
+          ? `Asignada a ${name} · ${AREA_LABEL[area]} · prioridad ${priority}.`
+          : `${AREA_LABEL[area]} · prioridad ${priority}.`
+      )
       setTaskId('')
       setPriority(100)
+      setAssignedToName('')
+      setEstimatedDuration('')
+      setDesignationNotes('')
       fetchData()
     } catch (e) {
       toast.error('No se pudo crear', e instanceof Error ? e.message : String(e))
@@ -105,16 +133,28 @@ export function PizarronAdminPage() {
     }
   }
 
-  // Stats
+  // Stats — usa actual_duration_min (horas-hombre, RPC) cuando esté disponible;
+  // si no, fallback a wall-clock derivado de taken_at/completed_at.
   const durations = completed
-    .filter(t => t.taken_at && t.completed_at)
-    .map(t => (new Date(t.completed_at!).getTime() - new Date(t.taken_at!).getTime()) / 60000)
+    .map(t => {
+      if (typeof t.actual_duration_min === 'number' && t.actual_duration_min > 0) {
+        return t.actual_duration_min
+      }
+      if (t.taken_at && t.completed_at) {
+        return (new Date(t.completed_at).getTime() - new Date(t.taken_at).getTime()) / 60000
+      }
+      return null
+    })
+    .filter((m): m is number => m !== null)
   const avgMinutes = durations.length
     ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
     : 0
+  // byPicker cuenta participaciones (no tareas) — refleja multi-taker.
   const byPicker = completed.reduce<Record<string, number>>((acc, t) => {
-    const name = t.taken_by_name || '—'
-    acc[name] = (acc[name] ?? 0) + 1
+    const names = (t.takers ?? []).length > 0
+      ? (t.takers ?? []).map(x => x.taker_name)
+      : [t.taken_by_name || '—']
+    for (const name of names) acc[name] = (acc[name] ?? 0) + 1
     return acc
   }, {})
 
@@ -209,6 +249,48 @@ export function PizarronAdminPage() {
                     />
                   </div>
                 </div>
+
+                {/* Flujo phoneless + duración estimada — opcionales pero recomendados */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                      Asignar por nombre <span className="text-gray-400 font-normal">(sin cuenta)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={assignedToName}
+                      onChange={e => setAssignedToName(e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                      className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                      Duración estimada <span className="text-gray-400 font-normal">(min)</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={estimatedDuration}
+                      onChange={e => setEstimatedDuration(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder={getStandard(area) ? `Estándar: ${getStandard(area)!.base_duration_min} min` : '—'}
+                      className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                      Instrucciones <span className="text-gray-400 font-normal">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={designationNotes}
+                      onChange={e => setDesignationNotes(e.target.value)}
+                      placeholder="Ej: usar montacargas chico, andén 3..."
+                      className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={handleCreate}
                   disabled={creating || !taskId}
@@ -274,15 +356,22 @@ export function PizarronAdminPage() {
                       <tr className="border-b border-gray-100">
                         <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider">Tarea</th>
                         <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-32">Área</th>
-                        <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-40">Picker</th>
-                        <th className="text-right px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-24">Duración</th>
+                        <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-56">Takers</th>
+                        <th className="text-right px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-32">Horas-hombre</th>
                       </tr>
                     </thead>
                     <tbody>
                       {completed.map(t => {
-                        const mins = t.taken_at && t.completed_at
-                          ? Math.round((new Date(t.completed_at).getTime() - new Date(t.taken_at).getTime()) / 60000)
-                          : null
+                        const mins = typeof t.actual_duration_min === 'number' && t.actual_duration_min > 0
+                          ? t.actual_duration_min
+                          : (t.taken_at && t.completed_at
+                              ? Math.round((new Date(t.completed_at).getTime() - new Date(t.taken_at).getTime()) / 60000)
+                              : null)
+                        const takerList = (t.takers ?? []).length > 0
+                          ? (t.takers ?? [])
+                          : (t.taken_by_name
+                              ? [{ id: t.id, taker_name: t.taken_by_name, duration_min: mins }]
+                              : [])
                         return (
                           <tr key={t.id} className="border-b border-gray-50">
                             <td className="px-4 py-2.5 text-gray-700">{t.task?.title ?? '—'}</td>
@@ -294,7 +383,20 @@ export function PizarronAdminPage() {
                                 {AREA_LABEL[t.area]}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-gray-600">{t.taken_by_name ?? '—'}</td>
+                            <td className="px-4 py-2.5 text-gray-600">
+                              {takerList.length === 0 ? '—' : (
+                                <div className="flex flex-wrap gap-1">
+                                  {takerList.map(x => (
+                                    <span key={x.id} className="inline-flex items-center gap-1 text-[11px] bg-gray-50 border border-gray-100 rounded-full px-2 py-0.5">
+                                      <span className="font-semibold text-gray-700">{x.taker_name}</span>
+                                      {typeof x.duration_min === 'number' && x.duration_min > 0 && (
+                                        <span className="text-gray-400">· {x.duration_min}m</span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
                             <td className="px-4 py-2.5 text-right text-gray-600">
                               {mins !== null ? (
                                 <span className="inline-flex items-center gap-1">

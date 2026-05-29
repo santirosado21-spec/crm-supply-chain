@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SidebarProvider } from './context/SidebarContext'
 import { ToastProvider } from './hooks/useToast'
@@ -9,10 +9,14 @@ import { WMSHome } from './pages/wms/WMSHome'
 import { StorageBridgePage } from './pages/wms/StorageBridgePage'
 import { EmisorConfigPage } from './pages/wms/EmisorConfigPage'
 import { AlmacenPage } from './pages/almacen/AlmacenPage'
+import { AlmacenHome } from './pages/almacen/AlmacenHome'
+import { HoyPage } from './pages/almacen/HoyPage'
+import { LaborStandardsPage } from './pages/almacen/LaborStandardsPage'
 import { DistributionInboxPage } from './pages/almacen/DistributionInboxPage'
 import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
 import { PizarronAdminPage } from './pages/almacen/PizarronAdminPage'
+import { DiaPage } from './pages/almacen/DiaPage'
 import { TMSHome } from './pages/tms/TMSHome'
 import { TMSDashboard } from './pages/tms/TMSDashboard'
 import { VehiculosPage } from './pages/tms/VehiculosPage'
@@ -33,13 +37,19 @@ import { TaskCalendar } from './pages/tasks/TaskCalendar'
 import { TaskCreate } from './pages/tasks/TaskCreate'
 import { TaskDetail } from './pages/tasks/TaskDetail'
 import { TaskTemplates } from './pages/tasks/TaskTemplates'
+import { ExecutiveCalendarPage } from './pages/tasks/ExecutiveCalendarPage'
 import { TeamSettings } from './pages/tasks/admin/TeamSettings'
 import { Reports } from './pages/tasks/admin/Reports'
-import { ExtensivBilling } from './pages/tasks/admin/ExtensivBilling'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { ALMACEN_ROLES, TASK_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { ALMACEN_ROLES, CALENDARIO_ROLES, EJECUTIVO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+
+// Preserva el :id en el redirect compat /tasks/:id → /calendario/:id
+function RedirectTaskToCalendario() {
+  const { id } = useParams()
+  return <Navigate to={id ? `/calendario/${id}` : '/calendario'} replace />
+}
 
 function App() {
   return (
@@ -64,13 +74,23 @@ function App() {
           <Route path="/wms/emisor-config" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><EmisorConfigPage /></ProtectedRoute>
           } />
-
-          {/* Almacén */}
-          <Route path="/almacen" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenPage /></ProtectedRoute>
+          {/* Tools de consulta WMS — vienen de almacén pero son herramientas para SAC/cobranza */}
+          <Route path="/wms/cedis" element={
+            <ProtectedRoute allowedRoles={['admin', 'almacen', 'servicio_cliente', 'cobranza']}><AlmacenPage /></ProtectedRoute>
           } />
-          <Route path="/almacen/receipt-generator" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          <Route path="/wms/receipt-generator" element={
+            <ProtectedRoute allowedRoles={WMS_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          } />
+
+          {/* Calendario Almacén — módulo exclusivo de admin + almacén */}
+          <Route path="/almacen" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenHome /></ProtectedRoute>
+          } />
+          <Route path="/almacen/hoy" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><HoyPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/dia" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DiaPage /></ProtectedRoute>
           } />
           <Route path="/almacen/distribucion" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DistributionInboxPage /></ProtectedRoute>
@@ -83,6 +103,12 @@ function App() {
           <Route path="/almacen/pizarron-admin" element={
             <ProtectedRoute allowedRoles={['admin', 'almacen']}><PizarronAdminPage /></ProtectedRoute>
           } />
+          <Route path="/almacen/estandares" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><LaborStandardsPage /></ProtectedRoute>
+          } />
+          {/* Compat redirects: CEDIS layout y Receipt se mudaron a /wms/* */}
+          <Route path="/almacen/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />
+          <Route path="/almacen-layout" element={<Navigate to="/wms/cedis" replace />} />
 
           {/* TMS */}
           <Route path="/tms" element={
@@ -131,38 +157,49 @@ function App() {
           <Route path="/sac/validador" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><ValidadorSKUPage /></ProtectedRoute>
           } />
-          {/* Compat redirect: ruta vieja /sac/receipt-generator → /almacen */}
-          <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
-          {/* Task Tracker */}
-          <Route path="/tasks" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskInbox /></ProtectedRoute>
+          {/* Compat redirect: ruta vieja /sac/receipt-generator → /wms/receipt-generator */}
+          <Route path="/sac/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />
+          {/* Calendario (cross-team) — antes Task Tracker, ahora expuesto desde WMS / TMS */}
+          <Route path="/calendario" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskInbox /></ProtectedRoute>
           } />
-          <Route path="/tasks/calendar" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskCalendar /></ProtectedRoute>
+          <Route path="/calendario/semana" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskCalendar /></ProtectedRoute>
           } />
-          <Route path="/tasks/new" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskCreate /></ProtectedRoute>
+          <Route path="/calendario/nueva" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskCreate /></ProtectedRoute>
           } />
-          <Route path="/tasks/templates" element={
-            <ProtectedRoute allowedRoles={TASK_ROLES}><TaskTemplates /></ProtectedRoute>
+          <Route path="/calendario/plantillas" element={
+            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskTemplates /></ProtectedRoute>
           } />
-          <Route path="/tasks/admin/team" element={
+          <Route path="/calendario/ejecutivo" element={
+            <ProtectedRoute allowedRoles={EJECUTIVO_ROLES}><ExecutiveCalendarPage /></ProtectedRoute>
+          } />
+          <Route path="/calendario/admin/equipo" element={
             <ProtectedRoute allowedRoles={['admin']}><TeamSettings /></ProtectedRoute>
           } />
-          <Route path="/tasks/admin/reports" element={
+          <Route path="/calendario/admin/reportes" element={
             <ProtectedRoute allowedRoles={['admin']}><Reports /></ProtectedRoute>
           } />
-          <Route path="/tasks/admin/extensiv-billing" element={
-            <ProtectedRoute allowedRoles={['admin', 'cobranza']}><ExtensivBilling /></ProtectedRoute>
-          } />
-          <Route path="/tasks/admin/audit-log" element={
+          <Route path="/calendario/admin/auditoria" element={
             <ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>
           } />
+          <Route path="/calendario/:id" element={
+            <ProtectedRoute><TaskDetail /></ProtectedRoute>
+          } />
+
+          {/* Compat redirects /tasks/* → /calendario/* */}
+          <Route path="/tasks" element={<Navigate to="/calendario" replace />} />
+          <Route path="/tasks/calendar" element={<Navigate to="/calendario/semana" replace />} />
+          <Route path="/tasks/new" element={<Navigate to="/calendario/nueva" replace />} />
+          <Route path="/tasks/templates" element={<Navigate to="/calendario/plantillas" replace />} />
+          <Route path="/tasks/admin/team" element={<Navigate to="/calendario/admin/equipo" replace />} />
+          <Route path="/tasks/admin/reports" element={<Navigate to="/calendario/admin/reportes" replace />} />
+          <Route path="/tasks/admin/audit-log" element={<Navigate to="/calendario/admin/auditoria" replace />} />
+          <Route path="/tasks/:id" element={<RedirectTaskToCalendario />} />
+
           <Route path="/admin/executive-report" element={
             <ProtectedRoute allowedRoles={['admin']}><ExecutiveReportPage /></ProtectedRoute>
-          } />
-          <Route path="/tasks/:id" element={
-            <ProtectedRoute><TaskDetail /></ProtectedRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" replace />} />
