@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, Truck, ArrowRight, Warehouse } from 'lucide-react'
+import { Package, Truck, ArrowRight, Warehouse, CalendarClock } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
@@ -47,6 +47,17 @@ export function HomePage() {
       tools: ['Cotizador de fletes', 'Dashboard flotas', 'Servicios unidades', 'Bitácora operaciones'],
     },
     {
+      id: 'calendario',
+      title: 'Calendario Ejecutivo',
+      subtitle: 'Seguimiento cross-team',
+      description: 'Vista ejecutiva de actividades enviadas al almacén: pendientes, en curso y completadas, sin perder el detalle operativo.',
+      icon: CalendarClock,
+      color: '#1e3a5f',
+      accentColor: '#eff6ff',
+      onClick: () => navigate('/calendario/ejecutivo'),
+      tools: ['Pendientes', 'En curso', 'Completadas', 'Detalle por tarea'],
+    },
+    {
       id: 'almacen',
       title: 'Calendario Almacén',
       subtitle: 'Operación del CEDIS · Pizarrón · Estándares',
@@ -79,15 +90,17 @@ export function HomePage() {
             </p>
           </div>
 
-          {/* Module cards — todas las tiles del mismo tamaño exacto vía auto-rows-fr + h-full + flex column */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-3 auto-rows-fr">
+          {/* Module cards — compactas, ancho fijo y en UNA hilera centrada.
+               Flex-wrap evita huecos cuando un rol ve 1-2 módulos; los que están
+               en la misma fila igualan altura por el stretch de flex. */}
+          <div className="flex flex-wrap justify-center gap-3">
             {modules.filter(m => canAccessModule(user?.role, m.id)).map(m => {
               const Icon = m.icon
               return (
                 <button
                   key={m.id}
                   onClick={m.onClick}
-                  className="group login-frame text-left rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col p-1"
+                  className="group login-frame text-left rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col p-1 w-full sm:w-[15.5rem]"
                 >
                   {/* Marco animado tipo login (gradient navy↔red en flujo). El
                        interior blanco mantiene la legibilidad de cada tile. */}
@@ -99,36 +112,36 @@ export function HomePage() {
                     style={{ background: 'linear-gradient(90deg, #1e3a5f 0%, #1e3a5f 35%, #c8373c 65%, #c8373c 100%)' }}
                   />
 
-                  <div className="p-5 flex flex-col flex-1">
+                  <div className="p-4 flex flex-col flex-1">
                     {/* Icon — color unificado navy con accent red claro */}
-                    <div className="flex items-start mb-3 shrink-0">
+                    <div className="flex items-start mb-2.5 shrink-0">
                       <div
-                        className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                        className="w-11 h-11 rounded-xl flex items-center justify-center"
                         style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #fef2f2 100%)' }}
                       >
-                        <Icon size={28} style={{ color: '#1e3a5f' }} />
+                        <Icon size={22} style={{ color: '#1e3a5f' }} />
                       </div>
                     </div>
 
                     {/* Title — min-h fija para que 1-línea y 2-líneas ocupen el mismo espacio */}
-                    <h2 className="text-base font-bold text-gray-900 mb-1 leading-tight min-h-[2.6rem] line-clamp-2">
+                    <h2 className="text-sm font-bold text-gray-900 mb-1 leading-tight min-h-[2.2rem] line-clamp-2">
                       {m.title}
                     </h2>
                     {/* Subtitle — wrap a 2 líneas con leading apretado en lugar de truncate
                          para que "Transport Management System", "Rate shopping · Auto-pick · Etiquetas"
                          y "Coordinación · Tiempo · Costos" no se corten en cards angostas (xl:grid-cols-5).
                          min-h-[2rem] reserva espacio para 2 líneas en todas las cards (consistencia) */}
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-3 min-h-[2rem] leading-[1rem] line-clamp-2 text-[#1e3a5f]">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 min-h-[1.6rem] leading-[1rem] line-clamp-2 text-[#1e3a5f]">
                       {m.subtitle}
                     </p>
 
-                    {/* Description — min-h fija (4 líneas) para que todas las descripciones ocupen el mismo bloque */}
-                    <p className="text-[13px] text-gray-500 leading-relaxed mb-4 flex-1 min-h-[4.5rem]">
+                    {/* Description — min-h fija (3 líneas) para que todas las descripciones ocupen el mismo bloque */}
+                    <p className="text-xs text-gray-500 leading-relaxed mb-3 flex-1 min-h-[3.25rem] line-clamp-3">
                       {m.description}
                     </p>
 
-                    {/* Tools list — alturas fijas (header + 4 items × 18px = ~90px) idénticas en todas las tiles */}
-                    <div className="border-t border-gray-100 pt-3 mb-4 shrink-0 min-h-[6.5rem]">
+                    {/* Tools list — alturas fijas (header + 4 items) idénticas en todas las tiles */}
+                    <div className="border-t border-gray-100 pt-2.5 mb-3 shrink-0 min-h-[5.5rem]">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 h-3 leading-3">
                         Incluye
                       </p>

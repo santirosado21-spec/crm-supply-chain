@@ -16,6 +16,7 @@ import { DistributionInboxPage } from './pages/almacen/DistributionInboxPage'
 import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
 import { PizarronAdminPage } from './pages/almacen/PizarronAdminPage'
+import { DiaPage } from './pages/almacen/DiaPage'
 import { TMSHome } from './pages/tms/TMSHome'
 import { TMSDashboard } from './pages/tms/TMSDashboard'
 import { VehiculosPage } from './pages/tms/VehiculosPage'
@@ -36,12 +37,13 @@ import { TaskCalendar } from './pages/tasks/TaskCalendar'
 import { TaskCreate } from './pages/tasks/TaskCreate'
 import { TaskDetail } from './pages/tasks/TaskDetail'
 import { TaskTemplates } from './pages/tasks/TaskTemplates'
+import { ExecutiveCalendarPage } from './pages/tasks/ExecutiveCalendarPage'
 import { TeamSettings } from './pages/tasks/admin/TeamSettings'
 import { Reports } from './pages/tasks/admin/Reports'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { ALMACEN_ROLES, CALENDARIO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { ALMACEN_ROLES, CALENDARIO_ROLES, EJECUTIVO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
 
 // Preserva el :id en el redirect compat /tasks/:id → /calendario/:id
 function RedirectTaskToCalendario() {
@@ -86,6 +88,9 @@ function App() {
           } />
           <Route path="/almacen/hoy" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><HoyPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/dia" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DiaPage /></ProtectedRoute>
           } />
           <Route path="/almacen/distribucion" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DistributionInboxPage /></ProtectedRoute>
@@ -166,6 +171,9 @@ function App() {
           } />
           <Route path="/calendario/plantillas" element={
             <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskTemplates /></ProtectedRoute>
+          } />
+          <Route path="/calendario/ejecutivo" element={
+            <ProtectedRoute allowedRoles={EJECUTIVO_ROLES}><ExecutiveCalendarPage /></ProtectedRoute>
           } />
           <Route path="/calendario/admin/equipo" element={
             <ProtectedRoute allowedRoles={['admin']}><TeamSettings /></ProtectedRoute>

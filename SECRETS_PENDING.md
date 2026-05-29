@@ -1,7 +1,8 @@
 # SECRETS_PENDING — Sprint Almacén + Task Tracker + Pizarrón
 
-Este sprint **no introduce credenciales ni API keys nuevas**. Solo quedan dos
-tareas de configuración manual (no son secretos, pero requieren acción humana).
+El sprint base (Almacén/Pizarrón) no introdujo credenciales: solo las dos tareas
+de configuración manual de abajo (§1 y §2). La extracción con IA del Generador
+Receipt Import sí agrega un secreto nuevo — ver §3.
 
 ## 1. Seed de `team_members` — cuenta receptora + distribuidores
 
@@ -43,8 +44,33 @@ VITE_ALMACEN_RECEPTOR_EMAIL=<email-real-de-la-cuenta-receptora>
 No es un secreto — es un identificador de ruteo. Si el default
 `almacen@supplychain.mx` coincide con la cuenta real, no se necesita nada.
 
+## 3. OpenRouter — visión para el Generador Receipt Import
+
+La extracción de PDFs del Generador Receipt Import usa un modelo de visión vía
+OpenRouter (edge function `openrouter-vision`). La API key es un **secreto** y
+NO vive en el repo. Configurarla en Supabase secrets:
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=sk-or-v1-...
+# Opcional — modelo por defecto (si se omite: google/gemini-2.5-flash):
+supabase secrets set OPENROUTER_VISION_MODEL=google/gemini-2.5-flash
+```
+
+Luego desplegar la función:
+
+```bash
+supabase functions deploy openrouter-vision
+```
+
+> La key anterior estuvo expuesta en un PDF dentro del repo (`API OPEN ROUTER (1).pdf`,
+> ya eliminado). **Rotarla en el dashboard de OpenRouter** antes de usarla.
+
+`SUPABASE_URL` y `SUPABASE_ANON_KEY` (usados para validar el JWT del usuario) los
+inyecta la plataforma automáticamente — no hay que configurarlos.
+
 ## Estado
 
 - [ ] Migración `20260521000001` aplicada
 - [ ] Seed de `team_members` ejecutado
 - [ ] (Opcional) `VITE_ALMACEN_RECEPTOR_EMAIL` configurada si difiere del default
+- [ ] `OPENROUTER_API_KEY` configurada (rotada) + `openrouter-vision` desplegada

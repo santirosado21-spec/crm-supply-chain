@@ -80,7 +80,7 @@ export function PizarronAdminPage() {
           .order('scheduled_start', { ascending: true }),
         supabase
           .from('warehouse_tasks')
-          .select('*, task:tasks(title, ref)')
+          .select('*, task:tasks(title, ref), takers:warehouse_task_takers(*)')
           .gte('completed_at', start)
           .order('completed_at', { ascending: false }),
       ])
@@ -133,16 +133,28 @@ export function PizarronAdminPage() {
     }
   }
 
-  // Stats
+  // Stats — usa actual_duration_min (horas-hombre, RPC) cuando esté disponible;
+  // si no, fallback a wall-clock derivado de taken_at/completed_at.
   const durations = completed
-    .filter(t => t.taken_at && t.completed_at)
-    .map(t => (new Date(t.completed_at!).getTime() - new Date(t.taken_at!).getTime()) / 60000)
+    .map(t => {
+      if (typeof t.actual_duration_min === 'number' && t.actual_duration_min > 0) {
+        return t.actual_duration_min
+      }
+      if (t.taken_at && t.completed_at) {
+        return (new Date(t.completed_at).getTime() - new Date(t.taken_at).getTime()) / 60000
+      }
+      return null
+    })
+    .filter((m): m is number => m !== null)
   const avgMinutes = durations.length
     ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
     : 0
+  // byPicker cuenta participaciones (no tareas) — refleja multi-taker.
   const byPicker = completed.reduce<Record<string, number>>((acc, t) => {
-    const name = t.taken_by_name || '—'
-    acc[name] = (acc[name] ?? 0) + 1
+    const names = (t.takers ?? []).length > 0
+      ? (t.takers ?? []).map(x => x.taker_name)
+      : [t.taken_by_name || '—']
+    for (const name of names) acc[name] = (acc[name] ?? 0) + 1
     return acc
   }, {})
 
@@ -344,15 +356,22 @@ export function PizarronAdminPage() {
                       <tr className="border-b border-gray-100">
                         <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider">Tarea</th>
                         <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-32">Área</th>
-                        <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-40">Picker</th>
-                        <th className="text-right px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-24">Duración</th>
+                        <th className="text-left px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-56">Takers</th>
+                        <th className="text-right px-4 py-2 font-semibold text-gray-500 text-[11px] uppercase tracking-wider w-32">Horas-hombre</th>
                       </tr>
                     </thead>
                     <tbody>
                       {completed.map(t => {
-                        const mins = t.taken_at && t.completed_at
-                          ? Math.round((new Date(t.completed_at).getTime() - new Date(t.taken_at).getTime()) / 60000)
-                          : null
+                        const mins = typeof t.actual_duration_min === 'number' && t.actual_duration_min > 0
+                          ? t.actual_duration_min
+                          : (t.taken_at && t.completed_at
+                              ? Math.round((new Date(t.completed_at).getTime() - new Date(t.taken_at).getTime()) / 60000)
+                              : null)
+                        const takerList = (t.takers ?? []).length > 0
+                          ? (t.takers ?? [])
+                          : (t.taken_by_name
+                              ? [{ id: t.id, taker_name: t.taken_by_name, duration_min: mins }]
+                              : [])
                         return (
                           <tr key={t.id} className="border-b border-gray-50">
                             <td className="px-4 py-2.5 text-gray-700">{t.task?.title ?? '—'}</td>
@@ -364,7 +383,20 @@ export function PizarronAdminPage() {
                                 {AREA_LABEL[t.area]}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-gray-600">{t.taken_by_name ?? '—'}</td>
+                            <td className="px-4 py-2.5 text-gray-600">
+                              {takerList.length === 0 ? '—' : (
+                                <div className="flex flex-wrap gap-1">
+                                  {takerList.map(x => (
+                                    <span key={x.id} className="inline-flex items-center gap-1 text-[11px] bg-gray-50 border border-gray-100 rounded-full px-2 py-0.5">
+                                      <span className="font-semibold text-gray-700">{x.taker_name}</span>
+                                      {typeof x.duration_min === 'number' && x.duration_min > 0 && (
+                                        <span className="text-gray-400">· {x.duration_min}m</span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
                             <td className="px-4 py-2.5 text-right text-gray-600">
                               {mins !== null ? (
                                 <span className="inline-flex items-center gap-1">

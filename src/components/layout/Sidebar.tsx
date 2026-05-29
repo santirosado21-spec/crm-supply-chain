@@ -30,6 +30,7 @@ const WMS_LINKS: Link[] = [
 const ALMACEN_LINKS: Link[] = [
   { to: '/almacen',                label: 'Inicio',              icon: Home },
   { to: '/almacen/hoy',            label: 'Hoy',                 icon: Calendar },
+  { to: '/almacen/dia',            label: 'Día (timeline)',      icon: CalendarClock },
   { to: '/almacen/distribucion',   label: 'Distribución tareas', icon: UserCheck },
   { to: '/almacen/pizarron',       label: 'Pizarrón',            icon: LayoutDashboard },
   { to: '/almacen/pizarron-admin', label: 'Pizarrón Admin',      icon: BarChart3 },
@@ -48,9 +49,10 @@ const TMS_LINKS: Link[] = [
 ]
 
 const CALENDARIO_LINKS: Link[] = [
-  { to: '/calendario',             label: 'Mi bandeja',     icon: Inbox },
-  { to: '/calendario/semana',      label: 'Calendario',     icon: Calendar },
-  { to: '/calendario/plantillas',  label: 'Plantillas',     icon: Repeat },
+  { to: '/calendario',             label: 'Mi bandeja',         icon: Inbox },
+  { to: '/calendario/semana',      label: 'Calendario',         icon: Calendar },
+  { to: '/calendario/ejecutivo',   label: 'Cal. Ejecutivo',     icon: CalendarClock },
+  { to: '/calendario/plantillas',  label: 'Plantillas',         icon: Repeat },
 ]
 
 const CALENDARIO_ADMIN_LINKS: Link[] = [

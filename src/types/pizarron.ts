@@ -26,10 +26,29 @@ export interface WarehouseTask {
   // Campos del flujo Blue Yonder WLM (migración 20260525144000):
   assigned_to_name:         string | null   // designación pre-take para persona sin cuenta
   estimated_duration_min:   number | null   // duración aproximada del estándar / manual
-  actual_duration_min:      number | null   // capturado al completar (commit siguiente)
+  actual_duration_min:      number | null   // SUM(duration_min) de todos los takers — horas-hombre
   designation_notes:        string | null   // instrucciones que Guillermo dicta
-  // join opcional
+  // Planificación operativa CEDIS (migración 20260528000001):
+  scheduled_start:          string | null   // ISO timestamp — cuándo el director planeó ejecutarla
+  scheduled_end:            string | null
+  // joins opcionales
   task?:                    Task | null
+  takers?:                  WarehouseTaskTaker[]   // multi-taker (mig 20260528000001)
+}
+
+// Multi-taker: cada persona que trabaja una warehouse_task es una fila en
+// warehouse_task_takers (migración 20260528000001).
+export interface WarehouseTaskTaker {
+  id:                string
+  warehouse_task_id: string
+  taker_name:        string
+  taker_email:       string | null
+  started_at:        string   // ISO
+  ended_at:          string | null
+  duration_min:      number | null   // generated: NULL hasta que ended_at exista
+  device_id:         string | null
+  notes:             string | null
+  created_at:        string
 }
 
 export const WAREHOUSE_AREAS: WarehouseArea[] = [
