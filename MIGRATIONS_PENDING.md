@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 8 MIGRACIONES PENDIENTES DE APLICAR
+## Estado: 9 MIGRACIONES PENDIENTES DE APLICAR
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -84,6 +84,16 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   + realtime habilitado.
 - Standalone por ahora: no integrado con `cartas_instruccion` (el campo FK
   suave `cartas_instruccion.carta_porte_id` queda esperando para fase 2).
+
+### 9. `20260603000003_cartas_porte_viaje_link.sql`
+- Agrega `cartas_porte.viaje_id UUID REFERENCES viajes(id) ON DELETE SET NULL`
+  + índice parcial `WHERE viaje_id IS NOT NULL`.
+- Permite ligar una Carta Porte a un Viaje confirmado (creado vía el Cotizador)
+  para trazabilidad + auto-llenado de Transporte/Figura/cliente/carga en
+  `/tms/carta-porte`.
+- Sin esta migración: el selector "Ligar a viaje" funciona en UI (auto-llena
+  los campos), pero el `viaje_id` NO se persiste en BD — al recargar la carta
+  porte desde el historial, el banner azul no se restaura.
 
 ## Cómo aplicar
 

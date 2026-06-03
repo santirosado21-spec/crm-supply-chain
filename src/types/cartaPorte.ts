@@ -62,6 +62,7 @@ export interface CartaPorte {
   uuid_sat:              string | null
   notas:                 string | null
   creado_por:            string
+  viaje_id:              string | null
   created_at:            string
   updated_at?:           string
 }

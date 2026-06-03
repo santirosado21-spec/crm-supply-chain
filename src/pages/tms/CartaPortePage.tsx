@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   FileText, ChevronDown, ChevronRight, MapPin, Truck, User as UserIcon,
   Package, Save, FileDown, Code, Plus, X, AlertTriangle, Loader2, RotateCcw,
-  Settings, History,
+  Settings, History, Link2,
 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
@@ -13,6 +13,8 @@ import { useToast } from '../../hooks/useToast'
 import { useCartasPorte } from '../../hooks/useCartasPorte'
 import { useVehiculos } from '../../hooks/useVehiculos'
 import { useOperadores } from '../../hooks/useOperadores'
+import { useViajes } from '../../hooks/useViajes'
+import type { Viaje } from '../../types/tms'
 import {
   EMPTY_UBICACION, EMPTY_MERCANCIA, EMPTY_TRANSPORTE, EMPTY_FIGURA,
   type Ubicacion, type Mercancia, type Transporte, type Figura, type CartaPorte,
@@ -29,6 +31,22 @@ interface EmisorConfig {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+// Parsea el campo `notas` que escribe el Cotizador en handleAddToBitacora.
+// Formato esperado:
+//   "Cotización #1234 · Cliente: Linet · Operador: Rubén · Maniobrista: X · 1 día(s) · Modelo (Placas) · Carga: 5 tarimas · [DADIVA: $200]"
+function parseViajeNotas(notas: string | null | undefined): {
+  cliente?: string
+  carga?: string
+} {
+  if (!notas) return {}
+  const out: { cliente?: string; carga?: string } = {}
+  const m1 = notas.match(/Cliente:\s*([^·]+?)(?=\s*·|\s*$)/i)
+  if (m1) out.cliente = m1[1].trim()
+  const m2 = notas.match(/Carga:\s*([^·]+?)(?=\s*·|\s*$)/i)
+  if (m2) out.carga = m2[1].trim()
+  return out
+}
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -123,6 +141,13 @@ export function CartaPortePage() {
   const { cartas, loading: loadingHist, createCartaPorte, updateCartaPorte } = useCartasPorte()
   const { vehiculos } = useVehiculos({ esPropio: true })
   const { operadores } = useOperadores({ esPropio: true })
+  // Viajes: cargamos todos y filtramos client-side por estado (useViajes solo
+  // permite UN estado por filter — filtrar acá es más simple y barato).
+  const { viajes } = useViajes()
+  const viajesConfirmables = useMemo(
+    () => viajes.filter(v => ['asignado','en_transito','entregado','completado'].includes(v.estado)),
+    [viajes],
+  )
 
   // Emisor
   const [emisor, setEmisor] = useState<EmisorConfig | null>(null)
@@ -140,6 +165,12 @@ export function CartaPortePage() {
 
   const [busy, setBusy] = useState(false)
   const [lastFolio, setLastFolio] = useState<string | null>(null)
+  // Ligado a viaje (opcional, trazabilidad + auto-llenado)
+  const [viajeId, setViajeId] = useState<string | null>(null)
+  const viajeLigado = useMemo(
+    () => viajes.find(v => v.id === viajeId) ?? null,
+    [viajes, viajeId],
+  )
 
   // Cargar emisor_config
   useEffect(() => {
@@ -187,6 +218,61 @@ export function CartaPortePage() {
   const addDestinatario = () => setDestinatarios(prev => [...prev, { ...EMPTY_UBICACION }])
   const removeDestinatario = (idx: number) => setDestinatarios(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev)
 
+  // ── Ligar a viaje + auto-llenado ──────────────────────────────────────────
+  const prefillFromViaje = (v: Viaje) => {
+    setViajeId(v.id)
+    // Vehículo: placas, línea, peso bruto vehicular, selector unidad
+    const veh = vehiculos.find(x => x.id === v.vehiculo_id)
+    if (veh) {
+      setTransporte(t => ({
+        ...t,
+        placas: veh.placa,
+        linea: veh.es_propio
+          ? (emisor?.razon_social ?? 'Supply Chain MX')
+          : (veh.proveedor_nombre ?? t.linea),
+        pesoBrutoVehicular: veh.capacidad_kg > 0 ? veh.capacidad_kg : t.pesoBrutoVehicular,
+      }))
+      setUnidadClave(veh.clave)
+    }
+    // Operador: nombre + licencia (RFC no — operadores no lo tiene aún)
+    const op = operadores.find(x => x.id === v.operador_id)
+    if (op) {
+      setFigura(f => ({
+        ...f,
+        operadorNombre: op.nombre,
+        operadorLicencia: op.licencia_numero || f.operadorLicencia,
+      }))
+      setOperadorNombreSel(op.nombre)
+    }
+    // Cliente + carga del campo notas del Cotizador
+    const { cliente, carga } = parseViajeNotas(v.notas)
+    if (cliente) {
+      setDestinatarios(prev => {
+        const next = [...prev]
+        next[0] = { ...(next[0] ?? EMPTY_UBICACION), nombre: cliente, referencia: v.destino || (next[0]?.referencia ?? '') }
+        return next
+      })
+    } else if (v.destino) {
+      setDestinatarios(prev => {
+        const next = [...prev]
+        next[0] = { ...(next[0] ?? EMPTY_UBICACION), referencia: v.destino }
+        return next
+      })
+    }
+    if (carga) {
+      setMercancias(prev => {
+        const next = [...prev]
+        next[0] = { ...(next[0] ?? EMPTY_MERCANCIA), descripcion: carga }
+        return next
+      })
+    }
+    // Referencia del remitente = origen del viaje
+    if (v.origen) {
+      setRemitente(r => ({ ...r, referencia: v.origen }))
+    }
+    toast.success('Datos auto-llenados del viaje', 'Revisa y completa lo que falta (RFCs, dirección, clave SAT).')
+  }
+
   // ── Reset ─────────────────────────────────────────────────────────────────
   const resetForm = () => {
     setRemitente(EMPTY_UBICACION)
@@ -198,6 +284,7 @@ export function CartaPortePage() {
     setMercancias([{ ...EMPTY_MERCANCIA }])
     setNotas('')
     setLastFolio(null)
+    setViajeId(null)
   }
 
   // ── Validación mínima ─────────────────────────────────────────────────────
@@ -239,6 +326,7 @@ export function CartaPortePage() {
         uuid_sat: null,
         notas,
         creado_por: user?.name ?? user?.email ?? 'TMS',
+        viaje_id: viajeId,
       })
       setLastFolio(cp.folio)
       toast.success('Borrador guardado', `Folio ${cp.folio}`)
@@ -273,6 +361,7 @@ export function CartaPortePage() {
     notas,
     creado_por: user?.name ?? '',
     created_at: new Date().toISOString(),
+    viaje_id: viajeId,
   })
 
   // ── Generar PDF ───────────────────────────────────────────────────────────
@@ -317,6 +406,7 @@ export function CartaPortePage() {
           uuid_sat: null,
           notas,
           creado_por: user?.name ?? user?.email ?? 'TMS',
+          viaje_id: viajeId,
         })
         setLastFolio(cp.folio)
         snap = { ...snap, id: cp.id, folio: cp.folio }
@@ -346,6 +436,7 @@ export function CartaPortePage() {
     setMercancias(cp.mercancias.length > 0 ? cp.mercancias : [{ ...EMPTY_MERCANCIA }])
     setNotas(cp.notas ?? '')
     setLastFolio(cp.folio)
+    setViajeId(cp.viaje_id ?? null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     toast.success('Carta porte cargada', `Folio ${cp.folio}`)
   }
@@ -435,6 +526,79 @@ export function CartaPortePage() {
                   <Plus size={14} /> Agregar destinatario
                 </button>
               </Collapsible>
+
+              {/* Ligar a viaje (Cotizador) */}
+              {viajeLigado ? (
+                <div className={sec + ' !bg-blue-50 !border-blue-200'}>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Link2 size={18} className="text-[#1e3a5f] shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[#1e3a5f]">
+                          Ligado al viaje{' '}
+                          <span className="font-mono text-xs">#{viajeLigado.id.slice(0, 8)}</span>
+                        </p>
+                        <p className="text-xs text-gray-700 mt-0.5">
+                          <span className="font-semibold">{viajeLigado.origen || '—'}</span>
+                          {' → '}
+                          <span className="font-semibold">{viajeLigado.destino || '—'}</span>
+                          {viajeLigado.km_estimados > 0 && (
+                            <span className="text-gray-500"> · {viajeLigado.km_estimados} km</span>
+                          )}
+                          {parseViajeNotas(viajeLigado.notas).cliente && (
+                            <span className="text-gray-500"> · cliente: {parseViajeNotas(viajeLigado.notas).cliente}</span>
+                          )}
+                          <span className="text-gray-400"> · {viajeLigado.estado}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setViajeId(null)}
+                      className="shrink-0 h-8 px-3 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 flex items-center gap-1.5 hover:bg-gray-50"
+                      title="Solo quita el vínculo. Los datos del form NO se borran."
+                    >
+                      <X size={12} /> Quitar ligado
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={sec}>
+                  <p className={secTitle}><Link2 size={16} /> Ligar a viaje confirmado (opcional)</p>
+                  <p className="text-[11px] text-gray-500 mb-3">
+                    Selecciona un viaje del Cotizador para auto-llenar placas, operador, cliente y carga.
+                  </p>
+                  <select
+                    className={inp}
+                    value=""
+                    onChange={e => {
+                      const v = viajesConfirmables.find(x => x.id === e.target.value)
+                      if (v) prefillFromViaje(v)
+                    }}
+                  >
+                    <option value="">
+                      {viajesConfirmables.length === 0
+                        ? '— No hay viajes confirmados disponibles —'
+                        : `— Seleccionar viaje (${viajesConfirmables.length}) —`}
+                    </option>
+                    {viajesConfirmables
+                      .slice()
+                      .sort((a, b) => (b.fecha_programada ?? '').localeCompare(a.fecha_programada ?? ''))
+                      .map(v => {
+                        const cliente = parseViajeNotas(v.notas).cliente
+                        const ruta = `${v.origen || '—'} → ${v.destino || '—'}`
+                        const fecha = v.fecha_programada
+                          ? new Date(v.fecha_programada).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+                          : ''
+                        return (
+                          <option key={v.id} value={v.id}>
+                            #{v.id.slice(0, 8)} · {ruta}{cliente ? ` · ${cliente}` : ''}{fecha ? ` · ${fecha}` : ''} · {v.estado}
+                          </option>
+                        )
+                      })}
+                  </select>
+                </div>
+              )}
 
               {/* Transporte */}
               <Collapsible title="Datos del Transporte" icon={<Truck size={16} />}>
