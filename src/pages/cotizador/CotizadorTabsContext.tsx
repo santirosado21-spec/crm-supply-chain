@@ -11,6 +11,15 @@ import { BONOS_DEFAULT } from './cotizadorConstants'
   varias antes de aprobar una. Solo cuenta para dashboards al guardar (createViaje).
 */
 
+// Un viaje puede llevar varios maniobristas a la vez: internos (del catálogo)
+// y externos (nombre libre, contratado puntual). Cada uno se modela como una
+// fila independiente con su flag `esExterno`.
+export interface ManiobristaAsignado {
+  id:        string
+  nombre:    string
+  esExterno: boolean
+}
+
 export interface CotizadorFormState {
   // Ruta
   origen: string
@@ -42,12 +51,11 @@ export interface CotizadorFormState {
   contTipo: string
   descripcionCarga: string
 
-  // Maniobra
+  // Maniobra — varios maniobristas (mezcla internos/externos) por viaje.
   mHoras: number
   mMinutos: number
   mCosto: number
-  maniobrista: string
-  maniobristaSource: 'interno' | 'externo'
+  maniobristas: ManiobristaAsignado[]
 
   // Viáticos / dádiva
   viaticosExtras: number
@@ -76,7 +84,7 @@ export const INITIAL_FORM_STATE: CotizadorFormState = {
   kmRegreso: 0, casetasRegresoMulti: 0, horasRegreso: 0, minutosRegreso: 0,
   cliente: '', tipoCliente: 'FINAL', unidadClave: '', operador: '',
   contenedores: [], contCantidad: 0, contTipo: '', descripcionCarga: '',
-  mHoras: 0, mMinutos: 0, mCosto: 150, maniobrista: '', maniobristaSource: 'interno',
+  mHoras: 0, mMinutos: 0, mCosto: 150, maniobristas: [],
   viaticosExtras: 0, dadiva: 0,
   incluyeBonos: false,
   bonoSueldo: BONOS_DEFAULT.SUELDO,
@@ -126,12 +134,39 @@ function makeNewTab(label: string): CotizadorTab {
   }
 }
 
+// Migración para tabs guardadas con el modelo viejo (maniobrista + maniobristaSource).
+// Las normaliza al nuevo modelo (maniobristas[]).
+function normalizeFormState(fs: Record<string, unknown>): CotizadorFormState {
+  const fsAny = fs as Record<string, unknown> & {
+    maniobrista?: string
+    maniobristaSource?: 'interno' | 'externo'
+    maniobristas?: ManiobristaAsignado[]
+  }
+  if (Array.isArray(fsAny.maniobristas)) {
+    return fsAny as unknown as CotizadorFormState
+  }
+  const legacyName = typeof fsAny.maniobrista === 'string' ? fsAny.maniobrista.trim() : ''
+  const legacySource = fsAny.maniobristaSource === 'externo' ? true : false
+  const migrated: ManiobristaAsignado[] = legacyName
+    ? [{ id: `m-legacy-${Date.now()}`, nombre: legacyName, esExterno: legacySource }]
+    : []
+  const next = { ...fsAny, maniobristas: migrated } as unknown as CotizadorFormState
+  const nextRec = next as unknown as Record<string, unknown>
+  delete nextRec.maniobrista
+  delete nextRec.maniobristaSource
+  return next
+}
+
 function loadFromStorage(): { tabs: CotizadorTab[]; activeTabId: string } | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as { tabs: CotizadorTab[]; activeTabId: string }
     if (!Array.isArray(parsed.tabs) || parsed.tabs.length === 0) return null
+    parsed.tabs = parsed.tabs.map(t => ({
+      ...t,
+      formState: normalizeFormState(t.formState as unknown as Record<string, unknown>),
+    }))
     return parsed
   } catch {
     return null

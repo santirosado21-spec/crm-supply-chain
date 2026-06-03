@@ -202,9 +202,23 @@ describe('calcularFlete — maniobra', () => {
     expect(result.maniobraDetalle).toEqual({ horas: 2, minutos: 30, costoPorHora: 200 })
   })
 
-  it('maniobrista nombre se propaga al result', () => {
-    const result = calcularFlete(makeInput({ maniobrista: 'Juan Pérez' }))
-    expect(result.maniobrista).toBe('Juan Pérez')
+  it('maniobristas internos se propagan al result (string formateado)', () => {
+    const result = calcularFlete(makeInput({
+      maniobristas: [{ id: 'm1', nombre: 'Juan Pérez', esExterno: false }],
+    }))
+    expect(result.maniobrista).toBe('Juan Pérez (interno)')
+    expect(result.maniobristas).toHaveLength(1)
+  })
+
+  it('mezcla interno + externo se concatena con +', () => {
+    const result = calcularFlete(makeInput({
+      maniobristas: [
+        { id: 'm1', nombre: 'Juan', esExterno: false },
+        { id: 'm2', nombre: 'Pedro', esExterno: true },
+      ],
+    }))
+    expect(result.maniobrista).toBe('Juan (interno) + Pedro (externo)')
+    expect(result.maniobristas).toHaveLength(2)
   })
 })
 

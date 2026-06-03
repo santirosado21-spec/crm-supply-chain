@@ -1,0 +1,259 @@
+// Validación end-to-end de las 5 features en producción.
+// Ejecuta: cd /Users/.../crm-supply-chain && node /tmp/validate-prod.mjs
+
+import { chromium } from '@playwright/test'
+import { mkdirSync } from 'node:fs'
+
+const BASE_URL = 'https://crm-supply-chain.vercel.app'
+const EMAIL = 'santirosado21@gmail.com'
+const PASSWORD = 'santi2121R\\*R'
+const OUT_DIR = '/tmp/prod-validation'
+
+mkdirSync(OUT_DIR, { recursive: true })
+
+const results = []
+function pass(name, detail = '') { results.push({ feature: name, status: 'PASS', detail }); console.log(`✅ ${name}${detail ? ' · ' + detail : ''}`) }
+function fail(name, detail) { results.push({ feature: name, status: 'FAIL', detail }); console.log(`❌ ${name} · ${detail}`) }
+function info(msg) { console.log(`   ${msg}`) }
+
+const browser = await chromium.launch({ headless: true })
+const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } })
+const page = await ctx.newPage()
+
+// Capturar errores de consola para debug
+const consoleErrors = []
+page.on('pageerror', e => consoleErrors.push(`pageerror: ${e.message}`))
+page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(`console.error: ${msg.text()}`) })
+
+try {
+  // ── LOGIN ──────────────────────────────────────────────────────────────────
+  console.log('\n▶ Login a', BASE_URL)
+  await page.goto(BASE_URL, { waitUntil: 'networkidle' })
+  await page.screenshot({ path: `${OUT_DIR}/00-landing.png` })
+
+  // Llegamos a /login o a /. Si vemos un input de email, login.
+  const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]').first()
+  if (await emailInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await emailInput.fill(EMAIL)
+    const passInput = page.locator('input[type="password"]').first()
+    await passInput.fill(PASSWORD)
+    await page.screenshot({ path: `${OUT_DIR}/01-login-filled.png` })
+    // Buscar botón submit
+    const submitBtn = page.locator('button[type="submit"], button:has-text("Entrar"), button:has-text("Iniciar"), button:has-text("Login")').first()
+    await submitBtn.click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+    await page.waitForTimeout(2000)
+    await page.screenshot({ path: `${OUT_DIR}/02-after-login.png` })
+    const url = page.url()
+    if (url.includes('/login')) {
+      fail('Login', `Sigue en /login: ${url}`)
+      throw new Error('Login failed')
+    }
+    pass('Login', `Redirigido a ${new URL(url).pathname}`)
+  } else {
+    info('No se vio formulario de login (¿ya autenticado?)')
+  }
+
+  // ── FEATURE 1 & 2 & 3 — Cotizador ─────────────────────────────────────────
+  console.log('\n▶ Navegando a /cotizador')
+  await page.goto(`${BASE_URL}/cotizador`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: `${OUT_DIR}/10-cotizador-initial.png`, fullPage: true })
+
+  // === Feature 3: Multi-tab — verificar TabsBar arriba ===
+  const tabBar = page.locator('text=Cotización 1').first()
+  if (await tabBar.isVisible({ timeout: 5000 }).catch(() => false)) {
+    pass('Feature 3 · Multi-tab presente', '"Cotización 1" visible')
+    // Botón [+] para agregar tab
+    const addTabBtn = page.locator('button[title*="Nueva"]').first()
+    if (await addTabBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await addTabBtn.click()
+      await page.waitForTimeout(800)
+      const tab2 = page.locator('text=Cotización 2').first()
+      if (await tab2.isVisible({ timeout: 2000 }).catch(() => false)) {
+        pass('Feature 3 · Agregar tab', '+ crea "Cotización 2"')
+        await page.screenshot({ path: `${OUT_DIR}/11-multitab-two-tabs.png` })
+        // Volver a Cot 1 para llenar form
+        await page.locator('text=Cotización 1').first().click()
+        await page.waitForTimeout(500)
+      } else {
+        fail('Feature 3 · Agregar tab', 'no apareció "Cotización 2"')
+      }
+    } else {
+      fail('Feature 3 · Botón +', 'no encontrado')
+    }
+  } else {
+    fail('Feature 3 · Multi-tab', 'TabsBar/"Cotización 1" NO visible — código no deployado o roto')
+  }
+
+  // === Feature 1: Maniobrista externo — toggle Interno/Externo ===
+  const externoBtn = page.locator('button:has-text("Externo")').first()
+  if (await externoBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    pass('Feature 1 · Toggle Externo presente')
+    await externoBtn.click()
+    await page.waitForTimeout(500)
+    const externalInput = page.locator('input[placeholder*="maniobrista externo" i]').first()
+    if (await externalInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await externalInput.fill('Pedro Externo Test')
+      pass('Feature 1 · Input texto libre activo', 'escribió "Pedro Externo Test"')
+      await page.screenshot({ path: `${OUT_DIR}/12-maniobrista-externo.png` })
+    } else {
+      fail('Feature 1 · Input externo', 'no apareció input de texto al activar Externo')
+    }
+  } else {
+    fail('Feature 1 · Toggle Externo', 'botón "Externo" no visible — verificar despliegue')
+  }
+
+  // === Feature 2: Dádiva — buscar input "Dádiva ($) — interna" ===
+  const dadivaLabel = page.locator('text=/Dádiva.*interna/i').first()
+  if (await dadivaLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
+    pass('Feature 2 · Campo Dádiva visible')
+    // Su input numérico está cerca
+    const dadivaInput = dadivaLabel.locator('xpath=following::input[@type="number"][1]').first()
+    if (await dadivaInput.count() > 0) {
+      await dadivaInput.fill('500')
+      pass('Feature 2 · Input dádiva acepta 500')
+      await page.screenshot({ path: `${OUT_DIR}/13-dadiva-input.png` })
+    }
+  } else {
+    fail('Feature 2 · Campo Dádiva', 'label "Dádiva (...) interna" no visible')
+  }
+
+  // === Calcular cotización completa (validar el flujo) ===
+  // Llenar campos mínimos: origen, destino, km, unidad, cliente
+  await page.locator('input[placeholder*="Origen" i], input[placeholder*="origen" i]').first().fill('Lerma').catch(() => null)
+  await page.locator('input[placeholder*="Destino" i], input[placeholder*="destino" i]').first().fill('CDMX').catch(() => null)
+  // Km
+  await page.locator('input[placeholder*="km" i], label:has-text("Km") + * input').first().fill('100').catch(() => null)
+  // Tipo cliente: FINAL ya está default
+  // Unidad: pick first available
+  const unidadSelect = page.locator('select').filter({ hasText: 'Seleccionar unidad' }).first()
+  if (await unidadSelect.count() > 0) {
+    const opts = await unidadSelect.locator('option').count()
+    if (opts > 1) {
+      const secondOptionValue = await unidadSelect.locator('option').nth(1).getAttribute('value')
+      if (secondOptionValue) await unidadSelect.selectOption(secondOptionValue)
+    }
+  }
+  await page.waitForTimeout(500)
+  // Buscar botón "Calcular"
+  const calcBtn = page.locator('button:has-text("Calcular")').first()
+  if (await calcBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await calcBtn.click()
+    await page.waitForTimeout(1500)
+    await page.screenshot({ path: `${OUT_DIR}/14-cotizacion-calculada.png`, fullPage: true })
+    // Verificar línea "Dádiva GN (interno)" en el desglose
+    const dadivaLine = page.locator('text=/Dádiva GN/i').first()
+    if (await dadivaLine.isVisible({ timeout: 2000 }).catch(() => false)) {
+      pass('Feature 2 · Línea "Dádiva GN" en desglose')
+    } else {
+      info('Línea "Dádiva GN" no visible en resultado — puede ser por campos faltantes para calcular')
+    }
+    // Ganancia neta visible
+    const gananciaNeta = page.locator('text=/Ganancia neta/i').first()
+    if (await gananciaNeta.isVisible({ timeout: 2000 }).catch(() => false)) {
+      pass('Feature 2 · "Ganancia neta" en panel')
+    }
+  }
+
+  // ── FEATURE 4 & 5 — Trámites ──────────────────────────────────────────────
+  console.log('\n▶ Navegando a /tramites')
+  await page.goto(`${BASE_URL}/tramites`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: `${OUT_DIR}/20-tramites-initial.png`, fullPage: true })
+
+  // Click "Nuevo trámite"
+  const nuevoBtn = page.locator('button:has-text("Nuevo trámite")').first()
+  if (await nuevoBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await nuevoBtn.click()
+    await page.waitForTimeout(800)
+    await page.screenshot({ path: `${OUT_DIR}/21-tramites-modal.png` })
+
+    // El modal tiene un select de Tipo
+    // Feature 5: verificar que "Rendimiento unidades" existe en el dropdown
+    const tipoSelect = page.locator('select').filter({ has: page.locator('option', { hasText: 'Tenencia' }) }).first()
+    if (await tipoSelect.count() > 0) {
+      const optionTexts = await tipoSelect.locator('option').allTextContents()
+      const hasRendimiento = optionTexts.some(t => /Rendimiento unidades/i.test(t))
+      if (hasRendimiento) {
+        pass('Feature 5 · "Rendimiento unidades" en tipos', 'opción visible')
+      } else {
+        fail('Feature 5 · Tipo nuevo', `no aparece en opciones: ${optionTexts.join(', ')}`)
+      }
+
+      // === Feature 4: seleccionar "Seguro" → campos extra ===
+      await tipoSelect.selectOption({ label: 'Seguro' })
+      await page.waitForTimeout(500)
+      await page.screenshot({ path: `${OUT_DIR}/22-tramites-seguro.png` })
+      const polizaLabel = page.locator('text=/Número de póliza/i').first()
+      if (await polizaLabel.isVisible({ timeout: 2000 }).catch(() => false)) {
+        pass('Feature 4 · Campo "Número de póliza" visible en tipo Seguro')
+      } else {
+        fail('Feature 4 · Campo póliza', 'no visible al elegir tipo Seguro')
+      }
+      const aseguradoraLabel = page.locator('text=/Aseguradora/i').first()
+      if (await aseguradoraLabel.isVisible({ timeout: 1000 }).catch(() => false)) {
+        pass('Feature 4 · Campo "Aseguradora" visible')
+      } else {
+        fail('Feature 4 · Campo aseguradora', 'no visible')
+      }
+      const coberturaLabel = page.locator('text=/Cobertura/i').first()
+      if (await coberturaLabel.isVisible({ timeout: 1000 }).catch(() => false)) {
+        pass('Feature 4 · Campo "Cobertura" visible')
+      } else {
+        fail('Feature 4 · Campo cobertura', 'no visible')
+      }
+
+      // Cambiar a Tenencia → desaparecen
+      await tipoSelect.selectOption({ label: 'Tenencia' })
+      await page.waitForTimeout(500)
+      const polizaGone = await page.locator('text=/Número de póliza/i').count()
+      if (polizaGone === 0) {
+        pass('Feature 4 · Condicional', 'campos desaparecen al cambiar a Tenencia')
+      } else {
+        fail('Feature 4 · Condicional', 'campos siguen visibles tras cambiar a Tenencia')
+      }
+
+      // === Feature 5: seleccionar "Rendimiento unidades" → tip + opción global ===
+      await tipoSelect.selectOption({ label: 'Rendimiento unidades' })
+      await page.waitForTimeout(500)
+      await page.screenshot({ path: `${OUT_DIR}/23-tramites-rendimiento.png` })
+      const tipBox = page.locator('text=/Motive cada 3 meses/i').first()
+      if (await tipBox.isVisible({ timeout: 2000 }).catch(() => false)) {
+        pass('Feature 5 · Tip ámbar visible')
+      } else {
+        fail('Feature 5 · Tip', 'mensaje de Motive no visible')
+      }
+      // Select unidad debe contener "Todas las unidades (global)"
+      const unidadSel = page.locator('select').filter({ has: page.locator('option', { hasText: /Todas las unidades/i }) }).first()
+      if (await unidadSel.count() > 0) {
+        pass('Feature 5 · Unidad "global" disponible', '"Todas las unidades (global)" en opciones')
+      } else {
+        fail('Feature 5 · Unidad global', 'opción "Todas las unidades" no encontrada')
+      }
+    } else {
+      fail('Feature 4+5 · Modal', 'no se encontró select de Tipo de trámite')
+    }
+  } else {
+    fail('Feature 4+5 · Botón Nuevo trámite', 'no visible')
+  }
+
+  await page.screenshot({ path: `${OUT_DIR}/99-final.png`, fullPage: true })
+
+} catch (e) {
+  console.error('\n💥 Error inesperado:', e.message)
+  await page.screenshot({ path: `${OUT_DIR}/ERROR.png`, fullPage: true }).catch(() => null)
+} finally {
+  if (consoleErrors.length > 0) {
+    console.log('\n⚠ Errores capturados en consola del navegador:')
+    consoleErrors.slice(0, 10).forEach(e => console.log('  -', e))
+  }
+  await browser.close()
+
+  console.log('\n──────────── RESUMEN ────────────')
+  const passed = results.filter(r => r.status === 'PASS').length
+  const failed = results.filter(r => r.status === 'FAIL').length
+  console.log(`Total: ${results.length} | ✅ ${passed} | ❌ ${failed}`)
+  console.log(`Screenshots: ${OUT_DIR}`)
+  if (failed > 0) process.exit(1)
+}

@@ -16,7 +16,7 @@ import {
 } from './cotizadorConstants'
 import { useVehiculos } from '../../hooks/useVehiculos'
 import { useOperadores } from '../../hooks/useOperadores'
-import { calcularFlete, type CotizadorResult, type Parada, type Contenedor } from './cotizadorCalc'
+import { calcularFlete, type CotizadorResult, type Parada, type Contenedor, type ManiobristaAsignado } from './cotizadorCalc'
 import { isBaseManiobrista } from '../../lib/tmsCatalog'
 import { CotizadorTabsProvider, useCotizadorTabs } from './CotizadorTabsContext'
 import { CotizadorTabsBar } from './CotizadorTabsBar'
@@ -538,8 +538,11 @@ function CotizadorPageInner() {
   const [mHoras, setMHoras] = useState<number>(initialFs.mHoras)
   const [mMinutos, setMMinutos] = useState<number>(initialFs.mMinutos)
   const [mCosto, setMCosto] = useState<number>(initialFs.mCosto)
-  const [maniobrista, setManiobrista] = useState<string>(initialFs.maniobrista)
-  const [maniobristaSource, setManiobristaSource] = useState<'interno' | 'externo'>(initialFs.maniobristaSource)
+  // Lista de maniobristas asignados (mezcla interno/externo en el mismo viaje).
+  const [maniobristasList, setManiobristasList] = useState<ManiobristaAsignado[]>(initialFs.maniobristas)
+  // UI inline pickers (no persistidos a la tab — solo del estado del form):
+  const [addInternoSel, setAddInternoSel] = useState<string>('')
+  const [addExternoName, setAddExternoName] = useState<string>('')
 
   // Viáticos extras (ad-hoc, además de los calculados por bonos)
   const [viaticosExtras, setViaticosExtras] = useState<number>(initialFs.viaticosExtras)
@@ -566,6 +569,39 @@ function CotizadorPageInner() {
   const [result, setResult] = useState<CotizadorResult | null>(initialResult)
   const [error, setError] = useState('')
 
+  // ── Maniobristas helpers ──────────────────────────────────────────────────
+  const addManiobristaInterno = useCallback(() => {
+    const nombre = addInternoSel.trim()
+    if (!nombre) return
+    if (maniobristasList.some(m => m.nombre.toLowerCase() === nombre.toLowerCase())) {
+      setAddInternoSel('')
+      return
+    }
+    setManiobristasList(prev => [
+      ...prev,
+      { id: `mi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, nombre, esExterno: false },
+    ])
+    setAddInternoSel('')
+  }, [addInternoSel, maniobristasList])
+
+  const addManiobristaExterno = useCallback(() => {
+    const nombre = addExternoName.trim()
+    if (!nombre) return
+    if (maniobristasList.some(m => m.nombre.toLowerCase() === nombre.toLowerCase())) {
+      setAddExternoName('')
+      return
+    }
+    setManiobristasList(prev => [
+      ...prev,
+      { id: `me-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, nombre, esExterno: true },
+    ])
+    setAddExternoName('')
+  }, [addExternoName, maniobristasList])
+
+  const removeManiobrista = useCallback((id: string) => {
+    setManiobristasList(prev => prev.filter(m => m.id !== id))
+  }, [])
+
   // ── Multi-tab sync ─────────────────────────────────────────────────────────
   // Cuando el usuario cambia de pestaña, hidratamos los useState desde la nueva
   // tab. Durante esa hidratación hay que evitar que el efecto de snapshot
@@ -589,7 +625,8 @@ function CotizadorPageInner() {
     setContenedores(fs.contenedores); setContCantidad(fs.contCantidad)
     setContTipo(fs.contTipo); setDescripcionCarga(fs.descripcionCarga)
     setMHoras(fs.mHoras); setMMinutos(fs.mMinutos); setMCosto(fs.mCosto)
-    setManiobrista(fs.maniobrista); setManiobristaSource(fs.maniobristaSource)
+    setManiobristasList(fs.maniobristas)
+    setAddInternoSel(''); setAddExternoName('')
     setViaticosExtras(fs.viaticosExtras); setDadiva(fs.dadiva)
     setIncluyeBonos(fs.incluyeBonos)
     setBonoSueldo(fs.bonoSueldo); setBonoKmCarga(fs.bonoKmCarga)
@@ -612,7 +649,7 @@ function CotizadorPageInner() {
       kmRegreso, casetasRegresoMulti, horasRegreso, minutosRegreso,
       cliente, tipoCliente, unidadClave, operador,
       contenedores, contCantidad, contTipo, descripcionCarga,
-      mHoras, mMinutos, mCosto, maniobrista, maniobristaSource,
+      mHoras, mMinutos, mCosto, maniobristas: maniobristasList,
       viaticosExtras, dadiva,
       incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
       dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
@@ -624,7 +661,7 @@ function CotizadorPageInner() {
     kmRegreso, casetasRegresoMulti, horasRegreso, minutosRegreso,
     cliente, tipoCliente, unidadClave, operador,
     contenedores, contCantidad, contTipo, descripcionCarga,
-    mHoras, mMinutos, mCosto, maniobrista, maniobristaSource,
+    mHoras, mMinutos, mCosto, maniobristasList,
     viaticosExtras, dadiva,
     incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
     dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
@@ -708,7 +745,7 @@ function CotizadorPageInner() {
       unidad, tipoCliente, operador, cliente,
       contenedores, descripcionCarga,
       maniobrasHoras: mHoras, maniobrasMinutos: mMinutos, maniobraCosto: mCosto,
-      maniobrista: maniobrista || undefined,
+      maniobristas: maniobristasList,
       viaticosExtras,
       dadiva,
       incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
@@ -721,7 +758,7 @@ function CotizadorPageInner() {
     viajeRedondo, modoMultiparadas, paradas, kmRegreso, casetasRegresoMulti,
     horasRegreso, minutosRegreso, unidadClave, tipoCliente, operador, cliente,
     contenedores, descripcionCarga, totalKm,
-    mHoras, mMinutos, mCosto, maniobrista, viaticosExtras, dadiva, incluyeBonos,
+    mHoras, mMinutos, mCosto, maniobristasList, viaticosExtras, dadiva, incluyeBonos,
     bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
     dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
   ])
@@ -779,7 +816,8 @@ function CotizadorPageInner() {
     setModoMultiparadas(false); setParadas([]); setKmRegreso(0)
     setCasetasRegresoMulti(0); setHorasRegreso(0); setMinutosRegreso(0)
     setContenedores([]); setContCantidad(0); setContTipo(''); setDescripcionCarga('')
-    setMHoras(0); setMMinutos(0); setManiobrista(''); setManiobristaSource('interno')
+    setMHoras(0); setMMinutos(0)
+    setManiobristasList([]); setAddInternoSel(''); setAddExternoName('')
     setDMatutino(0); setDNocturno(0)
     setDSabado(0); setDDomingo(0); setDFestivo(0)
     setIncluyeBonos(false); setViaticosExtras(0); setDadiva(0)
@@ -1068,33 +1106,74 @@ function CotizadorPageInner() {
                       {operadores.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className={lbl}>Maniobrista</label>
-                    <div className="flex gap-1 mb-1.5">
-                      <button
-                        type="button"
-                        onClick={() => { setManiobristaSource('interno'); setManiobrista('') }}
-                        className={`flex-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${maniobristaSource === 'interno' ? 'bg-[#1e3a5f] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                      >Interno</button>
-                      <button
-                        type="button"
-                        onClick={() => { setManiobristaSource('externo'); setManiobrista('') }}
-                        className={`flex-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${maniobristaSource === 'externo' ? 'bg-[#1e3a5f] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                      >Externo</button>
-                    </div>
-                    {maniobristaSource === 'interno' ? (
-                      <select className={inp} value={maniobrista} onChange={e => setManiobrista(e.target.value)}>
-                        <option value="">Sin maniobrista asignado</option>
-                        {maniobristas.map(m => <option key={m} value={m}>{m}</option>)}
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <label className={lbl}>Maniobristas (varios permitidos)</label>
+                    {/* Chips de asignados */}
+                    {maniobristasList.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {maniobristasList.map(m => (
+                          <span
+                            key={m.id}
+                            className={`inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1 py-1 text-[11px] font-semibold border ${m.esExterno ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-[#1e3a5f]'}`}
+                          >
+                            {m.nombre}
+                            <span className={`text-[9px] font-normal opacity-70`}>
+                              {m.esExterno ? '· externo' : '· interno'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeManiobrista(m.id)}
+                              className="ml-0.5 rounded-full hover:bg-white/70 p-0.5"
+                              title="Quitar"
+                            >
+                              <X size={11} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Add interno */}
+                    <div className="flex gap-1.5 mb-1.5">
+                      <select
+                        className={`${inp} flex-1`}
+                        value={addInternoSel}
+                        onChange={e => setAddInternoSel(e.target.value)}
+                      >
+                        <option value="">+ Agregar interno…</option>
+                        {maniobristas
+                          .filter(m => !maniobristasList.some(x => x.nombre.toLowerCase() === m.toLowerCase()))
+                          .map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
-                    ) : (
+                      <button
+                        type="button"
+                        onClick={addManiobristaInterno}
+                        disabled={!addInternoSel}
+                        className="px-3 rounded-xl bg-[#1e3a5f] text-white text-xs font-bold disabled:opacity-40"
+                        title="Agregar este interno"
+                      >+</button>
+                    </div>
+                    {/* Add externo */}
+                    <div className="flex gap-1.5">
                       <input
                         type="text"
-                        className={inp}
-                        value={maniobrista}
-                        onChange={e => setManiobrista(e.target.value)}
-                        placeholder="Nombre del maniobrista externo"
+                        className={`${inp} flex-1`}
+                        value={addExternoName}
+                        onChange={e => setAddExternoName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManiobristaExterno() } }}
+                        placeholder="+ Agregar externo (nombre libre)…"
                       />
+                      <button
+                        type="button"
+                        onClick={addManiobristaExterno}
+                        disabled={!addExternoName.trim()}
+                        className="px-3 rounded-xl bg-amber-500 text-white text-xs font-bold disabled:opacity-40"
+                        title="Agregar este externo"
+                      >+</button>
+                    </div>
+                    {maniobristasList.length === 0 && (
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Sin maniobristas asignados. Puedes mezclar internos y externos en el mismo viaje.
+                      </p>
                     )}
                   </div>
                   <div>

@@ -26,6 +26,24 @@ export interface Contenedor {
   tipo: string
 }
 
+// ── Maniobrista asignado al viaje ───────────────────────────────────────────
+// Cada viaje puede llevar varios maniobristas (mezcla interno/externo).
+export interface ManiobristaAsignado {
+  id:        string
+  nombre:    string
+  esExterno: boolean
+}
+
+// Formatea una lista para mostrar en desglose / PDF / notas.
+// Ej: "Juan (interno) + Pedro (externo)"
+export function formatManiobristas(list: ManiobristaAsignado[]): string {
+  if (!list || list.length === 0) return ''
+  return list
+    .filter(m => m.nombre.trim())
+    .map(m => `${m.nombre.trim()} (${m.esExterno ? 'externo' : 'interno'})`)
+    .join(' + ')
+}
+
 // ── Input types ───────────────────────────────────────────────────────────────
 export interface CotizadorInput {
   // Route
@@ -60,7 +78,9 @@ export interface CotizadorInput {
   maniobrasHoras:   number
   maniobrasMinutos: number
   maniobraCosto:    number      // $/hr
-  maniobrista?:     string      // nombre del maniobrista asignado
+  // Lista de maniobristas asignados (mezcla interno/externo). Reemplaza al
+  // antiguo `maniobrista?: string` — el motor concatena los nombres para PDF.
+  maniobristas?:    ManiobristaAsignado[]
 
   // Optional: bonos operador
   incluyeBonos:  boolean
@@ -111,7 +131,8 @@ export interface CotizadorResult {
   gastosFijos:       number
   maniobra:          number
   maniobraDetalle:   { horas: number; minutos: number; costoPorHora: number }
-  maniobrista?:      string                                       // nombre asignado
+  maniobristas:      ManiobristaAsignado[]                        // todos los asignados
+  maniobrista?:      string                                       // string concatenado (PDF/notas)
   horasExtra:        number
   viaticos:          number                                       // total (auto + extras)
   viaticosExtras?:   number                                       // ad-hoc capturados a mano
@@ -265,7 +286,8 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
     gastosFijos,
     maniobra,
     maniobraDetalle: { horas: inp.maniobrasHoras, minutos: inp.maniobrasMinutos, costoPorHora: inp.maniobraCosto },
-    maniobrista:    inp.maniobrista,
+    maniobristas:   inp.maniobristas ?? [],
+    maniobrista:    formatManiobristas(inp.maniobristas ?? []) || undefined,
     horasExtra,
     viaticos,
     viaticosExtras,
