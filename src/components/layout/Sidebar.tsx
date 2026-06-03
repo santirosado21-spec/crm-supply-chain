@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -46,6 +46,7 @@ const TMS_LINKS: Link[] = [
   { to: '/tms/viajes',     label: 'Viajes',               icon: Route },
   { to: '/tms/costos',     label: 'Costos',               icon: PieChart },
   { to: '/cotizador',      label: 'Cotizador',            icon: Calculator },
+  { to: '/tms/carta-porte',label: 'Carta Porte',          icon: FileText },
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
 ]
 

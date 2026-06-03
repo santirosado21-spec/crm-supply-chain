@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Calendar, AlertTriangle, Plus, X, Mail, RotateCcw } from 'lucide-react'
+import { Calendar, AlertTriangle, Plus, X, Mail, RotateCcw, Hash } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import {
@@ -276,6 +276,15 @@ export function TramitesPage() {
                           {dias <= 0 ? (dias === 0 ? 'Vence hoy' : 'días vencido') : 'días restantes'}
                         </div>
                         <div className="text-[11px] text-gray-500 mt-2 pt-2 border-t border-gray-100">{fecha}</div>
+                        {tieneCamposSeguro(t.tipo) && t.numeroPoliza && (
+                          <div className="mt-1.5 flex items-center justify-center gap-1 text-[11px] font-semibold text-[#1e3a5f] truncate" title={`Póliza: ${t.numeroPoliza}${t.aseguradora ? ` · ${t.aseguradora}` : ''}${t.cobertura ? ` · ${t.cobertura}` : ''}`}>
+                            <Hash size={10} className="shrink-0 text-gray-400" />
+                            <span className="truncate">{t.numeroPoliza}</span>
+                          </div>
+                        )}
+                        {tieneCamposSeguro(t.tipo) && t.aseguradora && (
+                          <div className="text-[10px] text-gray-500 truncate" title={t.aseguradora}>{t.aseguradora}</div>
+                        )}
                         <div className="flex items-center justify-center gap-1.5 mt-1.5">
                           <span className="w-2 h-2 rounded-full" style={{ background: tipo?.color ?? '#888' }} />
                           <span className="text-xs font-semibold text-[#1e3a5f]">{tipo?.nombre ?? 'Trámite'}</span>
@@ -332,10 +341,22 @@ export function TramitesPage() {
                         else if (dias <= 30) texto = `${dias}d`
                         else texto = new Date(tr.fechaVencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
 
+                        // Tooltip enriquecido para seguro/póliza: muestra info estructurada.
+                        const tooltipParts: string[] = [
+                          new Date(tr.fechaVencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }),
+                        ]
+                        if (tieneCamposSeguro(tr.tipo)) {
+                          if (tr.numeroPoliza)  tooltipParts.push(`Póliza: ${tr.numeroPoliza}`)
+                          if (tr.aseguradora)   tooltipParts.push(`Aseguradora: ${tr.aseguradora}`)
+                          if (tr.cobertura)     tooltipParts.push(`Cobertura: ${tr.cobertura}`)
+                        }
+                        const tooltip = tooltipParts.join(' · ')
+
                         return (
                           <td key={tipo.id} className="py-3 px-2 text-center">
                             <button
                               onClick={() => openEdit(tr.id)}
+                              title={tooltip}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold ${badgeCls} hover:opacity-80 transition-opacity`}
                             >
                               {texto}

@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 6 MIGRACIONES PENDIENTES DE APLICAR
+## Estado: 8 MIGRACIONES PENDIENTES DE APLICAR
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -61,6 +61,29 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   DOUBLE PRECISION (drag-and-drop con inserción lexicográfica).
 - Esta migración desbloquea Sessions 2–5 del plan
   `~/.claude/plans/shimmering-strolling-metcalfe.md`.
+
+### 7. `20260603000001_cfdi_fiscal_fields.sql`
+- Agrega campos fiscales CFDI 4.0 a `clients`: `rfc`, `razon_social`, `cp_fiscal`,
+  `regimen_fiscal_sat`, `uso_cfdi_default`.
+- Crea `emisor_config` (single-row, CHECK id=1): RFC + razón social del emisor
+  SCC. Seed inicial con placeholders — el usuario los completa en
+  `/wms/emisor-config` (página ya activa pero hoy falla porque la tabla no
+  existía).
+- Crea `cfdi_drafts` (genérica para futuros CFDI no Carta Porte).
+- Réplica de la migración archivada `~/Desktop/.../supabase_migration_cfdi_fiscal_fields.sql`
+  que nunca se aplicó. RLS abierta + read anon.
+- Desbloquea Sesión B2 (Carta Porte).
+
+### 8. `20260603000002_cartas_porte.sql`
+- Nueva tabla `cartas_porte` para almacenar Cartas Porte generadas desde
+  `/tms/carta-porte`: folio único `CP-YYYY-NNNN`, snapshot del emisor,
+  estructura JSONB para remitente/destinatarios/transporte/figura/mercancías,
+  totales numéricos espejo, `xml_content` TEXT, `pdf_url` opcional, `uuid_sat`
+  para cuando se timbre externamente.
+- 3 índices (fecha DESC, status, folio) + trigger `updated_at` + RLS abierta
+  + realtime habilitado.
+- Standalone por ahora: no integrado con `cartas_instruccion` (el campo FK
+  suave `cartas_instruccion.carta_porte_id` queda esperando para fase 2).
 
 ## Cómo aplicar
 

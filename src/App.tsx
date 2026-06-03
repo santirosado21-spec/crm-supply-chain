@@ -23,6 +23,7 @@ import { VehiculosPage } from './pages/tms/VehiculosPage'
 import { OperadoresPage } from './pages/tms/OperadoresPage'
 import { ViajesPage } from './pages/tms/ViajesPage'
 import { CostosTransportePage } from './pages/tms/CostosTransportePage'
+import { CartaPortePage } from './pages/tms/CartaPortePage'
 import { CotizadorPage } from './pages/cotizador/CotizadorPage'
 import { TramitesPage } from './pages/tramites/TramitesPage'
 import { ClientsList } from './pages/clients/ClientsList'
@@ -141,6 +142,9 @@ function App() {
           } />
           <Route path="/tramites" element={
             <ProtectedRoute allowedRoles={TMS_ROLES}><TramitesPage /></ProtectedRoute>
+          } />
+          <Route path="/tms/carta-porte" element={
+            <ProtectedRoute allowedRoles={TMS_ROLES}><CartaPortePage /></ProtectedRoute>
           } />
 
           {/* Clientes */}
