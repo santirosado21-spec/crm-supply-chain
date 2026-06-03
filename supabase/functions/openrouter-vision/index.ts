@@ -36,26 +36,63 @@ const CORS_HEADERS = {
 const MAX_IMAGES = 8
 const TIMEOUT_MS = 60_000
 
-const DEFAULT_PROMPT = `You are a precise data-extraction engine for warehouse pick tickets (Spanish or English).
+const DEFAULT_PROMPT = `You are a precise data-extraction engine for warehouse pick tickets and commercial invoices (Spanish or English).
 Extract every line item from the document image(s).
 
 Return ONLY a JSON object, no prose, no markdown, with EXACTLY this shape:
 { "ref": string | null, "items": [ { "sku": string, "qty": number, "serialNumber": string | null } ] }
 
 Rules:
-- "ref": the order/reference number. Look for "# de orden de venta", "Orden", "Referencia",
-  "Folio", "PO", "Purchase Order", or codes like "SO2554". If none, use null.
+- "ref": the order/reference number. Look for "# de orden de venta", "Orden", "Order #",
+  "Referencia", "Folio", "PO", "PO #", "Purchase Order", "Invoice #", or codes like "SO2554".
+  If none, use null.
 - "items": one entry per product line.
-  - "sku": the product/part code (columns labeled SKU, Item, Código, "No. de parte", "N° de parte",
-    Parte). It is an alphanumeric code that may contain hyphens, dots, or slashes and NEVER contains
-    spaces. In DESCRIPCIÓN + CANT layouts the SKU often appears on its own line directly under the
-    description text — capture that code, not the description prose.
-  - "qty": the quantity, from columns labeled Cantidad, Cant, Qty, Quantity, Piezas, Unidades, Req.
-    Return an integer. If the cell shows a decimal, round down. Skip lines with qty 0 or blank.
+  - "sku": the product/part code. Look ONLY inside the column labeled SKU, Item, Código,
+    "No. de parte", "N° de parte", Parte, Modelo, "Model #", "Model # & COO", "Model Number",
+    "# of Model", or Model. Any column header that explicitly mentions "model number" or "SKU"
+    is a valid source. The SKU is an alphanumeric code that may contain hyphens, dots, or slashes,
+    NEVER contains spaces or parentheses.
+
+    Valid SKU shapes (real examples to memorize):
+      ASPT-SL-ALLXN-13, OP-HAA, OP-SM, LBR-DB, HS-BC, HS-OB-1004-01, HS-OP-3001-01,
+      IC-LFICGIC5-01, INPM-SE416-XF-13, VI-CON-SYS-02, ACC-CL-1002-03, LPP-PD.
+
+    CRITICAL — column isolation. Commercial invoices (Life Fitness, etc.) often have an "ORG"
+    column placed IMMEDIATELY TO THE LEFT of the Model # column. ORG contains a 3-letter
+    origin/manufacturer code such as CMC, USA, MEX, IND, TWN, HUN, GER, CHN, ITA, JPN. The ORG
+    code is NEVER part of the SKU and must be excluded. Read columns as separate vertical strips;
+    do not concatenate values across adjacent columns.
+
+    WRONG reads to AVOID (these are bugs from prior runs):
+      - "CMCASPT-SL-ALLXN-13"  → wrong; ORG="CMC" leaked into the SKU. Correct: "ASPT-SL-ALLXN-13".
+      - "CMCOP-HAA"            → wrong. Correct: "OP-HAA".
+      - "CMCHS-OB-1004-01"     → wrong. Correct: "HS-OB-1004-01".
+      - "USAASPT-SL-ALLXN-13", "MEXOP-HAA", "TWNIC-LFICGIC5-01" → all wrong for the same reason.
+    If the candidate SKU starts with a 3-letter ALL-CAPS sequence that looks like an origin code
+    (CMC, USA, MEX, IND, TWN, HUN, GER, CHN, ITA, JPN) and the rest STILL looks like a valid SKU
+    on its own (matches any of the examples above), the 3-letter prefix is the ORG leak — drop it.
+
+    The SKU may appear in TWO layouts relative to the product description — both are valid:
+      (a) DESCRIPCIÓN + CANT layout: the SKU appears on its own line DIRECTLY UNDER the description
+          prose (e.g. SO2554-style pick tickets).
+      (b) Life Fitness "Model # & COO" layout: the SKU appears on its own line ABOVE the description.
+          The cell looks like:
+              <SKU code>                     ← capture ONLY this
+              <UPPERCASE DESCRIPTION TEXT>   ← ignore (often ends with "(EXERCISE EQUIP)", "(PAIR)")
+              Made in <COUNTRY>              ← ignore (country-of-origin)
+    In both cases capture ONLY the alphanumeric code from the Model #/SKU column. Never include
+    ORG/origin codes, description prose, "Made in …" lines, or country names.
+  - "qty": the quantity, from columns labeled Cantidad, Cant, Qty, Quantity, Piezas, Unidades, Req,
+    or "Unit QTY" / "Unit Qty". When a row has TWO quantity columns (e.g. "# of Pcs Shipped" and
+    "Unit QTY"), ALWAYS prefer "Unit QTY" / "Unit Qty" — it reflects units of product, not packing
+    pieces or cartons. Return an integer. If the cell shows a decimal, round down. Skip lines with
+    qty 0 or blank.
   - "serialNumber": value from a Serial / Serial Number / Serial # column if present, else null.
-- Do NOT include subtotal, total, tax/IVA, shipping/envío, page-footer, or header rows.
+- Do NOT include subtotal, total, tax/IVA, shipping/envío, page-footer, header rows, totals rows
+  ("Total for Order", "Sub Total", "TOTAL SHIPPED", "TOTAL GROSS WEIGHT", "TOTAL NET WEIGHT"), or
+  the planner's signature line.
 - Do NOT invent SKUs. If a code is unreadable, omit that line rather than guessing.
-- Preserve hyphens and all characters within a SKU (e.g. ASPT-SL-ALLXN-12, HD-003R).
+- Preserve hyphens and all characters within a SKU (e.g. ASPT-SL-ALLXN-12, HD-003R, HS-OP-3001-01).
 - If the document has no line items, return { "ref": null, "items": [] }.`
 
 // Verifica que la petición venga de un usuario autenticado del CRM.

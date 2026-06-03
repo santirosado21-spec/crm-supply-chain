@@ -74,15 +74,14 @@ function App() {
           <Route path="/wms/emisor-config" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><EmisorConfigPage /></ProtectedRoute>
           } />
-          {/* Tools de consulta WMS — vienen de almacén pero son herramientas para SAC/cobranza */}
-          <Route path="/wms/cedis" element={
-            <ProtectedRoute allowedRoles={['admin', 'almacen', 'servicio_cliente', 'cobranza']}><AlmacenPage /></ProtectedRoute>
-          } />
-          <Route path="/wms/receipt-generator" element={
-            <ProtectedRoute allowedRoles={WMS_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
-          } />
+          {/* Receipt Import vive ahora en el módulo Almacén; compat redirect */}
+          <Route path="/wms/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
+          {/* Compat: /wms/cedis ya no se expone desde WMS — el Mapa de almacén
+              vive solo en /almacen/cedis. Redirige a home para no romper
+              bookmarks viejos (los usuarios sin acceso a almacén ven home). */}
+          <Route path="/wms/cedis" element={<Navigate to="/" replace />} />
 
-          {/* Calendario Almacén — módulo exclusivo de admin + almacén */}
+          {/* Almacén — módulo exclusivo de admin + almacén */}
           <Route path="/almacen" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenHome /></ProtectedRoute>
           } />
@@ -106,9 +105,17 @@ function App() {
           <Route path="/almacen/estandares" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><LaborStandardsPage /></ProtectedRoute>
           } />
-          {/* Compat redirects: CEDIS layout y Receipt se mudaron a /wms/* */}
-          <Route path="/almacen/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />
-          <Route path="/almacen-layout" element={<Navigate to="/wms/cedis" replace />} />
+          {/* Herramientas dentro del módulo Almacén — mismas páginas que /wms/*,
+              gated por ALMACEN_ROLES. El rol almacén solo entra por estas rutas
+              porque no tiene acceso a /wms/*. */}
+          <Route path="/almacen/cedis" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/receipt-generator" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          } />
+          {/* Compat redirect viejo */}
+          <Route path="/almacen-layout" element={<Navigate to="/almacen/cedis" replace />} />
 
           {/* TMS */}
           <Route path="/tms" element={
@@ -157,8 +164,8 @@ function App() {
           <Route path="/sac/validador" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><ValidadorSKUPage /></ProtectedRoute>
           } />
-          {/* Compat redirect: ruta vieja /sac/receipt-generator → /wms/receipt-generator */}
-          <Route path="/sac/receipt-generator" element={<Navigate to="/wms/receipt-generator" replace />} />
+          {/* Compat redirect: ruta vieja /sac/receipt-generator → módulo Almacén */}
+          <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
           {/* Calendario (cross-team) — antes Task Tracker, ahora expuesto desde WMS / TMS */}
           <Route path="/calendario" element={
             <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskInbox /></ProtectedRoute>

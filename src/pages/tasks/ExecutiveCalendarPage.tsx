@@ -238,7 +238,7 @@ export function ExecutiveCalendarPage() {
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-xl font-bold text-[#1e3a5f] flex items-center gap-2">
-                <CalendarRange size={20} /> Calendario Ejecutivo
+                <CalendarRange size={20} /> Calendario SAC
               </h1>
               <p className="text-xs text-gray-400 mt-0.5">
                 Tus actividades enviadas al almacén y su progreso.

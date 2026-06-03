@@ -85,9 +85,11 @@ export function DiaPage() {
     const prev = ordered[targetIdx - 1]
     const target = ordered[targetIdx]
     // Soltar SOBRE el target = colocar justo antes (asume drop top-half UX).
-    const newPriority = prev
+    const rawPriority = prev
       ? (prev.priority + target.priority) / 2.0
       : target.priority - 1.0
+    // Acotar al rango operativo 1–100 (1 = más urgente, 100 = menor).
+    const newPriority = Math.min(100, Math.max(1, rawPriority))
 
     try {
       await reorderPriority(sourceId, newPriority)

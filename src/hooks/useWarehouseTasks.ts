@@ -80,11 +80,12 @@ export function useWarehouseTasks() {
 
   // Drag-and-drop: priority = (prev + next) / 2.0 — inserción lexicográfica.
   // Realtime reconcilia entre clientes; conflictos concurrentes son rarísimos
-  // en un CEDIS (1-2 directores máximo).
+  // en un CEDIS (1-2 directores máximo). Rango operativo 1–100.
   const reorderPriority = useCallback(async (id: string, newPriority: number) => {
+    const clamped = Math.min(100, Math.max(1, newPriority))
     const { error: err } = await supabase
       .from('warehouse_tasks')
-      .update({ priority: newPriority })
+      .update({ priority: clamped })
       .eq('id', id)
     if (err) throw err
     await refetch()

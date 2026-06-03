@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, FileInput } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 
@@ -8,7 +8,7 @@ interface Tool {
   title: string
   description: string
   icon: typeof LayoutDashboard
-  category: 'operacion' | 'admin'
+  category: 'calendario' | 'entradas' | 'mapa'
 }
 
 const tools: Tool[] = [
@@ -17,41 +17,56 @@ const tools: Tool[] = [
     title: 'Hoy',
     description: 'Lista de prioridades del día — qué se trabaja ahora y qué sigue.',
     icon: Calendar,
-    category: 'operacion',
+    category: 'calendario',
   },
   {
     to: '/almacen/pizarron',
     title: 'Pizarrón Operaciones',
     description: 'Tablero en vivo del CEDIS — tareas en cola, en progreso y completadas.',
     icon: LayoutDashboard,
-    category: 'operacion',
+    category: 'calendario',
   },
   {
     to: '/almacen/distribucion',
     title: 'Distribución de tareas',
     description: 'Bandeja de solicitudes entrantes para distribuir al equipo.',
     icon: UserCheck,
-    category: 'operacion',
+    category: 'calendario',
   },
   {
     to: '/almacen/pizarron-admin',
     title: 'Pizarrón Admin',
     description: 'Administrar áreas, asignar personas (con o sin cuenta) y dar tiempos estimados.',
     icon: BarChart3,
-    category: 'admin',
+    category: 'calendario',
   },
   {
     to: '/almacen/estandares',
     title: 'Estándares de tiempo',
     description: 'Define duración base por tipo de tarea — sugerencia al asignar y baseline de productividad.',
     icon: Clock,
-    category: 'admin',
+    category: 'calendario',
+  },
+  {
+    to: '/almacen/receipt-generator',
+    title: 'Facilitador de entradas',
+    description: 'Genera el Excel Receipt_Import para Extensiv desde un PT (PDF o Excel) validando SKUs.',
+    icon: FileInput,
+    category: 'entradas',
+  },
+  {
+    to: '/almacen/cedis',
+    title: 'Mapa de almacén',
+    description: 'Mapa visual del CEDIS Lerma — ubicaciones, racks y zonas de la operación.',
+    icon: Warehouse,
+    category: 'mapa',
   },
 ]
 
 const categories = [
-  { key: 'operacion', label: 'Operación', color: '#1e3a5f' },
-  { key: 'admin', label: 'Administración', color: '#1e3a5f' },
+  { key: 'calendario', label: 'Calendario de almacén',       color: '#1e3a5f' },
+  { key: 'entradas',   label: 'Automatización para entradas', color: '#1e3a5f' },
+  { key: 'mapa',       label: 'Mapa de almacén',             color: '#1e3a5f' },
 ] as const
 
 export function AlmacenHome() {
@@ -70,9 +85,9 @@ export function AlmacenHome() {
           </button>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-[#1e3a5f]">Calendario Almacén</h1>
+            <h1 className="text-2xl font-bold text-[#1e3a5f]">Almacén</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Centro de operación del CEDIS — recibe, distribuye y ejecuta tareas
+              Centro de operación del CEDIS — Calendario, entradas y mapa
             </p>
           </div>
 

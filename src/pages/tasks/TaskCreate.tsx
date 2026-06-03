@@ -1,18 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Send, Loader2 } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, Warehouse } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { AvailabilityPicker } from '../../components/tasks/AvailabilityPicker'
 import { useTasks, getTaskCategories } from '../../hooks/useTasks'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
-import { supabase } from '../../lib/supabase'
+import { ALMACEN_RECEPTOR_EMAIL } from '../../config/almacen'
 import type { TaskCategory } from '../../types/tasks'
 import { ExtensivOperationPicker } from '../../components/features/ExtensivOperationPicker'
 import type { ExtensivPickResult } from '../../lib/extensiv'
-
-interface TeamMember { email: string; name: string | null }
 
 export function TaskCreate() {
   const navigate = useNavigate()
@@ -21,7 +19,6 @@ export function TaskCreate() {
   const toast = useToast()
   const { create } = useTasks()
 
-  const [team, setTeam] = useState<TeamMember[]>([])
   const [categories, setCategories] = useState<TaskCategory[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,25 +26,23 @@ export function TaskCreate() {
   const [title, setTitle]                 = useState('')
   const [description, setDescription]     = useState('')
   const [categoryId, setCategoryId]       = useState<string>('')
-  const [assigneeEmail, setAssigneeEmail] = useState<string>('')
+  // El destino es siempre el receptor de almacén (flujo SAC → almacén).
+  const assigneeEmail = ALMACEN_RECEPTOR_EMAIL
   const [scheduledStart, setScheduledStart] = useState<Date | null>(null)
   const [scheduledEnd, setScheduledEnd]     = useState<Date | null>(null)
   const [extensivPick, setExtensivPick]     = useState<ExtensivPickResult | null>(null)
 
+  // Las tareas se agendan para el día siguiente o después (almacén opera con
+  // ≥1 día de anticipación). Hoy queda bloqueado en el picker.
+  const tomorrow = useMemo(() => {
+    const t = new Date()
+    t.setHours(0, 0, 0, 0)
+    t.setDate(t.getDate() + 1)
+    return t
+  }, [])
+
   useEffect(() => {
     getTaskCategories().then(setCategories)
-    // Lista de empleados activos del equipo
-    Promise.all([
-      supabase.from('team_members').select('user_email, user_name').eq('active', true),
-      supabase.from('user_work_schedule').select('user_email').limit(500),
-    ]).then(([members, sched]) => {
-      const set = new Map<string, string | null>()
-      for (const r of members.data ?? []) set.set(r.user_email, r.user_name)
-      for (const r of sched.data ?? [])   if (!set.has(r.user_email)) set.set(r.user_email, null)
-      const arr = Array.from(set.entries()).map(([email, name]) => ({ email, name }))
-      arr.sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email))
-      setTeam(arr)
-    })
   }, [])
 
   // Sprint E · Roles operativos (SAC, almacén, transporte) deben ligar la
@@ -61,7 +56,13 @@ export function TaskCreate() {
     !!extensivPick && (extensivPick.type === 'manual' || !!extensivPick.transactionId)
   const extensivOk = !requiresExtensivPick || extensivPickIsValid
 
-  const canSubmit = title.trim() && assigneeEmail && scheduledStart && scheduledEnd && extensivOk && !submitting
+  const canSubmit = !!(
+    title.trim()
+    && scheduledStart && scheduledEnd
+    && scheduledStart.getTime() >= tomorrow.getTime()
+    && extensivOk
+    && !submitting
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -185,41 +186,33 @@ export function TaskCreate() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Asignar a *</label>
-                <select
-                  required
-                  value={assigneeEmail}
-                  onChange={e => { setAssigneeEmail(e.target.value); setScheduledStart(null); setScheduledEnd(null) }}
-                  className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
-                >
-                  <option value="">— elegir empleado —</option>
-                  {team.filter(t => t.email !== myEmail).map(t => (
-                    <option key={t.email} value={t.email}>
-                      {t.name ? `${t.name} · ${t.email}` : t.email}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Destino</label>
+                <div className="h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center gap-2 text-sm">
+                  <Warehouse size={14} className="text-[#1e3a5f]" />
+                  <span className="font-semibold text-gray-800">Almacén</span>
+                  <span className="text-gray-400 text-xs truncate">· {assigneeEmail}</span>
+                </div>
                 <p className="text-[10px] text-gray-400 mt-1">
-                  Solo aparecen empleados configurados en Equipo y horarios.
+                  Todas las tareas se envían a la cuenta compartida de almacén.
                 </p>
               </div>
             </div>
 
             {/* DERECHA: AvailabilityPicker */}
             <div>
-              <p className="text-xs font-semibold text-gray-600 mb-1.5">Horario disponible *</p>
-              {assigneeEmail ? (
-                <AvailabilityPicker
-                  userEmail={assigneeEmail}
-                  durationMinutes={60}
-                  selectedStart={scheduledStart}
-                  onSelect={(s, e) => { setScheduledStart(s); setScheduledEnd(e) }}
-                />
-              ) : (
-                <div className="bg-white rounded-xl border border-dashed border-gray-200 py-12 text-center text-xs text-gray-400">
-                  Selecciona un empleado para ver su disponibilidad
-                </div>
-              )}
+              <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                Horario disponible *
+                <span className="text-[10px] font-normal text-gray-400 ml-2">
+                  (a partir de mañana — almacén necesita ≥1 día de anticipación)
+                </span>
+              </p>
+              <AvailabilityPicker
+                userEmail={assigneeEmail}
+                durationMinutes={60}
+                selectedStart={scheduledStart}
+                minDate={tomorrow}
+                onSelect={(s, e) => { setScheduledStart(s); setScheduledEnd(e) }}
+              />
 
               {scheduledStart && scheduledEnd && (
                 <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-[#1e3a5f]">

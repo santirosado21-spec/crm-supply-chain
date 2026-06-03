@@ -91,10 +91,17 @@ export interface TipoTramite {
 }
 
 export const TIPOS_TRAMITE: TipoTramite[] = [
-  { id: 'tenencia',      nombre: 'Tenencia',      color: '#ef4444', diasAlerta: 30 },
-  { id: 'verificacion',  nombre: 'Verificación',  color: '#f59e0b', diasAlerta: 15 },
-  { id: 'servicio',      nombre: 'Servicio',      color: '#3b82f6', diasAlerta: 7  },
-  { id: 'seguro',        nombre: 'Seguro',        color: '#8b5cf6', diasAlerta: 30 },
-  { id: 'poliza',        nombre: 'Póliza',        color: '#06b6d4', diasAlerta: 30 },
-  { id: 'licencia',      nombre: 'Licencia',      color: '#10b981', diasAlerta: 60 },
+  { id: 'tenencia',              nombre: 'Tenencia',             color: '#ef4444', diasAlerta: 30 },
+  { id: 'verificacion',          nombre: 'Verificación',         color: '#f59e0b', diasAlerta: 15 },
+  { id: 'servicio',              nombre: 'Servicio',             color: '#3b82f6', diasAlerta: 7  },
+  { id: 'seguro',                nombre: 'Seguro',               color: '#8b5cf6', diasAlerta: 30 },
+  { id: 'poliza',                nombre: 'Póliza',               color: '#06b6d4', diasAlerta: 30 },
+  { id: 'licencia',              nombre: 'Licencia',             color: '#10b981', diasAlerta: 60 },
+  { id: 'rendimiento_unidades',  nombre: 'Rendimiento unidades', color: '#fbbf24', diasAlerta: 14 },
 ]
+
+// Tipos cuyo "unidad" puede ser GLOBAL en vez de una placa específica.
+export const TIPOS_TRAMITE_GLOBALES = ['rendimiento_unidades'] as const
+
+// Valor especial para representar "todas las unidades" en el campo `unidad`.
+export const UNIDAD_GLOBAL = '__TODAS__'

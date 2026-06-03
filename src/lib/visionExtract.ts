@@ -75,6 +75,18 @@ function coerceRef(raw: unknown): string | null {
   return s && !isEmptyLike(s) ? s : null
 }
 
+// Si el modelo de visión concatena el código ORG (origin/manufacturer, 3 letras
+// como CMC/USA/MEX/HUN/IND/TWN/GER/CHN/ITA/JPN) con el SKU porque la columna ORG
+// vive justo al lado del Model #, limpiamos el leak — pero SOLO si quitar el
+// prefijo deja un SKU que sigue siendo válido por sí mismo (empezando con letra
+// seguida de un guión, p.ej. "ASPT-SL-...", "OP-HAA", "HS-...").
+const ORG_PREFIX_RE = /^(CMC|USA|MEX|IND|TWN|HUN|GER|CHN|ITA|JPN)([A-Z][A-Z0-9]{0,8}-.*)$/
+function stripOrgLeak(sku: string): string {
+  const m = sku.match(ORG_PREFIX_RE)
+  if (m && looksLikeSKU(m[2])) return m[2]
+  return sku
+}
+
 function coerceItems(raw: unknown): PTLineItem[] {
   if (!raw || typeof raw !== 'object') return []
   const arr = (raw as Record<string, unknown>).items
@@ -85,8 +97,9 @@ function coerceItems(raw: unknown): PTLineItem[] {
     if (!el || typeof el !== 'object') continue
     const row = el as Record<string, unknown>
 
-    const sku = normalizeSKU(row.sku)
-    if (!sku || !looksLikeSKU(sku)) continue
+    const normalized = normalizeSKU(row.sku)
+    if (!normalized || !looksLikeSKU(normalized)) continue
+    const sku = stripOrgLeak(normalized)
 
     const qty = Math.trunc(Number(row.qty))
     if (!Number.isFinite(qty) || qty <= 0) continue
@@ -110,7 +123,10 @@ export async function extractReceiptItemsWithVision(file: File): Promise<PTExtra
     throw new Error('No se pudo renderizar el PDF para la extracción con IA.')
   }
 
-  const { data, error } = await supabase.functions.invoke<VisionResponse>('openrouter-vision', {
+  // Nombre histórico en Supabase: la función se desplegó como 'swift-responder'
+  // (default que sugirió el dashboard). El código del archivo
+  // supabase/functions/openrouter-vision/index.ts es lo que vive ahí.
+  const { data, error } = await supabase.functions.invoke<VisionResponse>('swift-responder', {
     body: { images }, // prompt omitido → la edge function usa su DEFAULT_PROMPT
   })
   if (error) throw new Error(`Vision proxy error: ${error.message}`)

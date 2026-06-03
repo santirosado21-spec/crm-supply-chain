@@ -20,21 +20,22 @@ interface Link {
 */
 const WMS_LINKS: Link[] = [
   { to: '/wms',                   label: 'Herramientas de WMS', icon: Warehouse },
+  { to: '/calendario/ejecutivo',  label: 'Calendario SAC',      icon: CalendarClock },
   { to: '/sac/validador',         label: 'Validador SKU',       icon: ScanBarcode },
-  { to: '/wms/receipt-generator', label: 'Generador Receipt',   icon: FileInput },
   { to: '/rc',                    label: 'Rendición RC',        icon: FileCheck },
   { to: '/clients',               label: 'Clientes',            icon: Users },
-  { to: '/wms/cedis',             label: 'CEDIS Lerma',         icon: Warehouse },
 ]
 
 const ALMACEN_LINKS: Link[] = [
-  { to: '/almacen',                label: 'Inicio',              icon: Home },
-  { to: '/almacen/hoy',            label: 'Hoy',                 icon: Calendar },
-  { to: '/almacen/dia',            label: 'Día (timeline)',      icon: CalendarClock },
-  { to: '/almacen/distribucion',   label: 'Distribución tareas', icon: UserCheck },
-  { to: '/almacen/pizarron',       label: 'Pizarrón',            icon: LayoutDashboard },
-  { to: '/almacen/pizarron-admin', label: 'Pizarrón Admin',      icon: BarChart3 },
-  { to: '/almacen/estandares',     label: 'Estándares',          icon: Clock },
+  { to: '/almacen',                  label: 'Inicio',              icon: Home },
+  { to: '/almacen/hoy',              label: 'Hoy',                 icon: Calendar },
+  { to: '/almacen/dia',              label: 'Día (timeline)',      icon: CalendarClock },
+  { to: '/almacen/distribucion',     label: 'Distribución tareas', icon: UserCheck },
+  { to: '/almacen/pizarron',         label: 'Pizarrón',            icon: LayoutDashboard },
+  { to: '/almacen/pizarron-admin',   label: 'Pizarrón Admin',      icon: BarChart3 },
+  { to: '/almacen/estandares',       label: 'Estándares',          icon: Clock },
+  { to: '/almacen/receipt-generator', label: 'Facilitador de entradas', icon: FileInput },
+  { to: '/almacen/cedis',            label: 'Mapa de almacén',     icon: Warehouse },
 ]
 
 const TMS_LINKS: Link[] = [
@@ -51,25 +52,30 @@ const TMS_LINKS: Link[] = [
 const CALENDARIO_LINKS: Link[] = [
   { to: '/calendario',             label: 'Mi bandeja',         icon: Inbox },
   { to: '/calendario/semana',      label: 'Calendario',         icon: Calendar },
-  { to: '/calendario/ejecutivo',   label: 'Cal. Ejecutivo',     icon: CalendarClock },
+  { to: '/calendario/ejecutivo',   label: 'Calendario SAC',     icon: CalendarClock },
   { to: '/calendario/plantillas',  label: 'Plantillas',         icon: Repeat },
 ]
 
-const CALENDARIO_ADMIN_LINKS: Link[] = [
-  { to: '/calendario/admin/equipo',       label: 'Equipo y horarios',   icon: UserCog },
-  { to: '/calendario/admin/reportes',     label: 'Reportes operativos', icon: BarChart3 },
-  { to: '/admin/executive-report',        label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
-  { to: '/calendario/admin/auditoria',    label: 'Auditoría',           icon: History },
+const DIRECCION_LINKS: Link[] = [
+  { to: '/admin/executive-report',     label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
+  { to: '/calendario/admin/reportes',  label: 'Reportes operativos', icon: BarChart3 },
+  { to: '/calendario/admin/equipo',    label: 'Equipo y horarios',   icon: UserCog },
+  { to: '/calendario/admin/auditoria', label: 'Auditoría',           icon: History },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario' | 'direccion'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                              return 'home'
+  // Dirección: rutas administrativas. DEBE ir antes que '/calendario' porque
+  // /calendario/admin/* es un sub-prefijo.
+  if (pathname.startsWith('/calendario/admin') || pathname.startsWith('/admin'))     return 'direccion'
   if (pathname === '/almacen' || pathname.startsWith('/almacen/'))                   return 'almacen'
-  if (pathname.startsWith('/calendario') ||
-      pathname.startsWith('/tasks') ||
-      pathname.startsWith('/admin'))                                                 return 'calendario'
+  // Cualquier ruta /calendario/* (incluida /calendario/ejecutivo) usa el sidebar
+  // de Calendario — ahí viven los accesos a Mi bandeja, Calendario semana y
+  // Plantillas, que son donde se crean tareas. El acceso a Calendario SAC desde
+  // WMS es un atajo (WMS_LINKS); al entrar, el sidebar cambia a Calendario.
+  if (pathname.startsWith('/calendario') || pathname.startsWith('/tasks'))           return 'calendario'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
   // Default: WMS (/, /wms, /sac/*, /rc, /clients, etc.)
@@ -79,8 +85,9 @@ function detectModule(pathname: string): ModuleKey {
 const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: Link[] }> = {
   wms:        { label: 'Herramientas de WMS', links: WMS_LINKS },
   tms:        { label: 'Transportes',         links: TMS_LINKS },
-  almacen:    { label: 'Calendario Almacén',  links: ALMACEN_LINKS },
+  almacen:    { label: 'Almacén',             links: ALMACEN_LINKS },
   calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
+  direccion:  { label: 'Dirección',           links: DIRECCION_LINKS },
 }
 
 export function Sidebar() {
@@ -97,11 +104,6 @@ export function Sidebar() {
 
   const { label, links } = MODULE_CONFIG[currentModule]
   const visibleLinks = links.filter(link => canAccessPath(user?.role, link.to))
-  const isAdmin = user?.role === 'admin'
-  // En el módulo calendario, la sección admin solo aplica a admin (los links
-  // que tenía cobranza vivían en ExtensivBilling, ya eliminado).
-  const showAdminCalendario = currentModule === 'calendario' && isAdmin
-  const visibleAdminLinks = CALENDARIO_ADMIN_LINKS
 
   // Agrupa los links por sub-grupo (section). Si el módulo no usa sections,
   // todo cae bajo un único grupo con el nombre del módulo.
@@ -215,42 +217,6 @@ export function Sidebar() {
             </div>
           </div>
         ))}
-
-        {showAdminCalendario && (
-          <div>
-            <p className="text-[9px] font-bold tracking-widest uppercase px-3 mb-1.5" style={{ color: '#94a3b8' }}>
-              Administración
-            </p>
-            <div className="flex flex-col gap-0.5">
-              {visibleAdminLinks.map(({ to, label: linkLabel, icon: Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end
-                  className={({ isActive }) =>
-                    `flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium leading-snug transition-all duration-150 group
-                    ${isActive
-                      ? 'text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    }`
-                  }
-                  style={({ isActive }) => isActive
-                    ? { background: 'var(--brand-navy)', boxShadow: '0 2px 8px rgba(30,58,95,0.25)' }
-                    : undefined
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon size={16} aria-hidden="true" className={`shrink-0 transition-all ${isActive
-                        ? 'text-white' : 'text-gray-400 group-hover:text-[#1e3a5f] group-hover:scale-110'}`} />
-                      <span className="min-w-0 flex-1 whitespace-normal break-words">{linkLabel}</span>
-                    </>
-                  )}
-                </NavLink>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Botón "Cerrar sidebar" — solo móvil, visible al final de la lista */}
         <button

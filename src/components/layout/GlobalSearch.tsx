@@ -9,7 +9,7 @@ type Result = { type: 'client' | 'tool'; label: string; sub?: string; to: string
 
 const TOOL_RESULTS: Result[] = [
   { type: 'tool', label: 'Validador de SKUs',         sub: 'WMS · SAC',        to: '/sac/validador' },
-  { type: 'tool', label: 'Generador Receipt Import',  sub: 'WMS · SAC',        to: '/sac/receipt-generator' },
+  { type: 'tool', label: 'Facilitador de entradas',   sub: 'Almacén',          to: '/almacen/receipt-generator' },
   { type: 'tool', label: 'Generador de RC',           sub: 'WMS · Facturación', to: '/rc' },
   { type: 'tool', label: 'Tarifarios',                sub: 'Catálogos',         to: '/tarifarios' },
   { type: 'tool', label: 'Servicios Adicionales',     sub: 'Catálogos',         to: '/servicios' },

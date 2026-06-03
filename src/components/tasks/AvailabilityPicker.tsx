@@ -9,6 +9,9 @@ interface Props {
   durationMinutes:  number                              // requerido para que el slot soporte la tarea
   selectedStart:    Date | null
   onSelect:         (start: Date, end: Date) => void
+  /** Fecha mínima asignable (midnight local). Días/slots anteriores quedan
+   *  deshabilitados. Si se omite, no hay restricción. */
+  minDate?:         Date
 }
 
 function startOfWeek(d: Date): Date {
@@ -33,13 +36,23 @@ function sameDate(a: Date, b: Date): boolean {
 
 const SLOT_SIZE_MIN = 30
 
-export function AvailabilityPicker({ userEmail, durationMinutes, selectedStart, onSelect }: Props) {
+export function AvailabilityPicker({ userEmail, durationMinutes, selectedStart, onSelect, minDate }: Props) {
   const { loading, getSlots } = useTaskAvailability()
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
+
+  // Piso de fecha: midnight del minDate (o epoch si no hay restricción).
+  // Día inicial: max(today, floor) — si minDate es mañana, arrancamos en mañana.
+  const floor = useMemo(() => {
+    if (!minDate) return new Date(0)
+    const f = new Date(minDate); f.setHours(0, 0, 0, 0); return f
+  }, [minDate])
+  const initialActiveDay = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    return today.getTime() >= floor.getTime() ? today : floor
+  }, [floor])
+
+  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(initialActiveDay))
   const [allSlots, setAllSlots] = useState<Slot[]>([])
-  const [activeDay, setActiveDay] = useState<Date>(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0); return today
-  })
+  const [activeDay, setActiveDay] = useState<Date>(() => initialActiveDay)
 
   useEffect(() => {
     if (!userEmail) { setAllSlots([]); return }
@@ -117,20 +130,25 @@ export function AvailabilityPicker({ userEmail, durationMinutes, selectedStart, 
         {days.map(d => {
           const isActive = sameDate(d, activeDay)
           const isToday = sameDate(d, new Date())
+          const beforeFloor = d.getTime() < floor.getTime()
           return (
             <button
               key={d.toISOString()}
               type="button"
-              onClick={() => setActiveDay(d)}
+              disabled={beforeFloor}
+              onClick={() => { if (!beforeFloor) setActiveDay(d) }}
+              title={beforeFloor ? 'No disponible — las tareas se agendan para el día siguiente o después' : undefined}
               className={`flex flex-col items-center py-2 rounded-lg text-[11px] font-medium transition-colors ${
                 isActive
                   ? 'text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : beforeFloor
+                    ? 'text-gray-300 cursor-not-allowed opacity-50'
+                    : 'text-gray-600 hover:bg-gray-100'
               }`}
               style={isActive ? { background: 'var(--brand-navy)' } : undefined}
             >
               <span className="opacity-80">{DAY_OF_WEEK_LABEL[d.getDay()]}</span>
-              <span className={`text-base font-bold mt-0.5 ${!isActive && isToday ? 'text-[#1e3a5f]' : ''}`}>
+              <span className={`text-base font-bold mt-0.5 ${!isActive && isToday && !beforeFloor ? 'text-[#1e3a5f]' : ''}`}>
                 {d.getDate()}
               </span>
             </button>
@@ -156,7 +174,8 @@ export function AvailabilityPicker({ userEmail, durationMinutes, selectedStart, 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {daySlots.map(slot => {
               const startKey = slot.start.toISOString()
-              const isAssignable = assignableMap.has(startKey)
+              const beforeFloor = slot.start.getTime() < floor.getTime()
+              const isAssignable = !beforeFloor && assignableMap.has(startKey)
               const isSelected = selectedStart != null && sameMin(slot.start, selectedStart)
               const disabled = !isAssignable
 

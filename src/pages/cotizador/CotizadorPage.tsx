@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   MapPin, Truck, ChevronDown, ChevronRight, RotateCcw,
   Calculator, CheckCircle, Printer, ExternalLink, Plus,
@@ -10,7 +10,7 @@ import { useViajes } from '../../hooks/useViajes'
 import { useAuthContext } from '../../context/AuthContext'
 import { useClientCatalog } from '../../hooks/useClientCatalog'
 import {
-  UNIDADES as UNIDADES_FALLBACK, TIPOS_CLIENTE, BONOS_DEFAULT, HE_TARIFAS,
+  UNIDADES as UNIDADES_FALLBACK, TIPOS_CLIENTE, HE_TARIFAS,
   OPERADORES_DEFAULT, MANIOBRISTAS_DEFAULT, GLOBALMAP_URL,
   type Unidad,
 } from './cotizadorConstants'
@@ -18,6 +18,8 @@ import { useVehiculos } from '../../hooks/useVehiculos'
 import { useOperadores } from '../../hooks/useOperadores'
 import { calcularFlete, type CotizadorResult, type Parada, type Contenedor } from './cotizadorCalc'
 import { isBaseManiobrista } from '../../lib/tmsCatalog'
+import { CotizadorTabsProvider, useCotizadorTabs } from './CotizadorTabsContext'
+import { CotizadorTabsBar } from './CotizadorTabsBar'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const mxn = (n: number) =>
@@ -405,9 +407,19 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
           <span className="text-sm font-bold text-white uppercase tracking-wide">PRECIO FINAL</span>
           <span className="text-xl font-extrabold text-white">{mxn(result.precioFinal)}</span>
         </div>
+        {result.dadiva > 0 && (
+          <div className="px-4 py-2 bg-amber-50 border-t border-amber-100 flex justify-between items-center">
+            <span className="text-xs text-amber-700 font-semibold" title="Sale del margen SCC. No aparece en el PDF cliente.">
+              🤝 Dádiva GN (interno)
+            </span>
+            <span className="text-sm font-bold text-amber-700">−{mxn(result.dadiva)}</span>
+          </div>
+        )}
         <div className="px-4 py-2 bg-green-50 border-t border-green-100 flex justify-between items-center">
-          <span className="text-xs text-green-700 font-semibold">💵 Ganancia neta</span>
-          <span className="text-sm font-bold text-green-700">{mxn(result.ganancia)}</span>
+          <span className="text-xs text-green-700 font-semibold">
+            💵 Ganancia neta {result.dadiva > 0 && <span className="text-[10px] font-normal text-green-600">(margen − dádiva)</span>}
+          </span>
+          <span className="text-sm font-bold text-green-700">{mxn(result.gananciaNeta)}</span>
         </div>
       </div>
 
@@ -453,12 +465,29 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+// Wrapper exporta el provider de tabs. La lógica vive en CotizadorPageInner.
 export function CotizadorPage() {
+  return (
+    <CotizadorTabsProvider>
+      <CotizadorPageInner />
+    </CotizadorTabsProvider>
+  )
+}
+
+function CotizadorPageInner() {
   const { user } = useAuthContext()
   const { clientes: clientesCatalogo, loading: loadingClientes } = useClientCatalog()
   const { createViaje } = useViajes()
   const { vehiculos: dbVehiculos } = useVehiculos({ esPropio: true })
   const { operadores: dbOperadores } = useOperadores({ esPropio: true })
+
+  // Multi-tab: el state inicial se hidrata desde la tab activa (sessionStorage).
+  const {
+    activeTab, activeTabId,
+    setFormStateForActive, setResultForActive, markActiveSaved,
+  } = useCotizadorTabs()
+  const initialFs = useRef(activeTab.formState).current
+  const initialResult = useRef(activeTab.result).current
 
   // Use Supabase vehicles if available, fallback to hardcoded
   const UNIDADES: Unidad[] = dbVehiculos.length > 0
@@ -476,61 +505,137 @@ export function CotizadorPage() {
     ...dbOperadores.filter(o => isManiobristaNombre(o.nombre, o.notas)).map(o => o.nombre),
   ])
 
-  // ── Form state ──────────────────────────────────────────────────────────────
-  const [origen, setOrigen] = useState('')
-  const [destino, setDestino] = useState('')
-  const [viajeRedondo, setViajeRedondo] = useState(true)
-  const [kmIda, setKmIda] = useState<number>(0)
-  const [casetasIda, setCasetasIda] = useState<number>(0)
-  const [casetasRegreso, setCasetasRegreso] = useState<number>(0)
-  const [horasIda, setHorasIda] = useState<number>(0)
-  const [minutosIda, setMinutosIda] = useState<number>(0)
+  // ── Form state (hidratado desde la tab activa) ─────────────────────────────
+  const [origen, setOrigen] = useState(initialFs.origen)
+  const [destino, setDestino] = useState(initialFs.destino)
+  const [viajeRedondo, setViajeRedondo] = useState(initialFs.viajeRedondo)
+  const [kmIda, setKmIda] = useState<number>(initialFs.kmIda)
+  const [casetasIda, setCasetasIda] = useState<number>(initialFs.casetasIda)
+  const [casetasRegreso, setCasetasRegreso] = useState<number>(initialFs.casetasRegreso)
+  const [horasIda, setHorasIda] = useState<number>(initialFs.horasIda)
+  const [minutosIda, setMinutosIda] = useState<number>(initialFs.minutosIda)
 
   // Multi-stop
-  const [modoMultiparadas, setModoMultiparadas] = useState(false)
-  const [paradas, setParadas] = useState<Parada[]>([])
-  const [kmRegreso, setKmRegreso] = useState<number>(0)
-  const [casetasRegresoMulti, setCasetasRegresoMulti] = useState<number>(0)
-  const [horasRegreso, setHorasRegreso] = useState<number>(0)
-  const [minutosRegreso, setMinutosRegreso] = useState<number>(0)
+  const [modoMultiparadas, setModoMultiparadas] = useState(initialFs.modoMultiparadas)
+  const [paradas, setParadas] = useState<Parada[]>(initialFs.paradas)
+  const [kmRegreso, setKmRegreso] = useState<number>(initialFs.kmRegreso)
+  const [casetasRegresoMulti, setCasetasRegresoMulti] = useState<number>(initialFs.casetasRegresoMulti)
+  const [horasRegreso, setHorasRegreso] = useState<number>(initialFs.horasRegreso)
+  const [minutosRegreso, setMinutosRegreso] = useState<number>(initialFs.minutosRegreso)
 
-  const [cliente, setCliente] = useState('')
-  const [tipoCliente, setTipoCliente] = useState('FINAL')
-  const [unidadClave, setUnidadClave] = useState('')
-  const [operador, setOperador] = useState('')
+  const [cliente, setCliente] = useState(initialFs.cliente)
+  const [tipoCliente, setTipoCliente] = useState(initialFs.tipoCliente)
+  const [unidadClave, setUnidadClave] = useState(initialFs.unidadClave)
+  const [operador, setOperador] = useState(initialFs.operador)
 
   // Contenedores
-  const [contenedores, setContenedores] = useState<Contenedor[]>([])
-  const [contCantidad, setContCantidad] = useState<number>(0)
-  const [contTipo, setContTipo] = useState('')
-  const [descripcionCarga, setDescripcionCarga] = useState('')
+  const [contenedores, setContenedores] = useState<Contenedor[]>(initialFs.contenedores)
+  const [contCantidad, setContCantidad] = useState<number>(initialFs.contCantidad)
+  const [contTipo, setContTipo] = useState(initialFs.contTipo)
+  const [descripcionCarga, setDescripcionCarga] = useState(initialFs.descripcionCarga)
 
   // Maniobra
-  const [mHoras, setMHoras] = useState<number>(0)
-  const [mMinutos, setMMinutos] = useState<number>(0)
-  const [mCosto, setMCosto] = useState<number>(150)
-  const [maniobrista, setManiobrista] = useState<string>('')
+  const [mHoras, setMHoras] = useState<number>(initialFs.mHoras)
+  const [mMinutos, setMMinutos] = useState<number>(initialFs.mMinutos)
+  const [mCosto, setMCosto] = useState<number>(initialFs.mCosto)
+  const [maniobrista, setManiobrista] = useState<string>(initialFs.maniobrista)
+  const [maniobristaSource, setManiobristaSource] = useState<'interno' | 'externo'>(initialFs.maniobristaSource)
 
   // Viáticos extras (ad-hoc, además de los calculados por bonos)
-  const [viaticosExtras, setViaticosExtras] = useState<number>(0)
+  const [viaticosExtras, setViaticosExtras] = useState<number>(initialFs.viaticosExtras)
+
+  // Dádiva: efectivo extra al operador por contingencia Guardia Nacional.
+  // INTERNA — sale del margen SCC, no afecta precioFinal, no aparece en PDF cliente.
+  const [dadiva, setDadiva] = useState<number>(initialFs.dadiva)
 
   // Bonos
-  const [incluyeBonos, setIncluyeBonos] = useState(false)
-  const [bonoSueldo, setBonoSueldo] = useState(BONOS_DEFAULT.SUELDO)
-  const [bonoKmCarga, setBonoKmCarga] = useState(BONOS_DEFAULT.KM_CARGA)
-  const [bonoKmVacio, setBonoKmVacio] = useState(BONOS_DEFAULT.KM_VACIO)
-  const [bonoComida, setBonoComida] = useState(BONOS_DEFAULT.COMIDA)
+  const [incluyeBonos, setIncluyeBonos] = useState(initialFs.incluyeBonos)
+  const [bonoSueldo, setBonoSueldo] = useState(initialFs.bonoSueldo)
+  const [bonoKmCarga, setBonoKmCarga] = useState(initialFs.bonoKmCarga)
+  const [bonoKmVacio, setBonoKmVacio] = useState(initialFs.bonoKmVacio)
+  const [bonoComida, setBonoComida] = useState(initialFs.bonoComida)
 
   // Días especiales
-  const [dMatutino, setDMatutino] = useState<number>(0)
-  const [dNocturno, setDNocturno] = useState<number>(0)
-  const [dSabado, setDSabado] = useState<number>(0)
-  const [dDomingo, setDDomingo] = useState<number>(0)
-  const [dFestivo, setDFestivo] = useState<number>(0)
+  const [dMatutino, setDMatutino] = useState<number>(initialFs.dMatutino)
+  const [dNocturno, setDNocturno] = useState<number>(initialFs.dNocturno)
+  const [dSabado, setDSabado] = useState<number>(initialFs.dSabado)
+  const [dDomingo, setDDomingo] = useState<number>(initialFs.dDomingo)
+  const [dFestivo, setDFestivo] = useState<number>(initialFs.dFestivo)
 
   // Result
-  const [result, setResult] = useState<CotizadorResult | null>(null)
+  const [result, setResult] = useState<CotizadorResult | null>(initialResult)
   const [error, setError] = useState('')
+
+  // ── Multi-tab sync ─────────────────────────────────────────────────────────
+  // Cuando el usuario cambia de pestaña, hidratamos los useState desde la nueva
+  // tab. Durante esa hidratación hay que evitar que el efecto de snapshot
+  // sobrescriba la tab vieja con los valores que estamos restaurando.
+  const isRestoringRef = useRef(false)
+  const prevTabIdRef = useRef(activeTabId)
+
+  useEffect(() => {
+    if (prevTabIdRef.current === activeTabId) return
+    prevTabIdRef.current = activeTabId
+    isRestoringRef.current = true
+    const fs = activeTab.formState
+    setOrigen(fs.origen); setDestino(fs.destino); setViajeRedondo(fs.viajeRedondo)
+    setKmIda(fs.kmIda); setCasetasIda(fs.casetasIda); setCasetasRegreso(fs.casetasRegreso)
+    setHorasIda(fs.horasIda); setMinutosIda(fs.minutosIda)
+    setModoMultiparadas(fs.modoMultiparadas); setParadas(fs.paradas)
+    setKmRegreso(fs.kmRegreso); setCasetasRegresoMulti(fs.casetasRegresoMulti)
+    setHorasRegreso(fs.horasRegreso); setMinutosRegreso(fs.minutosRegreso)
+    setCliente(fs.cliente); setTipoCliente(fs.tipoCliente)
+    setUnidadClave(fs.unidadClave); setOperador(fs.operador)
+    setContenedores(fs.contenedores); setContCantidad(fs.contCantidad)
+    setContTipo(fs.contTipo); setDescripcionCarga(fs.descripcionCarga)
+    setMHoras(fs.mHoras); setMMinutos(fs.mMinutos); setMCosto(fs.mCosto)
+    setManiobrista(fs.maniobrista); setManiobristaSource(fs.maniobristaSource)
+    setViaticosExtras(fs.viaticosExtras); setDadiva(fs.dadiva)
+    setIncluyeBonos(fs.incluyeBonos)
+    setBonoSueldo(fs.bonoSueldo); setBonoKmCarga(fs.bonoKmCarga)
+    setBonoKmVacio(fs.bonoKmVacio); setBonoComida(fs.bonoComida)
+    setDMatutino(fs.dMatutino); setDNocturno(fs.dNocturno)
+    setDSabado(fs.dSabado); setDDomingo(fs.dDomingo); setDFestivo(fs.dFestivo)
+    setResult(activeTab.result)
+    setError('')
+    // Liberar el flag después del commit de este render.
+    queueMicrotask(() => { isRestoringRef.current = false })
+  }, [activeTabId, activeTab])
+
+  // Snapshot del form actual a la tab activa. Skip durante restore.
+  useEffect(() => {
+    if (isRestoringRef.current) return
+    setFormStateForActive({
+      origen, destino, viajeRedondo,
+      kmIda, casetasIda, casetasRegreso, horasIda, minutosIda,
+      modoMultiparadas, paradas,
+      kmRegreso, casetasRegresoMulti, horasRegreso, minutosRegreso,
+      cliente, tipoCliente, unidadClave, operador,
+      contenedores, contCantidad, contTipo, descripcionCarga,
+      mHoras, mMinutos, mCosto, maniobrista, maniobristaSource,
+      viaticosExtras, dadiva,
+      incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
+      dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
+    })
+  }, [
+    origen, destino, viajeRedondo,
+    kmIda, casetasIda, casetasRegreso, horasIda, minutosIda,
+    modoMultiparadas, paradas,
+    kmRegreso, casetasRegresoMulti, horasRegreso, minutosRegreso,
+    cliente, tipoCliente, unidadClave, operador,
+    contenedores, contCantidad, contTipo, descripcionCarga,
+    mHoras, mMinutos, mCosto, maniobrista, maniobristaSource,
+    viaticosExtras, dadiva,
+    incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
+    dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
+    setFormStateForActive,
+  ])
+
+  // Result también se sincroniza a la tab.
+  useEffect(() => {
+    if (isRestoringRef.current) return
+    setResultForActive(result)
+  }, [result, setResultForActive])
 
   // ── Multi-stop helpers ────────────────────────────────────────────────────
   const agregarParada = () => {
@@ -605,6 +710,7 @@ export function CotizadorPage() {
       maniobrasHoras: mHoras, maniobrasMinutos: mMinutos, maniobraCosto: mCosto,
       maniobrista: maniobrista || undefined,
       viaticosExtras,
+      dadiva,
       incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
       dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
     })
@@ -615,7 +721,7 @@ export function CotizadorPage() {
     viajeRedondo, modoMultiparadas, paradas, kmRegreso, casetasRegresoMulti,
     horasRegreso, minutosRegreso, unidadClave, tipoCliente, operador, cliente,
     contenedores, descripcionCarga, totalKm,
-    mHoras, mMinutos, mCosto, maniobrista, viaticosExtras, incluyeBonos,
+    mHoras, mMinutos, mCosto, maniobrista, viaticosExtras, dadiva, incluyeBonos,
     bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
     dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
   ])
@@ -631,9 +737,10 @@ export function CotizadorPage() {
       `${result.dias} día(s)`,
       `${result.unidad.modelo} (${result.unidad.placa})`,
       result.descripcionCarga ? `Carga: ${result.descripcionCarga}` : null,
+      result.dadiva > 0 ? `[DADIVA: ${mxn(result.dadiva)}]` : null,
     ].filter(Boolean).join(' · ')
 
-    await createViaje({
+    const viaje = await createViaje({
       operacion_id: null,
       vehiculo_id: null,
       operador_id: null,
@@ -651,15 +758,18 @@ export function CotizadorPage() {
       costo_casetas: result.casetas ?? 0,
       costo_viaticos: result.viaticos ?? 0,
       costo_proveedor: 0,
-      costo_total: (result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0),
+      costo_total: (result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0) + (result.dadiva ?? 0),
       ingreso_cliente: result.precioFinal,
-      margen: result.precioFinal - ((result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0)),
+      // Margen real = ganancia neta (descontada la dádiva si la hubo).
+      margen: result.gananciaNeta,
       motive_dispatch_id: null,
       motive_status: '',
       notas,
       creado_por: user?.name ?? user?.email ?? 'Cotizador',
     })
-  }, [result, user, createViaje])
+    // Multi-tab: marca esta pestaña como guardada (badge ✓ + banner solo-lectura).
+    if (viaje?.id) markActiveSaved(viaje.id)
+  }, [result, user, createViaje, markActiveSaved])
 
   // ── Reset ───────────────────────────────────────────────────────────────────
   const handleReset = () => {
@@ -669,9 +779,10 @@ export function CotizadorPage() {
     setModoMultiparadas(false); setParadas([]); setKmRegreso(0)
     setCasetasRegresoMulti(0); setHorasRegreso(0); setMinutosRegreso(0)
     setContenedores([]); setContCantidad(0); setContTipo(''); setDescripcionCarga('')
-    setMHoras(0); setMMinutos(0); setManiobrista(''); setDMatutino(0); setDNocturno(0)
+    setMHoras(0); setMMinutos(0); setManiobrista(''); setManiobristaSource('interno')
+    setDMatutino(0); setDNocturno(0)
     setDSabado(0); setDDomingo(0); setDFestivo(0)
-    setIncluyeBonos(false); setViaticosExtras(0)
+    setIncluyeBonos(false); setViaticosExtras(0); setDadiva(0)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -680,13 +791,29 @@ export function CotizadorPage() {
       onChange={e => set(Number(e.target.value) || 0)}
       className={`${inp} ${extra}`} />
 
+  const tabSaved = activeTab.savedViajeId !== null
+
   return (
     <div className="flex flex-col h-dvh bg-gray-50">
       <div className="cotiz-no-print"><Header /></div>
       <div className="flex flex-1 overflow-hidden min-h-0">
         <div className="cotiz-no-print"><Sidebar /></div>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-3 sm:p-6 pb-24">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-24">
+          <div className="cotiz-no-print">
+            <CotizadorTabsBar />
+          </div>
+          {tabSaved && (
+            <div className="cotiz-no-print mx-3 sm:mx-6 mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-center justify-between gap-3 text-sm">
+              <span className="text-green-800">
+                ✓ Esta cotización ya fue guardada como viaje{' '}
+                <span className="font-mono text-xs">#{activeTab.savedViajeId?.slice(0, 8)}</span>.
+                Los cambios no se actualizan automáticamente al viaje.
+              </span>
+              <span className="text-[11px] text-green-700">Usa <strong>Duplicar</strong> arriba para crear otra similar.</span>
+            </div>
+          )}
+          <div className="p-3 sm:p-6">
           {/* ── Header ── */}
           <div className="cotiz-no-print flex items-start justify-between mb-6 flex-wrap gap-4">
             <div>
@@ -943,15 +1070,42 @@ export function CotizadorPage() {
                   </div>
                   <div>
                     <label className={lbl}>Maniobrista</label>
-                    <select className={inp} value={maniobrista} onChange={e => setManiobrista(e.target.value)}>
-                      <option value="">Sin maniobrista asignado</option>
-                      {maniobristas.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                    <div className="flex gap-1 mb-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setManiobristaSource('interno'); setManiobrista('') }}
+                        className={`flex-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${maniobristaSource === 'interno' ? 'bg-[#1e3a5f] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >Interno</button>
+                      <button
+                        type="button"
+                        onClick={() => { setManiobristaSource('externo'); setManiobrista('') }}
+                        className={`flex-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${maniobristaSource === 'externo' ? 'bg-[#1e3a5f] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >Externo</button>
+                    </div>
+                    {maniobristaSource === 'interno' ? (
+                      <select className={inp} value={maniobrista} onChange={e => setManiobrista(e.target.value)}>
+                        <option value="">Sin maniobrista asignado</option>
+                        {maniobristas.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        className={inp}
+                        value={maniobrista}
+                        onChange={e => setManiobrista(e.target.value)}
+                        placeholder="Nombre del maniobrista externo"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className={lbl}>Viáticos extras ($)</label>
                     {numInp(viaticosExtras, setViaticosExtras)}
                     <p className="text-[10px] text-gray-400 mt-1">Peajes adicionales, propinas, imprevistos</p>
+                  </div>
+                  <div>
+                    <label className={lbl}>Dádiva ($) — interna</label>
+                    {numInp(dadiva, setDadiva)}
+                    <p className="text-[10px] text-gray-400 mt-1">Contingencia Guardia Nacional. Sale del margen SCC, NO se cobra al cliente.</p>
                   </div>
                 </div>
               </div>
@@ -1111,6 +1265,7 @@ export function CotizadorPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </main>
       </div>

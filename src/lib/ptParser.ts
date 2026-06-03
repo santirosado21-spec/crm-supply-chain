@@ -33,8 +33,8 @@ type PDFRow = PDFItem[]
 const SKU_CODE_RE         = /^[A-Z0-9][A-Z0-9\-\.\/]{1,}$/
 const DESC_HEADER_RE      = /descripci[oó]n/i
 const CANT_HEADER_RE      = /^cant\.?$/i
-const SKU_HEADER_RE       = /sku|item|n°\s*de\s*parte|no\.?\s*de\s*parte|código|codigo|parte/i
-const QTY_HEADER_RE       = /qty|cantidad|quantity|piezas|unidades|units|req|cant\b/i
+const SKU_HEADER_RE       = /sku|item|n°\s*de\s*parte|no\.?\s*de\s*parte|código|codigo|parte|model(\s*#|\s*number|o)?/i
+const QTY_HEADER_RE       = /qty|cantidad|quantity|piezas|unidades|units|req|cant\b|unit\s*qty/i
 const SERIAL_HEADER_RE    = /serial\s*(number|#)?/i
 
 /* ─── Utilities ──────────────────────────────────────────────────────── */

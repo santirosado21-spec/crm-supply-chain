@@ -242,7 +242,7 @@ export function PizarronAdminPage() {
                     <input
                       type="range"
                       min={1}
-                      max={200}
+                      max={100}
                       value={priority}
                       onChange={e => setPriority(Number(e.target.value))}
                       className="w-full accent-[#1e3a5f] mt-2"

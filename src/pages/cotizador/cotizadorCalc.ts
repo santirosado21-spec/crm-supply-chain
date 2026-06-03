@@ -72,6 +72,10 @@ export interface CotizadorInput {
   // Optional: viáticos extras (ad-hoc, sumados a los calculados por bonos)
   viaticosExtras?: number
 
+  // Optional: dádiva — efectivo extra al operador (contingencia Guardia Nacional).
+  // INTERNA: NO suma al costoTotal ni al precioFinal — sale del margen SCC.
+  dadiva?: number
+
   // Optional: días especiales (number of days each type)
   dMatutino: number
   dNocturno: number
@@ -89,6 +93,8 @@ export interface CotizadorResult {
   precioPorKm:   number
   ganancia:      number
   margenPct:     number         // 0-100
+  dadiva:        number         // gasto interno (no en PDF cliente)
+  gananciaNeta:  number         // ganancia - dadiva
 
   // Route
   kmTotal:       number
@@ -234,6 +240,10 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
   const precioFinal = Math.round(costoTotal + ganancia)
   const precioPorKm = kmTotal > 0 ? Math.round((precioFinal / kmTotal) * 100) / 100 : 0
 
+  // Dádiva: gasto interno. Sale de la ganancia, no del precio al cliente.
+  const dadiva = Math.max(0, Math.round(inp.dadiva ?? 0))
+  const gananciaNeta = ganancia - dadiva
+
   return {
     id:           Date.now(),
     fecha:        new Date().toLocaleDateString('es-MX'),
@@ -241,6 +251,8 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
     precioPorKm,
     ganancia,
     margenPct:    Math.round(margen * 100),
+    dadiva,
+    gananciaNeta,
     kmTotal,
     dias,
     viajeRedondo,

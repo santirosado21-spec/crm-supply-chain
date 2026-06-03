@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, FileInput, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, Warehouse, Calendar } from 'lucide-react'
+import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, CalendarClock } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { useWMSOperationsData } from '../../hooks/useWMSOperationsData'
@@ -14,10 +14,10 @@ interface Tool {
 
 const tools: Tool[] = [
   {
-    to: '/calendario',
-    title: 'Calendario',
-    description: 'Bandeja de tareas — crea y sigue solicitudes hacia almacén.',
-    icon: Calendar,
+    to: '/calendario/ejecutivo',
+    title: 'Calendario SAC',
+    description: 'Vista ejecutiva de tareas enviadas a almacén — pendientes, en curso y completadas.',
+    icon: CalendarClock,
     category: 'sac',
   },
   {
@@ -25,13 +25,6 @@ const tools: Tool[] = [
     title: 'Validador de SKUs',
     description: 'Cruza Pick Tickets contra inventario de Extensiv y detecta faltantes.',
     icon: ScanBarcode,
-    category: 'sac',
-  },
-  {
-    to: '/wms/receipt-generator',
-    title: 'Generador Receipt',
-    description: 'Genera el Excel Receipt_Import_Template para Extensiv desde un PT (PDF o Excel).',
-    icon: FileInput,
     category: 'sac',
   },
   {
@@ -46,13 +39,6 @@ const tools: Tool[] = [
     title: 'Clientes',
     description: 'Directorio de clientes del CEDIS.',
     icon: Users,
-    category: 'catalogo',
-  },
-  {
-    to: '/wms/cedis',
-    title: 'CEDIS Lerma',
-    description: 'Vista operativa de posiciones, ocupación y layout de bodega.',
-    icon: Warehouse,
     category: 'catalogo',
   },
 ]

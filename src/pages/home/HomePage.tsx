@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, Truck, ArrowRight, Warehouse, CalendarClock } from 'lucide-react'
+import { Package, Truck, ArrowRight, Warehouse, Briefcase } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
@@ -47,26 +47,26 @@ export function HomePage() {
       tools: ['Cotizador de fletes', 'Dashboard flotas', 'Servicios unidades', 'Bitácora operaciones'],
     },
     {
-      id: 'calendario',
-      title: 'Calendario Ejecutivo',
-      subtitle: 'Seguimiento cross-team',
-      description: 'Vista ejecutiva de actividades enviadas al almacén: pendientes, en curso y completadas, sin perder el detalle operativo.',
-      icon: CalendarClock,
-      color: '#1e3a5f',
-      accentColor: '#eff6ff',
-      onClick: () => navigate('/calendario/ejecutivo'),
-      tools: ['Pendientes', 'En curso', 'Completadas', 'Detalle por tarea'],
-    },
-    {
       id: 'almacen',
-      title: 'Calendario Almacén',
-      subtitle: 'Operación del CEDIS · Pizarrón · Estándares',
-      description: 'Centro de operación de almacén: recibe solicitudes del Calendario, distribuye por Pizarrón, asigna tiempos estándar y maneja la vista del día.',
+      title: 'Almacén',
+      subtitle: 'Calendario · Entradas · Mapa CEDIS',
+      description: 'Centro de operación del CEDIS: Calendario de almacén, Automatización para entradas (Facilitador) y Mapa de almacén.',
       icon: Warehouse,
       color: '#1e3a5f',
       accentColor: '#eff6ff',
       onClick: () => navigate('/almacen'),
       tools: ['Hoy (prioridades)', 'Pizarrón Operaciones', 'Distribución de tareas', 'Estándares de tiempo'],
+    },
+    {
+      id: 'direccion',
+      title: 'Dirección',
+      subtitle: 'Reportes · Equipo · Auditoría',
+      description: 'Vista administrativa: reporte ejecutivo, reportes operativos, gestión de equipo y horarios, y auditoría. Acceso exclusivo de administradores.',
+      icon: Briefcase,
+      color: '#1e3a5f',
+      accentColor: '#eff6ff',
+      onClick: () => navigate('/admin/executive-report'),
+      tools: ['Reporte ejecutivo', 'Reportes operativos', 'Equipo y horarios', 'Auditoría'],
     },
   ]
 

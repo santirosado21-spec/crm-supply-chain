@@ -58,8 +58,11 @@ export function useViajes(filters?: ViajeFilters) {
   }, [])
 
   const createViaje = useCallback(async (data: CreateViajeData) => {
-    const costoTotal = (data.costo_combustible || 0) + (data.costo_casetas || 0) + (data.costo_viaticos || 0) + (data.costo_proveedor || 0)
-    const margen = (data.ingreso_cliente || 0) - costoTotal
+    // Si el caller ya envió costo_total/margen explícitos (ej. Cotizador con
+    // dádiva interna), respetarlos. Si no, calcular desde los componentes.
+    const costoComponents = (data.costo_combustible || 0) + (data.costo_casetas || 0) + (data.costo_viaticos || 0) + (data.costo_proveedor || 0)
+    const costoTotal = data.costo_total && data.costo_total > 0 ? data.costo_total : costoComponents
+    const margen = typeof data.margen === 'number' ? data.margen : (data.ingreso_cliente || 0) - costoTotal
     const payload = { ...data, costo_total: costoTotal, margen }
 
     const { data: created, error: err } = await supabase
