@@ -523,6 +523,8 @@ function CotizadorPageInner() {
   const [horasRegreso, setHorasRegreso] = useState<number>(initialFs.horasRegreso)
   const [minutosRegreso, setMinutosRegreso] = useState<number>(initialFs.minutosRegreso)
 
+  const [referenciaExtensiv, setReferenciaExtensiv] = useState(initialFs.referenciaExtensiv)
+  const [referenciaSAC, setReferenciaSAC] = useState(initialFs.referenciaSAC)
   const [cliente, setCliente] = useState(initialFs.cliente)
   const [tipoCliente, setTipoCliente] = useState(initialFs.tipoCliente)
   const [unidadClave, setUnidadClave] = useState(initialFs.unidadClave)
@@ -622,6 +624,7 @@ function CotizadorPageInner() {
     setHorasRegreso(fs.horasRegreso); setMinutosRegreso(fs.minutosRegreso)
     setCliente(fs.cliente); setTipoCliente(fs.tipoCliente)
     setUnidadClave(fs.unidadClave); setOperador(fs.operador)
+    setReferenciaExtensiv(fs.referenciaExtensiv); setReferenciaSAC(fs.referenciaSAC)
     setContenedores(fs.contenedores); setContCantidad(fs.contCantidad)
     setContTipo(fs.contTipo); setDescripcionCarga(fs.descripcionCarga)
     setMHoras(fs.mHoras); setMMinutos(fs.mMinutos); setMCosto(fs.mCosto)
@@ -648,6 +651,7 @@ function CotizadorPageInner() {
       modoMultiparadas, paradas,
       kmRegreso, casetasRegresoMulti, horasRegreso, minutosRegreso,
       cliente, tipoCliente, unidadClave, operador,
+      referenciaExtensiv, referenciaSAC,
       contenedores, contCantidad, contTipo, descripcionCarga,
       mHoras, mMinutos, mCosto, maniobristas: maniobristasList,
       viaticosExtras, dadiva,
@@ -660,6 +664,7 @@ function CotizadorPageInner() {
     modoMultiparadas, paradas,
     kmRegreso, casetasRegresoMulti, horasRegreso, minutosRegreso,
     cliente, tipoCliente, unidadClave, operador,
+    referenciaExtensiv, referenciaSAC,
     contenedores, contCantidad, contTipo, descripcionCarga,
     mHoras, mMinutos, mCosto, maniobristasList,
     viaticosExtras, dadiva,
@@ -743,6 +748,7 @@ function CotizadorPageInner() {
       modoMultiparadas, paradas, kmRegreso, casetasRegresoMulti,
       horasRegreso, minutosRegreso,
       unidad, tipoCliente, operador, cliente,
+      referenciaExtensiv, referenciaSAC,
       contenedores, descripcionCarga,
       maniobrasHoras: mHoras, maniobrasMinutos: mMinutos, maniobraCosto: mCosto,
       maniobristas: maniobristasList,
@@ -757,6 +763,7 @@ function CotizadorPageInner() {
     origen, destino, kmIda, casetasIda, casetasRegreso, horasIda, minutosIda,
     viajeRedondo, modoMultiparadas, paradas, kmRegreso, casetasRegresoMulti,
     horasRegreso, minutosRegreso, unidadClave, tipoCliente, operador, cliente,
+    referenciaExtensiv, referenciaSAC,
     contenedores, descripcionCarga, totalKm,
     mHoras, mMinutos, mCosto, maniobristasList, viaticosExtras, dadiva, incluyeBonos,
     bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
@@ -771,6 +778,8 @@ function CotizadorPageInner() {
       result.cliente ? `Cliente: ${result.cliente}` : null,
       result.operador ? `Operador: ${result.operador}` : null,
       result.maniobrista ? `Maniobrista: ${result.maniobrista}` : null,
+      result.referenciaExtensiv ? `Txn Extensiv: ${result.referenciaExtensiv}` : null,
+      result.referenciaSAC      ? `Ref SAC: ${result.referenciaSAC}`           : null,
       `${result.dias} día(s)`,
       `${result.unidad.modelo} (${result.unidad.placa})`,
       result.descripcionCarga ? `Carga: ${result.descripcionCarga}` : null,
@@ -816,6 +825,7 @@ function CotizadorPageInner() {
     setModoMultiparadas(false); setParadas([]); setKmRegreso(0)
     setCasetasRegresoMulti(0); setHorasRegreso(0); setMinutosRegreso(0)
     setContenedores([]); setContCantidad(0); setContTipo(''); setDescripcionCarga('')
+    setReferenciaExtensiv(''); setReferenciaSAC('')
     setMHoras(0); setMMinutos(0)
     setManiobristasList([]); setAddInternoSel(''); setAddExternoName('')
     setDMatutino(0); setDNocturno(0)
@@ -1057,6 +1067,20 @@ function CotizadorPageInner() {
                     )}
                   </div>
                 )}
+
+                {/* Referencias internas (opcionales) — se guardan en notas del viaje */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-100">
+                  <div>
+                    <label className={lbl}># transacción Extensiv (opcional)</label>
+                    <input type="text" className={inp} placeholder="Ej. EXT-123456"
+                      value={referenciaExtensiv} onChange={e => setReferenciaExtensiv(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={lbl}>Referencia correo SAC (opcional)</label>
+                    <input type="text" className={inp} placeholder="Ej. TICKET-789"
+                      value={referenciaSAC} onChange={e => setReferenciaSAC(e.target.value)} />
+                  </div>
+                </div>
               </div>
 
               {/* 2. Cliente y Unidad — 1 col móvil, 2 desktop */}

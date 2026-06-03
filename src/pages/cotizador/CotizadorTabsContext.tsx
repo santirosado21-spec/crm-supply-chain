@@ -45,6 +45,12 @@ export interface CotizadorFormState {
   unidadClave: string
   operador: string
 
+  // Referencias internas (opcionales) que se concatenan en viajes.notas:
+  // - referenciaExtensiv: # de transacción del WMS Extensiv 3PL
+  // - referenciaSAC: ticket/folio del correo del área de SAC
+  referenciaExtensiv: string
+  referenciaSAC: string
+
   // Contenedores
   contenedores: Contenedor[]
   contCantidad: number
@@ -83,6 +89,7 @@ export const INITIAL_FORM_STATE: CotizadorFormState = {
   modoMultiparadas: false, paradas: [],
   kmRegreso: 0, casetasRegresoMulti: 0, horasRegreso: 0, minutosRegreso: 0,
   cliente: '', tipoCliente: 'FINAL', unidadClave: '', operador: '',
+  referenciaExtensiv: '', referenciaSAC: '',
   contenedores: [], contCantidad: 0, contTipo: '', descripcionCarga: '',
   mHoras: 0, mMinutos: 0, mCosto: 150, maniobristas: [],
   viaticosExtras: 0, dadiva: 0,
@@ -142,19 +149,27 @@ function normalizeFormState(fs: Record<string, unknown>): CotizadorFormState {
     maniobristaSource?: 'interno' | 'externo'
     maniobristas?: ManiobristaAsignado[]
   }
+  let base: CotizadorFormState
   if (Array.isArray(fsAny.maniobristas)) {
-    return fsAny as unknown as CotizadorFormState
+    base = fsAny as unknown as CotizadorFormState
+  } else {
+    const legacyName = typeof fsAny.maniobrista === 'string' ? fsAny.maniobrista.trim() : ''
+    const legacySource = fsAny.maniobristaSource === 'externo' ? true : false
+    const migrated: ManiobristaAsignado[] = legacyName
+      ? [{ id: `m-legacy-${Date.now()}`, nombre: legacyName, esExterno: legacySource }]
+      : []
+    const next = { ...fsAny, maniobristas: migrated } as unknown as CotizadorFormState
+    const nextRec = next as unknown as Record<string, unknown>
+    delete nextRec.maniobrista
+    delete nextRec.maniobristaSource
+    base = next
   }
-  const legacyName = typeof fsAny.maniobrista === 'string' ? fsAny.maniobrista.trim() : ''
-  const legacySource = fsAny.maniobristaSource === 'externo' ? true : false
-  const migrated: ManiobristaAsignado[] = legacyName
-    ? [{ id: `m-legacy-${Date.now()}`, nombre: legacyName, esExterno: legacySource }]
-    : []
-  const next = { ...fsAny, maniobristas: migrated } as unknown as CotizadorFormState
-  const nextRec = next as unknown as Record<string, unknown>
-  delete nextRec.maniobrista
-  delete nextRec.maniobristaSource
-  return next
+  // Inyectar defaults para campos agregados después: tabs guardadas con un schema
+  // viejo no fallan al leerse y caen a string vacío.
+  const rec = base as unknown as Record<string, unknown>
+  if (typeof rec.referenciaExtensiv !== 'string') rec.referenciaExtensiv = ''
+  if (typeof rec.referenciaSAC !== 'string')      rec.referenciaSAC = ''
+  return base
 }
 
 function loadFromStorage(): { tabs: CotizadorTab[]; activeTabId: string } | null {

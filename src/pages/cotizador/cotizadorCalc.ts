@@ -70,6 +70,10 @@ export interface CotizadorInput {
   operador:      string
   cliente:       string
 
+  // Referencias internas (opcionales) — se concatenan en viajes.notas al guardar
+  referenciaExtensiv?: string
+  referenciaSAC?:      string
+
   // Contenedores
   contenedores:      Contenedor[]
   descripcionCarga:  string
@@ -151,6 +155,8 @@ export interface CotizadorResult {
   unidad:        Unidad
   tipoCliente:   string
   incluyeBonos:  boolean
+  referenciaExtensiv?: string
+  referenciaSAC?:      string
 }
 
 // ── Route data helper ───────────────────────────────────────────────────────
@@ -302,5 +308,7 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
     unidad:       u,
     tipoCliente:  inp.tipoCliente,
     incluyeBonos: inp.incluyeBonos,
+    referenciaExtensiv: inp.referenciaExtensiv?.trim() || undefined,
+    referenciaSAC:      inp.referenciaSAC?.trim() || undefined,
   }
 }

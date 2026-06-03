@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, LayoutDashboard, Truck, UserCheck, Route, PieChart, Calculator, CalendarClock, ArrowRight, Clock, DollarSign, TrendingUp, Calendar } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Truck, UserCheck, Route, PieChart, Calculator, CalendarClock, ArrowRight, Clock, DollarSign, TrendingUp, Calendar, FileText } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useViajes } from '../../hooks/useViajes'
 import { useVehiculos } from '../../hooks/useVehiculos'
@@ -21,6 +21,7 @@ const tools: Tool[] = [
   { to: '/tms/viajes',    title: 'Viajes',     description: 'Registro de viajes, asignaciones y estatus.',          icon: Route,           category: 'tms' },
   { to: '/tms/costos',    title: 'Costos',     description: 'Análisis de costos de transporte por viaje/ruta.',     icon: PieChart,        category: 'tms' },
   { to: '/cotizador',     title: 'Cotizador',  description: 'Cotizador de fletes locales y foráneos.',              icon: Calculator,      category: 'com' },
+  { to: '/tms/carta-porte',title: 'Carta Porte',description: 'Genera CFDI 4.0 con complemento Carta Porte 3.1 (sin timbrar).', icon: FileText,  category: 'tms' },
   { to: '/tramites',      title: 'Trámites',   description: 'Vencimientos, verificaciones y trámites pendientes.',  icon: CalendarClock,   category: 'com' },
   { to: '/calendario',    title: 'Calendario', description: 'Bandeja de tareas — crea y sigue solicitudes hacia almacén.', icon: Calendar, category: 'com' },
 ]
