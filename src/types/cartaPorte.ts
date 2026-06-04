@@ -63,6 +63,7 @@ export interface CartaPorte {
   notas:                 string | null
   creado_por:            string
   viaje_id:              string | null
+  warehouse_task_id:     string | null
   created_at:            string
   updated_at?:           string
 }

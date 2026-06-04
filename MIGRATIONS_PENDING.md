@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 9 MIGRACIONES PENDIENTES DE APLICAR
+## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -94,6 +94,16 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Sin esta migración: el selector "Ligar a viaje" funciona en UI (auto-llena
   los campos), pero el `viaje_id` NO se persiste en BD — al recargar la carta
   porte desde el historial, el banner azul no se restaura.
+
+### 10. `20260604000001_cartas_porte_warehouse_task_link.sql`
+- Agrega `cartas_porte.warehouse_task_id UUID REFERENCES warehouse_tasks(id) ON DELETE SET NULL`
+  + índice parcial `WHERE warehouse_task_id IS NOT NULL`.
+- Permite ligar una Carta Porte a una tarea del Pizarrón de Almacén
+  (recepción/picking/embarque/etc.) para trazabilidad ex-post. Independiente
+  del `viaje_id` — ambos pueden coexistir en la misma Carta Porte.
+- Sin esta migración: el selector "Ligar a tarea de almacén" funciona en UI
+  (banner verde aparece) pero el `warehouse_task_id` NO se persiste — al
+  recargar desde el historial, el vínculo se pierde.
 
 ## Cómo aplicar
 

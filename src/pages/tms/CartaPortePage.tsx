@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   FileText, ChevronDown, ChevronRight, MapPin, Truck, User as UserIcon,
-  Package, Save, FileDown, Code, Plus, X, AlertTriangle, Loader2, RotateCcw,
+  Package, Save, FileDown, Code, Plus, X, Loader2, RotateCcw,
   Settings, History, Link2,
 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
@@ -14,7 +14,9 @@ import { useCartasPorte } from '../../hooks/useCartasPorte'
 import { useVehiculos } from '../../hooks/useVehiculos'
 import { useOperadores } from '../../hooks/useOperadores'
 import { useViajes } from '../../hooks/useViajes'
+import { useWarehouseTasks } from '../../hooks/useWarehouseTasks'
 import type { Viaje } from '../../types/tms'
+import { AREA_LABEL } from '../../types/pizarron'
 import {
   EMPTY_UBICACION, EMPTY_MERCANCIA, EMPTY_TRANSPORTE, EMPTY_FIGURA,
   type Ubicacion, type Mercancia, type Transporte, type Figura, type CartaPorte,
@@ -37,13 +39,19 @@ interface EmisorConfig {
 function parseViajeNotas(notas: string | null | undefined): {
   cliente?: string
   carga?: string
+  txnExtensiv?: string
+  refSAC?: string
 } {
   if (!notas) return {}
-  const out: { cliente?: string; carga?: string } = {}
+  const out: { cliente?: string; carga?: string; txnExtensiv?: string; refSAC?: string } = {}
   const m1 = notas.match(/Cliente:\s*([^·]+?)(?=\s*·|\s*$)/i)
   if (m1) out.cliente = m1[1].trim()
   const m2 = notas.match(/Carga:\s*([^·]+?)(?=\s*·|\s*$)/i)
   if (m2) out.carga = m2[1].trim()
+  const m3 = notas.match(/Txn Extensiv:\s*([^·]+?)(?=\s*·|\s*$)/i)
+  if (m3) out.txnExtensiv = m3[1].trim()
+  const m4 = notas.match(/Ref SAC:\s*([^·]+?)(?=\s*·|\s*$)/i)
+  if (m4) out.refSAC = m4[1].trim()
   return out
 }
 
@@ -135,7 +143,6 @@ function UbicacionForm({ value, onChange }: { value: Ubicacion; onChange: (u: Ub
 
 // ── Main page ────────────────────────────────────────────────────────────────
 export function CartaPortePage() {
-  const navigate = useNavigate()
   const { user } = useAuthContext()
   const toast = useToast()
   const { cartas, loading: loadingHist, createCartaPorte, updateCartaPorte } = useCartasPorte()
@@ -144,14 +151,19 @@ export function CartaPortePage() {
   // Viajes: cargamos todos y filtramos client-side por estado (useViajes solo
   // permite UN estado por filter — filtrar acá es más simple y barato).
   const { viajes } = useViajes()
+  // Incluye 'pendiente' (estado por defecto al confirmar desde el Cotizador).
+  // Solo excluye 'cancelado'.
   const viajesConfirmables = useMemo(
-    () => viajes.filter(v => ['asignado','en_transito','entregado','completado'].includes(v.estado)),
+    () => viajes.filter(v => v.estado !== 'cancelado'),
     [viajes],
   )
+  // Tareas de almacén (Pizarrón). useWarehouseTasks trae las no completadas —
+  // suficiente para ligar carta porte en flujo normal. Para ex-post (completadas)
+  // sería fase 2.
+  const { tasks: warehouseTasks } = useWarehouseTasks()
 
   // Emisor
   const [emisor, setEmisor] = useState<EmisorConfig | null>(null)
-  const [emisorLoading, setEmisorLoading] = useState(true)
 
   // Form state
   const [remitente, setRemitente] = useState<Ubicacion>(EMPTY_UBICACION)
@@ -171,6 +183,12 @@ export function CartaPortePage() {
     () => viajes.find(v => v.id === viajeId) ?? null,
     [viajes, viajeId],
   )
+  // Ligado a tarea de almacén (opcional, trazabilidad)
+  const [warehouseTaskId, setWarehouseTaskId] = useState<string | null>(null)
+  const warehouseTaskLigada = useMemo(
+    () => warehouseTasks.find(t => t.id === warehouseTaskId) ?? null,
+    [warehouseTasks, warehouseTaskId],
+  )
 
   // Cargar emisor_config
   useEffect(() => {
@@ -183,7 +201,6 @@ export function CartaPortePage() {
           cp_expedicion: (data as { cp_expedicion: string }).cp_expedicion,
         })
       }
-      setEmisorLoading(false)
     })
   }, [])
 
@@ -205,8 +222,6 @@ export function CartaPortePage() {
   // Totales
   const totalPesoBruto = useMemo(() => mercancias.reduce((s, m) => s + (m.pesoBruto || 0), 0), [mercancias])
   const totalPesoNeto  = useMemo(() => mercancias.reduce((s, m) => s + (m.pesoNeto  || 0), 0), [mercancias])
-
-  const emisorIncompleto = !emisor || !emisor.rfc || emisor.rfc === 'XAXX010101000' || emisor.razon_social.includes('placeholder')
 
   // ── Mercancías helpers ────────────────────────────────────────────────────
   const addMercancia = () => setMercancias(prev => [...prev, { ...EMPTY_MERCANCIA }])
@@ -244,8 +259,8 @@ export function CartaPortePage() {
       }))
       setOperadorNombreSel(op.nombre)
     }
-    // Cliente + carga del campo notas del Cotizador
-    const { cliente, carga } = parseViajeNotas(v.notas)
+    // Cliente + carga + referencias del campo notas del Cotizador
+    const { cliente, carga, txnExtensiv, refSAC } = parseViajeNotas(v.notas)
     if (cliente) {
       setDestinatarios(prev => {
         const next = [...prev]
@@ -270,6 +285,15 @@ export function CartaPortePage() {
     if (v.origen) {
       setRemitente(r => ({ ...r, referencia: v.origen }))
     }
+    // Trazabilidad: agregar las referencias Extensiv/SAC al campo Notas de la
+    // Carta Porte si vienen del viaje y no estaban ya.
+    const refsLine = [
+      txnExtensiv ? `Ref Extensiv: ${txnExtensiv}` : null,
+      refSAC      ? `Ref SAC: ${refSAC}`           : null,
+    ].filter(Boolean).join(' · ')
+    if (refsLine) {
+      setNotas(prev => prev.includes(refsLine) ? prev : (prev ? `${prev}\n${refsLine}` : refsLine))
+    }
     toast.success('Datos auto-llenados del viaje', 'Revisa y completa lo que falta (RFCs, dirección, clave SAT).')
   }
 
@@ -285,11 +309,11 @@ export function CartaPortePage() {
     setNotas('')
     setLastFolio(null)
     setViajeId(null)
+    setWarehouseTaskId(null)
   }
 
   // ── Validación mínima ─────────────────────────────────────────────────────
   function validate(): string | null {
-    if (emisorIncompleto) return 'Configura el emisor antes de generar.'
     if (!remitente.rfc || !remitente.cp)     return 'Remitente: RFC y C.P. son obligatorios.'
     if (destinatarios.length === 0)          return 'Agrega al menos un destinatario.'
     if (destinatarios.some(d => !d.rfc || !d.cp)) return 'Cada destinatario requiere RFC y C.P.'
@@ -327,6 +351,7 @@ export function CartaPortePage() {
         notas,
         creado_por: user?.name ?? user?.email ?? 'TMS',
         viaje_id: viajeId,
+        warehouse_task_id: warehouseTaskId,
       })
       setLastFolio(cp.folio)
       toast.success('Borrador guardado', `Folio ${cp.folio}`)
@@ -362,6 +387,7 @@ export function CartaPortePage() {
     creado_por: user?.name ?? '',
     created_at: new Date().toISOString(),
     viaje_id: viajeId,
+        warehouse_task_id: warehouseTaskId,
   })
 
   // ── Generar PDF ───────────────────────────────────────────────────────────
@@ -407,6 +433,7 @@ export function CartaPortePage() {
           notas,
           creado_por: user?.name ?? user?.email ?? 'TMS',
           viaje_id: viajeId,
+        warehouse_task_id: warehouseTaskId,
         })
         setLastFolio(cp.folio)
         snap = { ...snap, id: cp.id, folio: cp.folio }
@@ -437,6 +464,7 @@ export function CartaPortePage() {
     setNotas(cp.notas ?? '')
     setLastFolio(cp.folio)
     setViajeId(cp.viaje_id ?? null)
+    setWarehouseTaskId(cp.warehouse_task_id ?? null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     toast.success('Carta porte cargada', `Folio ${cp.folio}`)
   }
@@ -466,26 +494,10 @@ export function CartaPortePage() {
             </div>
           </div>
 
-          {/* Banner emisor incompleto */}
-          {!emisorLoading && emisorIncompleto && (
-            <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm text-amber-800">
-                <AlertTriangle size={18} className="shrink-0" />
-                <span>El emisor SCC no está configurado. Es obligatorio para generar Cartas Porte válidas.</span>
-              </div>
-              <button
-                onClick={() => navigate('/wms/emisor-config')}
-                className="shrink-0 h-9 px-3 rounded-lg bg-amber-600 text-white text-xs font-bold flex items-center gap-1.5 hover:opacity-90"
-              >
-                <Settings size={13} /> Configurar emisor
-              </button>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
             <div>
-              {/* Emisor read-only */}
-              {emisor && !emisorIncompleto && (
+              {/* Emisor read-only — siempre visible si hay row en emisor_config */}
+              {emisor && (
                 <div className={sec}>
                   <p className={secTitle}><FileText size={16} /> Emisor (Supply Chain MX)</p>
                   <div className="grid grid-cols-2 gap-3 text-xs">
@@ -528,7 +540,9 @@ export function CartaPortePage() {
               </Collapsible>
 
               {/* Ligar a viaje (Cotizador) */}
-              {viajeLigado ? (
+              {viajeLigado ? (() => {
+                const parsed = parseViajeNotas(viajeLigado.notas)
+                return (
                 <div className={sec + ' !bg-blue-50 !border-blue-200'}>
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex items-start gap-2 min-w-0">
@@ -545,11 +559,18 @@ export function CartaPortePage() {
                           {viajeLigado.km_estimados > 0 && (
                             <span className="text-gray-500"> · {viajeLigado.km_estimados} km</span>
                           )}
-                          {parseViajeNotas(viajeLigado.notas).cliente && (
-                            <span className="text-gray-500"> · cliente: {parseViajeNotas(viajeLigado.notas).cliente}</span>
+                          {parsed.cliente && (
+                            <span className="text-gray-500"> · cliente: {parsed.cliente}</span>
                           )}
                           <span className="text-gray-400"> · {viajeLigado.estado}</span>
                         </p>
+                        {(parsed.txnExtensiv || parsed.refSAC) && (
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {parsed.txnExtensiv && <>Txn Extensiv: <span className="font-mono text-gray-700">{parsed.txnExtensiv}</span></>}
+                            {parsed.txnExtensiv && parsed.refSAC && ' · '}
+                            {parsed.refSAC && <>Ref SAC: <span className="font-mono text-gray-700">{parsed.refSAC}</span></>}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button
@@ -562,7 +583,8 @@ export function CartaPortePage() {
                     </button>
                   </div>
                 </div>
-              ) : (
+                )
+              })() : (
                 <div className={sec}>
                   <p className={secTitle}><Link2 size={16} /> Ligar a viaje confirmado (opcional)</p>
                   <p className="text-[11px] text-gray-500 mb-3">
@@ -596,6 +618,69 @@ export function CartaPortePage() {
                           </option>
                         )
                       })}
+                  </select>
+                </div>
+              )}
+
+              {/* Ligar a tarea de almacén (Pizarrón) */}
+              {warehouseTaskLigada ? (
+                <div className={sec + ' !bg-green-50 !border-green-200'}>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Package size={18} className="text-green-700 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-green-800">
+                          Ligado a tarea de almacén{' '}
+                          <span className="font-mono text-xs">#{warehouseTaskLigada.id.slice(0, 8)}</span>
+                        </p>
+                        <p className="text-xs text-gray-700 mt-0.5">
+                          <span className="font-semibold">{AREA_LABEL[warehouseTaskLigada.area]}</span>
+                          {warehouseTaskLigada.task?.title && <span> · {warehouseTaskLigada.task.title}</span>}
+                          {warehouseTaskLigada.assigned_to_name && (
+                            <span className="text-gray-500"> · asignada: {warehouseTaskLigada.assigned_to_name}</span>
+                          )}
+                          {warehouseTaskLigada.taken_by_name && (
+                            <span className="text-gray-500"> · tomada: {warehouseTaskLigada.taken_by_name}</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWarehouseTaskId(null)}
+                      className="shrink-0 h-8 px-3 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 flex items-center gap-1.5 hover:bg-gray-50"
+                      title="Solo quita el vínculo."
+                    >
+                      <X size={12} /> Quitar ligado
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={sec}>
+                  <p className={secTitle}><Package size={16} /> Ligar a tarea de almacén (opcional)</p>
+                  <p className="text-[11px] text-gray-500 mb-3">
+                    Asocia esta Carta Porte con una tarea del Pizarrón de Almacén (recepción, picking, embarque, etc.) para trazabilidad.
+                  </p>
+                  <select
+                    className={inp}
+                    value=""
+                    onChange={e => { if (e.target.value) setWarehouseTaskId(e.target.value) }}
+                  >
+                    <option value="">
+                      {warehouseTasks.length === 0
+                        ? '— No hay tareas de almacén activas —'
+                        : `— Seleccionar tarea (${warehouseTasks.length}) —`}
+                    </option>
+                    {warehouseTasks.map(t => {
+                      const titulo = t.task?.title ?? 'Tarea de almacén'
+                      const area = AREA_LABEL[t.area]
+                      const estado = t.taken_by_name ? `en proceso · ${t.taken_by_name}` : 'pendiente'
+                      return (
+                        <option key={t.id} value={t.id}>
+                          {area} · {titulo} · #{t.id.slice(0, 8)} · {estado}
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
               )}
