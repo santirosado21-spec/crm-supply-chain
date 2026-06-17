@@ -234,6 +234,7 @@ async function generarPDF(c: CotizadorResult) {
     costos.push([labelManiobra, c.maniobra])
   }
   if (c.horasExtra > 0) costos.push(['Días Especiales', c.horasExtra])
+  if (c.dadiva > 0) costos.push(['Dádiva GN', c.dadiva])
   costos.push(['Depreciación de unidad', c.depreciacion])
   costos.push(['Gastos fijos (GPS, renta, seguro)', c.gastosFijos])
 
@@ -388,6 +389,7 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
             />
           )}
           {result.horasExtra > 0 && <DR label="⏰ Días especiales" value={mxn(result.horasExtra)} highlight />}
+          {result.dadiva > 0 && <DR label="🤝 Dádiva GN" value={mxn(result.dadiva)} highlight />}
           <DR label="📉 Depreciación" value={mxn(result.depreciacion)} sub />
           <DR label="🏢 Gastos fijos (GPS · Renta · Seguro)" value={mxn(result.gastosFijos)} sub />
         </div>
@@ -407,19 +409,9 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
           <span className="text-sm font-bold text-white uppercase tracking-wide">PRECIO FINAL</span>
           <span className="text-xl font-extrabold text-white">{mxn(result.precioFinal)}</span>
         </div>
-        {result.dadiva > 0 && (
-          <div className="px-4 py-2 bg-amber-50 border-t border-amber-100 flex justify-between items-center">
-            <span className="text-xs text-amber-700 font-semibold" title="Sale del margen SCC. No aparece en el PDF cliente.">
-              🤝 Dádiva GN (interno)
-            </span>
-            <span className="text-sm font-bold text-amber-700">−{mxn(result.dadiva)}</span>
-          </div>
-        )}
         <div className="px-4 py-2 bg-green-50 border-t border-green-100 flex justify-between items-center">
-          <span className="text-xs text-green-700 font-semibold">
-            💵 Ganancia neta {result.dadiva > 0 && <span className="text-[10px] font-normal text-green-600">(margen − dádiva)</span>}
-          </span>
-          <span className="text-sm font-bold text-green-700">{mxn(result.gananciaNeta)}</span>
+          <span className="text-xs text-green-700 font-semibold">💵 Ganancia</span>
+          <span className="text-sm font-bold text-green-700">{mxn(result.ganancia)}</span>
         </div>
       </div>
 
@@ -550,7 +542,7 @@ function CotizadorPageInner() {
   const [viaticosExtras, setViaticosExtras] = useState<number>(initialFs.viaticosExtras)
 
   // Dádiva: efectivo extra al operador por contingencia Guardia Nacional.
-  // INTERNA — sale del margen SCC, no afecta precioFinal, no aparece en PDF cliente.
+  // Costo operativo más: suma a costoTotal/precioFinal y aparece en el PDF cliente.
   const [dadiva, setDadiva] = useState<number>(initialFs.dadiva)
 
   // Bonos
@@ -806,7 +798,8 @@ function CotizadorPageInner() {
       costo_proveedor: 0,
       costo_total: (result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0) + (result.dadiva ?? 0),
       ingreso_cliente: result.precioFinal,
-      // Margen real = ganancia neta (descontada la dádiva si la hubo).
+      // Margen real = markup completo. La dádiva ya está dentro de costo_total
+      // y se cobra al cliente (con margen), así que no se descuenta de la utilidad.
       margen: result.gananciaNeta,
       motive_dispatch_id: null,
       motive_status: '',
@@ -1206,9 +1199,9 @@ function CotizadorPageInner() {
                     <p className="text-[10px] text-gray-400 mt-1">Peajes adicionales, propinas, imprevistos</p>
                   </div>
                   <div>
-                    <label className={lbl}>Dádiva ($) — interna</label>
+                    <label className={lbl}>Dádiva ($) — Guardia Nacional</label>
                     {numInp(dadiva, setDadiva)}
-                    <p className="text-[10px] text-gray-400 mt-1">Contingencia Guardia Nacional. Sale del margen SCC, NO se cobra al cliente.</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Contingencia Guardia Nacional. Se suma al costo y se cobra al cliente (con margen).</p>
                   </div>
                 </div>
               </div>

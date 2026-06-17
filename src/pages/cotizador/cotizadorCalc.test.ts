@@ -358,3 +358,45 @@ describe('calcularFlete — invariantes (sanity)', () => {
     expect(redondo.kmTotal).toBeGreaterThanOrEqual(ida.kmTotal)
   })
 })
+
+describe('calcularFlete — dádiva (contingencia Guardia Nacional)', () => {
+  it('sin dádiva (undefined) no altera costoTotal ni precioFinal y dadiva = 0', () => {
+    const base = calcularFlete(makeInput())
+    const sin  = calcularFlete(makeInput({ dadiva: undefined }))
+    expect(sin.dadiva).toBe(0)
+    expect(sin.costoTotal).toBe(base.costoTotal)
+    expect(sin.precioFinal).toBe(base.precioFinal)
+  })
+
+  it('la dádiva se suma al costoTotal y gana markup en el precioFinal', () => {
+    const margen = MARGENES_CLIENTE.FINAL // 0.35
+    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
+    const conD = calcularFlete(makeInput({ tipoCliente: 'FINAL', dadiva: 2000 }))
+
+    expect(conD.dadiva).toBe(2000)
+    expect(conD.costoTotal).toBe(base.costoTotal + 2000)
+    expect(conD.ganancia).toBe(base.ganancia + Math.round(2000 * margen))            // +700
+    expect(conD.precioFinal).toBe(base.precioFinal + 2000 + Math.round(2000 * margen)) // +2700
+  })
+
+  it('caso concreto: cliente FINAL 35% + dádiva 2000 → +2000 costo, +700 ganancia, +2700 precio', () => {
+    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
+    const conD = calcularFlete(makeInput({ tipoCliente: 'FINAL', dadiva: 2000 }))
+    expect(conD.costoTotal - base.costoTotal).toBe(2000)
+    expect(conD.ganancia - base.ganancia).toBe(700)
+    expect(conD.precioFinal - base.precioFinal).toBe(2700)
+  })
+
+  it('gananciaNeta es alias de ganancia (la dádiva ya no se descuenta del margen)', () => {
+    const result = calcularFlete(makeInput({ dadiva: 2000 }))
+    expect(result.gananciaNeta).toBe(result.ganancia)
+  })
+
+  it('dádiva negativa se acota a 0 (sin efecto)', () => {
+    const base = calcularFlete(makeInput())
+    const neg  = calcularFlete(makeInput({ dadiva: -5000 }))
+    expect(neg.dadiva).toBe(0)
+    expect(neg.costoTotal).toBe(base.costoTotal)
+    expect(neg.precioFinal).toBe(base.precioFinal)
+  })
+})

@@ -97,7 +97,7 @@ export interface CotizadorInput {
   viaticosExtras?: number
 
   // Optional: dádiva — efectivo extra al operador (contingencia Guardia Nacional).
-  // INTERNA: NO suma al costoTotal ni al precioFinal — sale del margen SCC.
+  // Es un costo operativo más: suma al costoTotal, gana markup y se cobra al cliente.
   dadiva?: number
 
   // Optional: días especiales (number of days each type)
@@ -117,8 +117,8 @@ export interface CotizadorResult {
   precioPorKm:   number
   ganancia:      number
   margenPct:     number         // 0-100
-  dadiva:        number         // gasto interno (no en PDF cliente)
-  gananciaNeta:  number         // ganancia - dadiva
+  dadiva:        number         // costo operativo (incluido en costoTotal y en el PDF)
+  gananciaNeta:  number         // alias de ganancia (compat.; la dádiva ya no se descuenta)
 
   // Route
   kmTotal:       number
@@ -258,18 +258,23 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
   const depreciacion = Math.round(u.depreciacion * dias)
   const gastosFijos  = Math.round(FIJOS_DIA * dias)
 
+  // Dádiva: ahora es un costo operativo más (entra a costoTotal, gana markup y
+  // se cobra al cliente). Validación: nunca negativa.
+  const dadiva = Math.max(0, Math.round(inp.dadiva ?? 0))
+
   // ── totals (markup formula: precio = costo + costo×margen) ─────────────────
   const costoTotal = bonosBase + horasExtra + viaticos + costoCombustible +
-                     casetas + depreciacion + gastosFijos + maniobra
+                     casetas + depreciacion + gastosFijos + maniobra + dadiva
 
   const margen      = MARGENES_CLIENTE[inp.tipoCliente] ?? 0.35
   const ganancia    = Math.round(costoTotal * margen)
   const precioFinal = Math.round(costoTotal + ganancia)
   const precioPorKm = kmTotal > 0 ? Math.round((precioFinal / kmTotal) * 100) / 100 : 0
 
-  // Dádiva: gasto interno. Sale de la ganancia, no del precio al cliente.
-  const dadiva = Math.max(0, Math.round(inp.dadiva ?? 0))
-  const gananciaNeta = ganancia - dadiva
+  // gananciaNeta queda como alias de ganancia (la dádiva ya no se descuenta del
+  // margen). Se conserva el campo por compatibilidad con el guardado del viaje y
+  // con las pestañas ya serializadas en sessionStorage.
+  const gananciaNeta = ganancia
 
   return {
     id:           Date.now(),
