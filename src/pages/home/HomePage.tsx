@@ -59,9 +59,9 @@ export function HomePage() {
     },
     {
       id: 'agenda',
-      title: 'Agenda',
+      title: 'Calendario General',
       subtitle: 'Calendario global · Todas las áreas',
-      description: 'Vista unificada de todas las tareas del equipo programadas en el tiempo. Consulta cualquier semana y ve quién tiene qué agendado.',
+      description: 'Vista unificada de todas las actividades del equipo. Consulta cualquier semana, agrega entradas y cierra las completadas.',
       icon: CalendarDays,
       color: '#1e3a5f',
       accentColor: '#eff6ff',

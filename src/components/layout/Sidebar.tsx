@@ -67,7 +67,7 @@ const DIRECCION_LINKS: Link[] = [
 ]
 
 const AGENDA_LINKS: Link[] = [
-  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+  { to: '/agenda', label: 'Calendario General', icon: CalendarDays },
 ]
 
 type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario' | 'direccion' | 'agenda'
@@ -97,7 +97,7 @@ const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: 
   almacen:    { label: 'Almacén',             links: ALMACEN_LINKS },
   calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
   direccion:  { label: 'Dirección',           links: DIRECCION_LINKS },
-  agenda:     { label: 'Agenda',              links: AGENDA_LINKS },
+  agenda:     { label: 'Calendario General',   links: AGENDA_LINKS },
 }
 
 export function Sidebar() {

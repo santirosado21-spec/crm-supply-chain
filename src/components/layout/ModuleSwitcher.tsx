@@ -8,23 +8,22 @@ import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, moduleFromPath, type AppModule } from '../../config/permissions'
 
 interface ModuleEntry {
-  id:    AppModule
-  to:    string
-  label: string
-  icon:  React.ComponentType<{ size?: number }>
-  color: string
+  id:          AppModule
+  to:          string
+  label:       string
+  shortLabel?: string
+  icon:        React.ComponentType<{ size?: number }>
+  color:       string
 }
 
-// Todos los módulos usan el mismo color (navy) para mantener identidad
-// visual unificada con el resto de la plataforma.
 const NAVY = '#1e3a5f'
 
 const MODULES: ModuleEntry[] = [
-  { id: 'wms',        to: '/wms',                    label: 'Herramientas de WMS', icon: Package,      color: NAVY },
-  { id: 'tms',        to: '/tms',                    label: 'Transportes',         icon: Truck,        color: NAVY },
-  { id: 'almacen',    to: '/almacen',                label: 'Almacén',             icon: Warehouse,    color: NAVY },
-  { id: 'agenda',     to: '/agenda',                 label: 'Agenda',              icon: CalendarDays, color: NAVY },
-  { id: 'direccion',  to: '/admin/executive-report', label: 'Dirección',           icon: Briefcase,    color: NAVY },
+  { id: 'wms',      to: '/wms',                    label: 'Herramientas de WMS', shortLabel: 'WMS',          icon: Package,      color: NAVY },
+  { id: 'tms',      to: '/tms',                    label: 'Transportes',          shortLabel: 'TMS',          icon: Truck,        color: NAVY },
+  { id: 'almacen',  to: '/almacen',                label: 'Almacén',              shortLabel: 'Almacén',      icon: Warehouse,    color: NAVY },
+  { id: 'agenda',   to: '/agenda',                 label: 'Calendario General',   shortLabel: 'Cal. General', icon: CalendarDays, color: NAVY },
+  { id: 'direccion',to: '/admin/executive-report', label: 'Dirección',             shortLabel: 'Dirección',    icon: Briefcase,    color: NAVY },
 ]
 
 // Ancho del panel: 22rem (352px) o el viewport menos 2rem, lo que sea menor.
@@ -96,7 +95,6 @@ export function ModuleSwitcher({ label }: Props) {
   useEffect(() => { setOpen(false) }, [pathname])
 
   const visibleModules = MODULES.filter(m => canAccessModule(user?.role, m.id))
-  // Módulo activo real basado en las reglas de permisos/rutas.
   const activeModule = moduleFromPath(pathname)
 
   return (
@@ -112,8 +110,6 @@ export function ModuleSwitcher({ label }: Props) {
           open ? 'bg-gray-100 text-[#1e3a5f]' : 'text-[#1e3a5f] hover:bg-gray-100'
         }`}
       >
-        {/* Si hay label la usamos. Si no, fallback al icono Menu (3 líneas
-             hamburger) para que el trigger sea visualmente "abre menú". */}
         {label
           ? <span className="inline-flex min-w-0 items-center">{label}</span>
           : <Menu size={20} aria-hidden="true" />}
@@ -140,7 +136,7 @@ export function ModuleSwitcher({ label }: Props) {
             {pathname === '/' && <ChevronRight size={13} className="shrink-0 text-[#1e3a5f]" />}
           </Link>
 
-          {/* Módulos */}
+          {/* Módulos — grid horizontal de íconos */}
           <div className="py-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-4 pt-2 pb-1">
               Módulos
@@ -148,28 +144,33 @@ export function ModuleSwitcher({ label }: Props) {
             {visibleModules.length === 0 ? (
               <p className="px-4 py-3 text-xs text-gray-400">Tu rol no tiene módulos accesibles.</p>
             ) : (
-              visibleModules.map(m => {
-                const Icon = m.icon
-                const active = activeModule === m.id
-                return (
-                  <Link
-                    key={m.id}
-                    to={m.to}
-                    className={`flex items-center gap-2.5 px-3.5 py-2 text-[13px] transition-colors ${
-                      active ? 'bg-blue-50 text-[#1e3a5f]' : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
-                      style={{ background: m.color }}
+              <div className="grid grid-cols-3 gap-1 px-2 pb-3">
+                {visibleModules.map(m => {
+                  const Icon = m.icon
+                  const active = activeModule === m.id
+                  return (
+                    <Link
+                      key={m.id}
+                      to={m.to}
+                      className={`flex flex-col items-center gap-1.5 p-2 rounded-xl transition-colors ${
+                        active ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}
                     >
-                      <Icon size={14} />
-                    </span>
-                    <span className="min-w-0 flex-1 whitespace-normal break-words font-semibold leading-snug">{m.label}</span>
-                    {active && <ChevronRight size={13} className="shrink-0 text-[#1e3a5f]" />}
-                  </Link>
-                )
-              })
+                      <span
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                        style={{ background: m.color }}
+                      >
+                        <Icon size={18} />
+                      </span>
+                      <span className={`text-[10px] font-semibold text-center leading-tight ${
+                        active ? 'text-[#1e3a5f]' : 'text-gray-600'
+                      }`}>
+                        {m.shortLabel ?? m.label}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
             )}
           </div>
         </div>,

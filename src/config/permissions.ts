@@ -16,7 +16,7 @@ export const MODULE_LABEL: Record<AppModule, string> = {
   calendario: 'Calendario SAC',
   almacen:    'Almacén',
   direccion:  'Dirección',
-  agenda:     'Agenda',
+  agenda:     'Calendario General',
 }
 
 // Matriz de acceso por módulo. El "Calendario Ejecutivo" ya no es un módulo
@@ -96,12 +96,12 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
     ],
   },
   agenda: {
-    title: 'Agenda',
-    body: 'Calendario global con todas las tareas del equipo programadas en el tiempo. Consulta cualquier semana, filtra por día y ve quién tiene qué agendado.',
+    title: 'Calendario General',
+    body: 'Calendario global con todas las actividades del equipo programadas en el tiempo. Consulta cualquier semana, filtra por día y agrega o cierra entradas desde aquí.',
     tips: [
       'Navega semana por semana para ver la carga de trabajo del equipo.',
-      'Selecciona un día para ver el detalle de tareas programadas.',
-      'Usa el botón "Nueva tarea" para agendar directamente desde la Agenda.',
+      'Selecciona un día para ver el detalle de actividades programadas.',
+      'Usa "Nueva entrada" para agregar y "Cerrar" para marcar completadas.',
     ],
   },
 }
