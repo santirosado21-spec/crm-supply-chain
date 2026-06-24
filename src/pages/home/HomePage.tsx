@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, Truck, ArrowRight, Warehouse, Briefcase } from 'lucide-react'
+import { Package, Truck, ArrowRight, Warehouse, Briefcase, CalendarDays } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
@@ -56,6 +56,17 @@ export function HomePage() {
       accentColor: '#eff6ff',
       onClick: () => navigate('/almacen'),
       tools: ['Hoy (prioridades)', 'Pizarrón Operaciones', 'Distribución de tareas', 'Estándares de tiempo'],
+    },
+    {
+      id: 'agenda',
+      title: 'Agenda',
+      subtitle: 'Calendario global · Todas las áreas',
+      description: 'Vista unificada de todas las tareas del equipo programadas en el tiempo. Consulta cualquier semana y ve quién tiene qué agendado.',
+      icon: CalendarDays,
+      color: '#1e3a5f',
+      accentColor: '#eff6ff',
+      onClick: () => navigate('/agenda'),
+      tools: ['Calendario semanal', 'Todas las tareas', 'Vista por día', 'Equipo completo'],
     },
     {
       id: 'direccion',

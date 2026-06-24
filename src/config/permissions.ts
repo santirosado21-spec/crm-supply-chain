@@ -1,6 +1,6 @@
 import type { UserRole } from '../types'
 
-export type AppModule = 'wms' | 'tms' | 'calendario' | 'almacen' | 'direccion'
+export type AppModule = 'wms' | 'tms' | 'calendario' | 'almacen' | 'direccion' | 'agenda'
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin:             'Administrador',
@@ -11,11 +11,12 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 }
 
 export const MODULE_LABEL: Record<AppModule, string> = {
-  wms:     'Herramientas de WMS / SAC',
-  tms:     'Transportes',
+  wms:        'Herramientas de WMS / SAC',
+  tms:        'Transportes',
   calendario: 'Calendario SAC',
-  almacen: 'Almacén',
-  direccion: 'Dirección',
+  almacen:    'Almacén',
+  direccion:  'Dirección',
+  agenda:     'Agenda',
 }
 
 // Matriz de acceso por módulo. El "Calendario Ejecutivo" ya no es un módulo
@@ -25,11 +26,11 @@ export const MODULE_LABEL: Record<AppModule, string> = {
 // 'direccion' agrupa las herramientas administrativas (equipo, reportes,
 // reporte ejecutivo, auditoría) — exclusivo de admin.
 export const MODULE_ACCESS: Record<UserRole, AppModule[]> = {
-  admin:             ['wms', 'tms', 'almacen', 'direccion'],
-  almacen:           ['almacen'],
-  servicio_cliente:  ['wms'],
-  cobranza:          ['wms'],
-  transporte:        ['tms'],
+  admin:             ['wms', 'tms', 'almacen', 'direccion', 'agenda'],
+  almacen:           ['almacen', 'agenda'],
+  servicio_cliente:  ['wms', 'agenda'],
+  cobranza:          ['wms', 'agenda'],
+  transporte:        ['tms', 'agenda'],
 }
 
 export const WMS_ROLES: UserRole[]     = ['admin', 'servicio_cliente', 'cobranza']
@@ -45,6 +46,8 @@ export const EJECUTIVO_ROLES: UserRole[] = ['admin', 'servicio_cliente']
 // DIRECCION_ROLES: módulo Dirección — equipo, reportes, reporte ejecutivo y
 // auditoría. Solo admin.
 export const DIRECCION_ROLES: UserRole[] = ['admin']
+// AGENDA_ROLES: Calendario global — accesible a todos los roles del sistema.
+export const AGENDA_ROLES: UserRole[] = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte']
 
 export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tips: string[] }> = {
   wms: {
@@ -92,6 +95,15 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
       'Consulta Auditoría para trazabilidad de cambios y eventos críticos.',
     ],
   },
+  agenda: {
+    title: 'Agenda',
+    body: 'Calendario global con todas las tareas del equipo programadas en el tiempo. Consulta cualquier semana, filtra por día y ve quién tiene qué agendado.',
+    tips: [
+      'Navega semana por semana para ver la carga de trabajo del equipo.',
+      'Selecciona un día para ver el detalle de tareas programadas.',
+      'Usa el botón "Nueva tarea" para agendar directamente desde la Agenda.',
+    ],
+  },
 }
 
 export function canAccessModule(role: UserRole | undefined, module: AppModule) {
@@ -113,6 +125,7 @@ export function moduleFromPath(path: string): AppModule | null {
   // de WMS es un atajo navegacional, no implica que pertenezca al módulo WMS.
   if (path.startsWith('/calendario') || path.startsWith('/tasks')) return 'calendario'
   if (path.startsWith('/tms') || path === '/cotizador' || path === '/tramites') return 'tms'
+  if (path === '/agenda' || path.startsWith('/agenda/')) return 'agenda'
   if (
     path.startsWith('/wms') ||
     path.startsWith('/sac') ||
@@ -125,6 +138,8 @@ export function moduleFromPath(path: string): AppModule | null {
 }
 
 const PATH_ROLE_OVERRIDES: { prefix: string; roles: UserRole[] }[] = [
+  // Agenda (global): todos los roles tienen acceso.
+  { prefix: '/agenda', roles: AGENDA_ROLES },
   // Dirección (admin-only): equipo, reportes, auditoría, reporte ejecutivo.
   // DEBEN ir antes que '/calendario' porque /calendario/admin es sub-prefijo.
   { prefix: '/calendario/admin', roles: DIRECCION_ROLES },

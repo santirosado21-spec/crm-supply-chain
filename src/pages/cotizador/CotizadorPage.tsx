@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   MapPin, Truck, ChevronDown, ChevronRight, RotateCcw,
   Calculator, CheckCircle, Printer, ExternalLink, Plus,
-  Minus, ArrowRight, ArrowLeftRight, Package, X, Loader2, AlertCircle,
+  Minus, ArrowRight, ArrowLeftRight, Package, X, Loader2, AlertCircle, Pencil,
 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
@@ -297,19 +297,48 @@ async function generarPDF(c: CotizadorResult) {
 // ── Result panel ──────────────────────────────────────────────────────────────
 function ResultPanel({ result, onAddToBitacora, onReset }: {
   result: CotizadorResult
-  onAddToBitacora: () => Promise<void>
+  onAddToBitacora: (precioOverride: number) => Promise<void>
   onReset: () => void
 }) {
   const [added, setAdded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  const [precioOverride, setPrecioOverride] = useState(result.precioFinal)
+  const [editandoPrecio, setEditandoPrecio] = useState(false)
+  const [inputPrecio, setInputPrecio] = useState(String(result.precioFinal))
+
+  useEffect(() => {
+    setPrecioOverride(result.precioFinal)
+    setInputPrecio(String(result.precioFinal))
+    setEditandoPrecio(false)
+    setAdded(false)
+  }, [result.precioFinal])
+
+  const gananciaEfectiva = precioOverride - result.costoTotal
+  const margenEfectivoPct = Math.round((gananciaEfectiva / result.costoTotal) * 100)
+
+  const redondear = () => {
+    const redondeado = Math.ceil(precioOverride / 100) * 100
+    setPrecioOverride(redondeado)
+    setInputPrecio(String(redondeado))
+  }
+
+  const confirmarEdicion = () => {
+    const val = parseInt(inputPrecio.replace(/[^0-9]/g, ''), 10)
+    if (!isNaN(val) && val > 0) {
+      setPrecioOverride(val)
+      setInputPrecio(String(val))
+    }
+    setEditandoPrecio(false)
+  }
+
   const handleAdd = async () => {
     if (saving || added) return
     setSaving(true)
     setSaveError('')
     try {
-      await onAddToBitacora()
+      await onAddToBitacora(precioOverride)
       setAdded(true)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'No se pudo registrar el viaje.')
@@ -327,8 +356,43 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
       {/* Price hero */}
       <div className="rounded-2xl p-6 text-center text-white" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2d4f7c 100%)' }}>
         <p className="text-xs font-bold tracking-widest text-blue-200 mb-1 uppercase">Precio Final al Cliente</p>
-        <p className="text-5xl font-extrabold tracking-tight">{mxn(result.precioFinal)}</p>
-        <p className="text-blue-200 text-sm mt-2 font-medium">{mxn(result.precioPorKm)}/km</p>
+        {editandoPrecio ? (
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <input
+              type="text"
+              inputMode="numeric"
+              className="text-3xl font-extrabold text-center bg-white/10 border border-white/30 rounded-xl px-3 py-1 text-white w-48 focus:outline-none focus:border-white/60"
+              value={inputPrecio}
+              onChange={e => setInputPrecio(e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={e => { if (e.key === 'Enter') confirmarEdicion(); if (e.key === 'Escape') setEditandoPrecio(false) }}
+              autoFocus
+            />
+            <button onClick={confirmarEdicion} className="text-green-300 hover:text-white transition-colors" title="Confirmar">
+              <CheckCircle size={20} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-5xl font-extrabold tracking-tight">{mxn(precioOverride)}</p>
+            <button
+              onClick={() => { setInputPrecio(String(precioOverride)); setEditandoPrecio(true) }}
+              title="Editar precio"
+              className="text-blue-300 hover:text-white transition-colors"
+            >
+              <Pencil size={16} />
+            </button>
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-2 mt-2">
+          <p className="text-blue-200 text-sm font-medium">{mxn(result.precioPorKm)}/km</p>
+          <button
+            onClick={redondear}
+            title="Redondear al siguiente centenar"
+            className="text-xs bg-white/10 hover:bg-white/20 text-blue-100 px-2 py-0.5 rounded-lg font-semibold transition-colors"
+          >
+            ↑ Redondear
+          </button>
+        </div>
       </div>
 
       {/* Route card */}
@@ -401,17 +465,17 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
             <span className="text-sm font-bold text-gray-800">{mxn(result.costoTotal)}</span>
           </div>
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs text-blue-700 font-semibold">📊 Markup ({result.margenPct}%)</span>
-            <span className="text-xs text-blue-700 font-semibold">+{mxn(result.ganancia)}</span>
+            <span className="text-xs text-blue-700 font-semibold">📊 Markup ({margenEfectivoPct}%)</span>
+            <span className="text-xs text-blue-700 font-semibold">+{mxn(gananciaEfectiva)}</span>
           </div>
         </div>
         <div className="px-4 py-3 bg-[#1e3a5f] flex justify-between items-center">
           <span className="text-sm font-bold text-white uppercase tracking-wide">PRECIO FINAL</span>
-          <span className="text-xl font-extrabold text-white">{mxn(result.precioFinal)}</span>
+          <span className="text-xl font-extrabold text-white">{mxn(precioOverride)}</span>
         </div>
         <div className="px-4 py-2 bg-green-50 border-t border-green-100 flex justify-between items-center">
           <span className="text-xs text-green-700 font-semibold">💵 Ganancia</span>
-          <span className="text-sm font-bold text-green-700">{mxn(result.ganancia)}</span>
+          <span className="text-sm font-bold text-green-700">{mxn(gananciaEfectiva)}</span>
         </div>
       </div>
 
@@ -439,7 +503,7 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
         )}
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => generarPDF(result)}
+            onClick={() => generarPDF({ ...result, precioFinal: precioOverride, ganancia: gananciaEfectiva })}
             className="flex items-center justify-center gap-1.5 py-2.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
           >
             <Printer size={14} /> Descargar PDF
@@ -763,7 +827,7 @@ function CotizadorPageInner() {
   ])
 
   // ── Crear viaje desde cotización ─────────────────────────────────────────────
-  const handleAddToBitacora = useCallback(async () => {
+  const handleAddToBitacora = useCallback(async (precioFinalOverride: number) => {
     if (!result) throw new Error('Primero calcula una cotización.')
     const notas = [
       `Cotización #${result.id}`,
@@ -776,6 +840,7 @@ function CotizadorPageInner() {
       `${result.unidad.modelo} (${result.unidad.placa})`,
       result.descripcionCarga ? `Carga: ${result.descripcionCarga}` : null,
       result.dadiva > 0 ? `[DADIVA: ${mxn(result.dadiva)}]` : null,
+      precioFinalOverride !== result.precioFinal ? `[PRECIO AJUSTADO: ${mxn(precioFinalOverride)}]` : null,
     ].filter(Boolean).join(' · ')
 
     const viaje = await createViaje({
@@ -797,10 +862,8 @@ function CotizadorPageInner() {
       costo_viaticos: result.viaticos ?? 0,
       costo_proveedor: 0,
       costo_total: (result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0) + (result.dadiva ?? 0),
-      ingreso_cliente: result.precioFinal,
-      // Margen real = markup completo. La dádiva ya está dentro de costo_total
-      // y se cobra al cliente (con margen), así que no se descuenta de la utilidad.
-      margen: result.gananciaNeta,
+      ingreso_cliente: precioFinalOverride,
+      margen: precioFinalOverride - result.costoTotal,
       motive_dispatch_id: null,
       motive_status: '',
       notas,

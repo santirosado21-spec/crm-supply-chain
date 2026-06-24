@@ -17,6 +17,8 @@ import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
 import { PizarronAdminPage } from './pages/almacen/PizarronAdminPage'
 import { DiaPage } from './pages/almacen/DiaPage'
+import { CalendarioAlmacenPage } from './pages/almacen/CalendarioAlmacenPage'
+import { AlmacenAgendaPage } from './pages/almacen/AlmacenAgendaPage'
 import { TMSHome } from './pages/tms/TMSHome'
 import { TMSDashboard } from './pages/tms/TMSDashboard'
 import { VehiculosPage } from './pages/tms/VehiculosPage'
@@ -44,7 +46,8 @@ import { Reports } from './pages/tasks/admin/Reports'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { ALMACEN_ROLES, CALENDARIO_ROLES, EJECUTIVO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { AGENDA_ROLES, ALMACEN_ROLES, CALENDARIO_ROLES, EJECUTIVO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { AgendaPage } from './pages/agenda/AgendaPage'
 
 // Preserva el :id en el redirect compat /tasks/:id → /calendario/:id
 function RedirectTaskToCalendario() {
@@ -82,12 +85,23 @@ function App() {
               bookmarks viejos (los usuarios sin acceso a almacén ven home). */}
           <Route path="/wms/cedis" element={<Navigate to="/" replace />} />
 
+          {/* Agenda — calendario global, accesible a todos los roles */}
+          <Route path="/agenda" element={
+            <ProtectedRoute allowedRoles={AGENDA_ROLES}><AgendaPage /></ProtectedRoute>
+          } />
+
           {/* Almacén — módulo exclusivo de admin + almacén */}
           <Route path="/almacen" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenHome /></ProtectedRoute>
           } />
           <Route path="/almacen/hoy" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><HoyPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/calendario" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><CalendarioAlmacenPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/agenda" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenAgendaPage /></ProtectedRoute>
           } />
           <Route path="/almacen/dia" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DiaPage /></ProtectedRoute>

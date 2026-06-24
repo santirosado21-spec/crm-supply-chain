@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Home, Package, Truck, Warehouse, ChevronRight, Menu, Briefcase,
+  Home, Package, Truck, Warehouse, ChevronRight, Menu, Briefcase, CalendarDays,
 } from 'lucide-react'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, moduleFromPath, type AppModule } from '../../config/permissions'
@@ -20,10 +20,11 @@ interface ModuleEntry {
 const NAVY = '#1e3a5f'
 
 const MODULES: ModuleEntry[] = [
-  { id: 'wms',        to: '/wms',                  label: 'Herramientas de WMS', icon: Package,       color: NAVY },
-  { id: 'tms',        to: '/tms',                  label: 'Transportes',         icon: Truck,         color: NAVY },
-  { id: 'almacen',    to: '/almacen',              label: 'Almacén',             icon: Warehouse,     color: NAVY },
-  { id: 'direccion',  to: '/admin/executive-report', label: 'Dirección',         icon: Briefcase,     color: NAVY },
+  { id: 'wms',        to: '/wms',                    label: 'Herramientas de WMS', icon: Package,      color: NAVY },
+  { id: 'tms',        to: '/tms',                    label: 'Transportes',         icon: Truck,        color: NAVY },
+  { id: 'almacen',    to: '/almacen',                label: 'Almacén',             icon: Warehouse,    color: NAVY },
+  { id: 'agenda',     to: '/agenda',                 label: 'Agenda',              icon: CalendarDays, color: NAVY },
+  { id: 'direccion',  to: '/admin/executive-report', label: 'Dirección',           icon: Briefcase,    color: NAVY },
 ]
 
 // Ancho del panel: 22rem (352px) o el viewport menos 2rem, lo que sea menor.

@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, CalendarDays, Globe2, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -29,6 +29,8 @@ const WMS_LINKS: Link[] = [
 const ALMACEN_LINKS: Link[] = [
   { to: '/almacen',                  label: 'Inicio',              icon: Home },
   { to: '/almacen/hoy',              label: 'Hoy',                 icon: Calendar },
+  { to: '/almacen/calendario',       label: 'Cal. Operaciones',    icon: CalendarDays,  section: 'Calendarios' },
+  { to: '/almacen/agenda',           label: 'Cal. General',        icon: Globe2,         section: 'Calendarios' },
   { to: '/almacen/dia',              label: 'Día (timeline)',      icon: CalendarClock },
   { to: '/almacen/distribucion',     label: 'Distribución tareas', icon: UserCheck },
   { to: '/almacen/pizarron',         label: 'Pizarrón',            icon: LayoutDashboard },
@@ -64,7 +66,11 @@ const DIRECCION_LINKS: Link[] = [
   { to: '/calendario/admin/auditoria', label: 'Auditoría',           icon: History },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario' | 'direccion'
+const AGENDA_LINKS: Link[] = [
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+]
+
+type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario' | 'direccion' | 'agenda'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                              return 'home'
@@ -72,6 +78,8 @@ function detectModule(pathname: string): ModuleKey {
   // /calendario/admin/* es un sub-prefijo.
   if (pathname.startsWith('/calendario/admin') || pathname.startsWith('/admin'))     return 'direccion'
   if (pathname === '/almacen' || pathname.startsWith('/almacen/'))                   return 'almacen'
+  // Agenda: módulo global de calendario.
+  if (pathname === '/agenda' || pathname.startsWith('/agenda/'))                     return 'agenda'
   // Cualquier ruta /calendario/* (incluida /calendario/ejecutivo) usa el sidebar
   // de Calendario — ahí viven los accesos a Mi bandeja, Calendario semana y
   // Plantillas, que son donde se crean tareas. El acceso a Calendario SAC desde
@@ -89,6 +97,7 @@ const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: 
   almacen:    { label: 'Almacén',             links: ALMACEN_LINKS },
   calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
   direccion:  { label: 'Dirección',           links: DIRECCION_LINKS },
+  agenda:     { label: 'Agenda',              links: AGENDA_LINKS },
 }
 
 export function Sidebar() {
