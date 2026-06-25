@@ -121,6 +121,13 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   Las 3 páginas sueltas (Validador de Códigos / Facilitador / Validación de
   Entrada) siguen funcionando sin la tabla.
 
+### 12. `20260625000001_warehouse_entries_transaction.sql` ✅ APLICADA (2026-06-25, vía MCP en prod `uifrgmiqpkbgyvzbcldn`)
+- `warehouse_entries` gana `extensiv_transaction_id TEXT` (número de transacción de
+  Extensiv capturado en el Paso 3 — trazabilidad/log) y `document_total_qty INTEGER`
+  (total declarado de la nota para auto-verificación) + índice `idx_we_transaction`.
+- Sin esta migración el wizard funciona, pero no persiste el número de transacción ni
+  el total para reconciliación.
+
 ## Cómo aplicar
 
 Desde el repo vinculado a Supabase:

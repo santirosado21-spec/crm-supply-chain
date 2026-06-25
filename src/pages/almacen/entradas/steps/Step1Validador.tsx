@@ -10,11 +10,12 @@ import { downloadUnregistered } from '../../../../lib/entradaExports'
 export function Step1Validador() {
   const {
     state, catalogCount, catalogLoading, extracting, unregisteredCount,
+    extractedTotalQty, totalMismatch,
     setCustomer, setNotaFile, clearNota, runStep1Validation,
   } = useEntradaWizard()
   const [search, setSearch] = useState('')
 
-  const { customerId, notaFileName, originalItems, step1Results, step1Complete, extractedVia } = state
+  const { customerId, notaFileName, originalItems, step1Results, step1Complete, extractedVia, documentTotalQty } = state
 
   const stats = {
     total: step1Results.length,
@@ -69,6 +70,21 @@ export function Step1Validador() {
         <div className="flex items-center justify-center gap-2 py-6 text-sm text-[#1e3a5f]">
           <Sparkles size={16} className="animate-pulse" /> Analizando la nota… esto puede tardar unos segundos.
         </div>
+      )}
+
+      {/* Auto-verificación por totales: la suma extraída debe coincidir con el total del documento */}
+      {!extracting && originalItems.length > 0 && documentTotalQty != null && (
+        totalMismatch ? (
+          <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700 flex items-center gap-2">
+            <AlertTriangle size={16} className="shrink-0" />
+            La suma de cantidades extraídas ({extractedTotalQty.toLocaleString()}) no coincide con el total del documento ({documentTotalQty.toLocaleString()}). Revisa que no falten ni sobren líneas antes de continuar.
+          </div>
+        ) : (
+          <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 flex items-center gap-2">
+            <CheckCircle2 size={16} className="shrink-0" />
+            Totales cuadran: {extractedTotalQty.toLocaleString()} unidades extraídas = total del documento.
+          </div>
+        )
       )}
 
       <div className="flex flex-wrap gap-3 mb-5">

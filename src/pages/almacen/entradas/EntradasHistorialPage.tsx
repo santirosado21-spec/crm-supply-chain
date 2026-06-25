@@ -68,6 +68,7 @@ export function EntradasHistorialPage() {
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Fecha</th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Cliente</th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Ref #</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Transacción</th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Nota</th>
                     <th className="text-center px-4 py-3 font-semibold text-gray-600">Estado</th>
                     <th className="text-right px-4 py-3 font-semibold text-gray-600">Anomalías</th>
@@ -87,6 +88,7 @@ export function EntradasHistorialPage() {
                         <td className="px-4 py-3 text-gray-600">{e.fecha}</td>
                         <td className="px-4 py-3 font-medium text-gray-800">{e.customer_name || '—'}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-600">{e.ref || '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-700">{e.extensiv_transaction_id || '—'}</td>
                         <td className="px-4 py-3 text-xs text-gray-500 max-w-[200px] truncate">{e.nota_file_name || '—'}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${meta.cls}`}>

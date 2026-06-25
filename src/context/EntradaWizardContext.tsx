@@ -17,6 +17,7 @@ import { useAuthContext } from './AuthContext'
 import { getExtensivInventoryByCustomer } from '../lib/extensiv'
 import { normalizeSKU, type PTLineItem } from '../lib/ptParser'
 import { extractItemsFromFile } from '../lib/entradaExtract'
+import { getClientImportHint } from '../lib/clientImportFormats'
 import {
   createWarehouseEntry, updateWarehouseEntry, getWarehouseEntry,
   type UpdateWarehouseEntryData,
@@ -36,6 +37,7 @@ const INITIAL_STATE: WizardState = {
   originalItems:  [],
   ref:            '',
   extractedVia:   null,
+  documentTotalQty: null,
   step1Results:   [],
   step1Complete:  false,
   step2Items:     [],
@@ -43,6 +45,7 @@ const INITIAL_STATE: WizardState = {
   exportFileName: null,
   step3Results:   [],
   anomalies:      {},
+  extensivTransactionId: '',
 }
 
 interface EntradaWizardContextType {
@@ -57,6 +60,8 @@ interface EntradaWizardContextType {
   lastSavedAt:    Date | null
   // derivados
   unregisteredCount: number
+  extractedTotalQty: number        // suma de cantidades extraídas
+  totalMismatch:    boolean        // true si documentTotalQty != suma extraída
   // acciones
   setCustomer:        (id: number, name: string) => void
   setNotaFile:        (file: File) => Promise<void>
@@ -70,6 +75,7 @@ interface EntradaWizardContextType {
   markExportGenerated: (fileName: string) => void
   runStep3Verification: () => Promise<void>
   setAnomaly:         (sku: string, text: string) => void
+  setTransactionId:   (id: string) => void
   finishWizard:       () => void
   resetWizard:        () => void
   resumeFromEntry:    (id: string) => Promise<void>
@@ -167,7 +173,8 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     setError('')
     setExtracting(true)
     try {
-      const { items, ref, via } = await extractItemsFromFile(file)
+      const hint = getClientImportHint(stateRef.current.customerName)
+      const { items, ref, via, documentTotalQty } = await extractItemsFromFile(file, hint)
       if (items.length === 0) {
         setError('No se encontraron SKUs en el documento. Verifica que tenga columnas de SKU y Cantidad.')
       }
@@ -179,11 +186,13 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
         originalItems: items,
         ref: ref ?? '',
         extractedVia: via,
+        documentTotalQty,
         step2Items,
         // re-subir invalida resultados previos
         step1Results: [], step1Complete: false,
         step3Results: [], anomalies: {},
         exportGenerated: false, exportFileName: null,
+        extensivTransactionId: '',
       }))
 
       const cur = stateRef.current
@@ -194,10 +203,12 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
         extracted_via: via,
         ref: ref ?? '',
         original_items: items,
+        document_total_qty: documentTotalQty,
         step2_items: step2Items,
         step1_results: [], step1_complete: false,
         step3_results: [], anomalies: {},
         export_generated: false, export_file_name: null,
+        extensiv_transaction_id: null,
       }
       try {
         if (cur.entryId) {
@@ -226,16 +237,18 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     setState(prev => ({
       ...prev,
       notaFile: null, notaFileName: '', originalItems: [], ref: '', extractedVia: null,
+      documentTotalQty: null,
       step1Results: [], step1Complete: false,
       step2Items: [], exportGenerated: false, exportFileName: null,
-      step3Results: [], anomalies: {},
+      step3Results: [], anomalies: {}, extensivTransactionId: '',
     }))
     setError('')
     schedulePersist({
       nota_file_name: null, extracted_via: null, ref: '', original_items: [],
+      document_total_qty: null,
       step1_results: [], step1_complete: false,
       step2_items: [], export_generated: false, export_file_name: null,
-      step3_results: [], anomalies: {},
+      step3_results: [], anomalies: {}, extensiv_transaction_id: null,
     })
   }, [schedulePersist])
 
@@ -336,13 +349,27 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     })
   }, [schedulePersist])
 
+  const setTransactionId = useCallback((id: string) => {
+    setState(prev => ({ ...prev, extensivTransactionId: id }))
+    schedulePersist({ extensiv_transaction_id: id.trim() || null })
+  }, [schedulePersist])
+
   const finishWizard = useCallback(() => {
+    // Requiere número de transacción de Extensiv para trazabilidad/log.
+    if (!stateRef.current.extensivTransactionId.trim()) {
+      setError('Captura el número de transacción de Extensiv para finalizar.')
+      return
+    }
     setState(prev => ({ ...prev, flowStatus: 'completada' }))
     // Persistir de inmediato (no en debounce): al finalizar se navega fuera y
     // un timer pendiente quedaría colgado.
     void (async () => {
       await flushPending()
-      await persistNow({ flow_status: 'completada', completed_at: new Date().toISOString() })
+      await persistNow({
+        flow_status: 'completada',
+        completed_at: new Date().toISOString(),
+        extensiv_transaction_id: stateRef.current.extensivTransactionId.trim(),
+      })
     })()
   }, [flushPending, persistNow])
 
@@ -373,6 +400,7 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
         originalItems:  row.original_items ?? [],
         ref:            row.ref ?? '',
         extractedVia:   row.extracted_via,
+        documentTotalQty: row.document_total_qty ?? null,
         step1Results:   row.step1_results ?? [],
         step1Complete:  row.step1_complete ?? false,
         step2Items:     row.step2_items ?? [],
@@ -380,6 +408,7 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
         exportFileName: row.export_file_name,
         step3Results:   row.step3_results ?? [],
         anomalies:      row.anomalies ?? {},
+        extensivTransactionId: row.extensiv_transaction_id ?? '',
       })
       // Re-cargar catálogo para que el Paso 1 muestre el contador / pueda re-validar.
       if (row.customer_id) void loadCatalog(row.customer_id)
@@ -391,14 +420,19 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
   const clearError = useCallback(() => setError(''), [])
 
   const unregisteredCount = state.step1Results.filter(r => !r.registered).length
+  const extractedTotalQty = state.originalItems.reduce((s, it) => s + (Number(it.qty) || 0), 0)
+  const totalMismatch =
+    state.documentTotalQty != null &&
+    state.originalItems.length > 0 &&
+    state.documentTotalQty !== extractedTotalQty
 
   const value: EntradaWizardContextType = {
     state,
     catalogCount, catalogLoading, extracting, verifyLoading, error, saving, lastSavedAt,
-    unregisteredCount,
+    unregisteredCount, extractedTotalQty, totalMismatch,
     setCustomer, setNotaFile, clearNota, runStep1Validation, goToStep, setRef,
     updateStep2Item, addStep2Item, deleteStep2Item, markExportGenerated,
-    runStep3Verification, setAnomaly, finishWizard, resetWizard, resumeFromEntry,
+    runStep3Verification, setAnomaly, setTransactionId, finishWizard, resetWizard, resumeFromEntry,
     clearError,
   }
 

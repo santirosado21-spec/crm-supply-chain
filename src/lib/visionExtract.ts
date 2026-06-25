@@ -87,6 +87,13 @@ function stripOrgLeak(sku: string): string {
   return sku
 }
 
+function coerceTotal(raw: unknown): number | null {
+  if (!raw || typeof raw !== 'object') return null
+  const t = (raw as Record<string, unknown>).documentTotalQty
+  const n = Math.trunc(Number(t))
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 function coerceItems(raw: unknown): PTLineItem[] {
   if (!raw || typeof raw !== 'object') return []
   const arr = (raw as Record<string, unknown>).items
@@ -113,7 +120,10 @@ function coerceItems(raw: unknown): PTLineItem[] {
 }
 
 /* ─── API pública ──────────────────────────────────────────────────────── */
-export async function extractReceiptItemsWithVision(file: File): Promise<PTExtraction> {
+export async function extractReceiptItemsWithVision(
+  file: File,
+  clientHint?: string,
+): Promise<PTExtraction> {
   if (!file.name.toLowerCase().endsWith('.pdf')) {
     throw new Error('La extracción con IA solo aplica a PDFs.')
   }
@@ -127,10 +137,15 @@ export async function extractReceiptItemsWithVision(file: File): Promise<PTExtra
   // (default que sugirió el dashboard). El código del archivo
   // supabase/functions/openrouter-vision/index.ts es lo que vive ahí.
   const { data, error } = await supabase.functions.invoke<VisionResponse>('swift-responder', {
-    body: { images }, // prompt omitido → la edge function usa su DEFAULT_PROMPT
+    // prompt omitido → la edge function usa su DEFAULT_PROMPT; clientHint se anexa.
+    body: clientHint ? { images, clientHint } : { images },
   })
   if (error) throw new Error(`Vision proxy error: ${error.message}`)
   if (!data?.ok) throw new Error(data?.error ?? 'Falló la extracción con IA.')
 
-  return { ref: coerceRef(data.data), items: coerceItems(data.data) }
+  return {
+    ref: coerceRef(data.data),
+    items: coerceItems(data.data),
+    documentTotalQty: coerceTotal(data.data),
+  }
 }

@@ -24,6 +24,8 @@ export interface PTLineItem {
 export interface PTExtraction {
   ref:   string | null
   items: PTLineItem[]
+  /** Total de unidades declarado en el documento (si está impreso), para auto-verificación. */
+  documentTotalQty?: number | null
 }
 
 interface PDFItem { text: string; x: number; y: number; page: number }
@@ -33,9 +35,9 @@ type PDFRow = PDFItem[]
 const SKU_CODE_RE         = /^[A-Z0-9][A-Z0-9\-\.\/]{1,}$/
 const DESC_HEADER_RE      = /descripci[oó]n/i
 const CANT_HEADER_RE      = /^cant\.?$/i
-const SKU_HEADER_RE       = /sku|item|n°\s*de\s*parte|no\.?\s*de\s*parte|código|codigo|parte|model(\s*#|\s*number|o)?/i
-const QTY_HEADER_RE       = /qty|cantidad|quantity|piezas|unidades|units|req|cant\b|unit\s*qty/i
-const SERIAL_HEADER_RE    = /serial\s*(number|#)?/i
+const SKU_HEADER_RE       = /sku|item|product|producto|articulo|art[ií]culo|style|n°\s*de\s*parte|no\.?\s*de\s*parte|código|codigo|parte|model(\s*#|\s*number|o)?/i
+const QTY_HEADER_RE       = /qty|cantidad|quantity|piezas|pzs|pcs|pieces|unidades|units|req|cant\b|unit\s*qty/i
+const SERIAL_HEADER_RE    = /serial\s*(number|#)?|n[°º]?\s*de\s*serie|n[uú]mero\s*de\s*serie|no\.?\s*de\s*serie/i
 
 /* ─── Utilities ──────────────────────────────────────────────────────── */
 // "Empty-like" placeholder text. Dashes WITHIN a valid SKU (HD-003R,

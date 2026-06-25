@@ -6,8 +6,8 @@ import { useEntradaWizard } from '../../../../context/EntradaWizardContext'
 import { downloadDiscrepancies } from '../../../../lib/entradaExports'
 
 export function Step3Validacion() {
-  const { state, verifyLoading, runStep3Verification, setAnomaly } = useEntradaWizard()
-  const { step3Results, notaFileName, customerId } = state
+  const { state, verifyLoading, runStep3Verification, setAnomaly, setTransactionId } = useEntradaWizard()
+  const { step3Results, notaFileName, customerId, extensivTransactionId } = state
   const [search, setSearch] = useState('')
 
   const stats = {
@@ -28,6 +28,30 @@ export function Step3Validacion() {
         <p className="text-xs text-gray-400 mt-0.5">
           Confirma que la nota original ya está reflejada en el inventario actual de Extensiv. Anota cualquier anomalía o inconsistencia por SKU.
         </p>
+      </div>
+
+      {/* Número de transacción de Extensiv — requerido para finalizar (trazabilidad/log) */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-4">
+        <label className="text-xs font-semibold text-gray-600 mb-2 block">
+          Número de transacción de Extensiv <span className="text-red-500">*</span>
+          <span className="text-[10px] font-normal text-gray-400 ml-2">
+            (el número que te dio Extensiv al subir el receipt — queda en el log de entradas)
+          </span>
+        </label>
+        <input
+          type="text"
+          value={extensivTransactionId}
+          onChange={e => setTransactionId(e.target.value)}
+          placeholder="Ej: 123456"
+          className={`w-full max-w-xs h-10 px-3 rounded-lg border text-sm font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 ${
+            extensivTransactionId.trim() ? 'border-green-300 bg-green-50/30' : 'border-amber-300 bg-amber-50/30'
+          }`}
+        />
+        {!extensivTransactionId.trim() && (
+          <p className="text-[10px] text-amber-700 mt-1.5 flex items-center gap-1">
+            <AlertTriangle size={10} /> Captúralo para poder finalizar la entrada.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3 mb-5">

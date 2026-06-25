@@ -54,6 +54,7 @@ export interface WarehouseEntry {
   extracted_via:    ExtractedVia
   ref:              string | null
   original_items:   PTLineItem[]
+  document_total_qty: number | null
 
   step1_results:    ValidationRow[]
   step1_complete:   boolean
@@ -64,6 +65,7 @@ export interface WarehouseEntry {
 
   step3_results:    VerificationRow[]
   anomalies:        Record<string, string>
+  extensiv_transaction_id: string | null
 
   created_by:       string | null
   completed_at:     string | null
@@ -89,6 +91,7 @@ export interface WizardState {
   originalItems: PTLineItem[]
   ref:           string
   extractedVia:  ExtractedVia
+  documentTotalQty: number | null
 
   // Paso 1
   step1Results:  ValidationRow[]
@@ -102,4 +105,5 @@ export interface WizardState {
   // Paso 3
   step3Results:  VerificationRow[]
   anomalies:     Record<string, string>
+  extensivTransactionId: string
 }

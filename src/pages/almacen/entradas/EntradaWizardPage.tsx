@@ -20,7 +20,7 @@ function WizardInner() {
     state, error, saving, lastSavedAt,
     goToStep, finishWizard, resetWizard, resumeFromEntry,
   } = useEntradaWizard()
-  const { currentStep, step1Complete, exportGenerated, flowStatus } = state
+  const { currentStep, step1Complete, exportGenerated, flowStatus, extensivTransactionId } = state
 
   // Resume / clean — solo una vez al montar.
   const inited = useRef(false)
@@ -39,16 +39,18 @@ function WizardInner() {
   const nextEnabled =
     currentStep === 1 ? step1Complete :
     currentStep === 2 ? exportGenerated :
-    true
+    !!extensivTransactionId.trim()
   const nextHint =
     currentStep === 1 ? 'Todos los SKUs deben estar dados de alta para continuar.' :
     currentStep === 2 ? 'Genera el Receipt_Import.xlsx para continuar.' :
-    ''
+    'Captura el número de transacción de Extensiv para finalizar.'
 
   const handleNext = () => {
     if (currentStep === 1) goToStep(2)
     else if (currentStep === 2) goToStep(3)
     else {
+      // No finalizar sin número de transacción (alineado con el guard de finishWizard).
+      if (!extensivTransactionId.trim()) return
       finishWizard()
       toast.success('Entrada completada', 'La entrada quedó registrada en el historial.')
       navigate('/almacen/entradas/historial')
