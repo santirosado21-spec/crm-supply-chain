@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:cov": "vitest run --coverage",
+    "eval:extraction": "node --experimental-strip-types scripts/extraction-eval.ts",
     "db:status": "supabase migration list",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff --linked"

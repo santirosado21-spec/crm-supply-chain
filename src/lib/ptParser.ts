@@ -9,6 +9,9 @@
  */
 import * as pdfjsLib from 'pdfjs-dist'
 import * as XLSX from 'xlsx'
+// Lógica pura de SKU (sin pdfjs) — re-exportada para compatibilidad con imports existentes.
+import { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku } from './skuValidation'
+export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku }
 
 // Serve worker locally from /public to avoid CDN version-mismatch issues
 // (cdnjs doesn't always mirror the exact pdfjs-dist version we have installed).
@@ -31,49 +34,12 @@ export interface PTExtraction {
 interface PDFItem { text: string; x: number; y: number; page: number }
 type PDFRow = PDFItem[]
 
-/* ─── Patterns ───────────────────────────────────────────────────────── */
-const SKU_CODE_RE         = /^[A-Z0-9][A-Z0-9\-\.\/]{1,}$/
+/* ─── Patterns (encabezados de columnas, específicos del parser) ──────── */
 const DESC_HEADER_RE      = /descripci[oó]n/i
 const CANT_HEADER_RE      = /^cant\.?$/i
 const SKU_HEADER_RE       = /sku|item|product|producto|articulo|art[ií]culo|style|n°\s*de\s*parte|no\.?\s*de\s*parte|código|codigo|parte|model(\s*#|\s*number|o)?/i
 const QTY_HEADER_RE       = /qty|cantidad|quantity|piezas|pzs|pcs|pieces|unidades|units|req|cant\b|unit\s*qty/i
 const SERIAL_HEADER_RE    = /serial\s*(number|#)?|n[°º]?\s*de\s*serie|n[uú]mero\s*de\s*serie|no\.?\s*de\s*serie/i
-
-/* ─── Utilities ──────────────────────────────────────────────────────── */
-// "Empty-like" placeholder text. Dashes WITHIN a valid SKU (HD-003R,
-// ASPT-SL-ALLXN-12) are always preserved — only pure text placeholders
-// such as "N/A" or "NONE" are treated as empty.
-const EMPTY_VALUES_RE = /^(n\/?a|n\.a\.?|none|nan|null|sin\s*sku|no\s*aplica)$/i
-
-export function isEmptyLike(text: string): boolean {
-  return !text || EMPTY_VALUES_RE.test(text)
-}
-
-/*
-  Final safety net used at export time: any cell that still contains an
-  N/A-like string gets blanked, so the Extensiv import never sees "N/A".
-*/
-export function sanitizeCellValue<T>(v: T): T | '' {
-  const s = String(v ?? '').trim()
-  if (isEmptyLike(s)) return ''
-  return v
-}
-
-export function normalizeSKU(raw: unknown): string | null {
-  const s = String(raw ?? '').trim()
-  if (!s) return null
-  // SKUs never contain whitespace — strip all (handles cases where PDF text
-  // extraction splits a SKU like "ASPT-SL-ALLXN-12" into pieces joined with spaces).
-  const cleaned = s.replace(/\s+/g, '').replace(/^(\d+)\.0$/, '$1').toUpperCase()
-  if (isEmptyLike(cleaned)) return null
-  return cleaned
-}
-
-export function looksLikeSKU(text: string): boolean {
-  const t = text.replace(/\s+/g, '').trim().toUpperCase()
-  if (t.length < 2 || t.length > 50) return false
-  return SKU_CODE_RE.test(t)
-}
 
 function rowToLine(row: PDFRow): string {
   return row.map(i => i.text).join(' ')
@@ -212,13 +178,11 @@ function extractDescriptionFormat(
       }
     } else if (descItems.length > 0) {
       const text = descItems.map(i => i.text).join(' ').trim()
-      if (looksLikeSKU(text) && pendingQty > 0) {
-        const sku = normalizeSKU(text)
-        if (sku) {
-          items.push({ sku, qty: pendingQty, serialNumber: pendingSerial })
-          pendingQty = 0
-          pendingSerial = null
-        }
+      const sku = normalizeSKU(text)
+      if (sku && isValidSku(sku) && pendingQty > 0) {
+        items.push({ sku, qty: pendingQty, serialNumber: pendingSerial })
+        pendingQty = 0
+        pendingSerial = null
       }
     }
   }
@@ -272,7 +236,7 @@ async function extractItemsFromPDF(file: File): Promise<PTExtraction> {
           const serialStr = serialItems.length > 0
             ? serialItems.map(i => i.text).join(' ').trim()
             : null
-          if (sku && qtyStr) {
+          if (sku && isValidSku(sku) && qtyStr) {
             const qty = parseInt(qtyStr) || 0
             if (qty > 0) items.push({ sku, qty, serialNumber: normalizeSerial(serialStr) })
           }
@@ -290,7 +254,7 @@ async function extractItemsFromPDF(file: File): Promise<PTExtraction> {
     if (parts.length >= 2) {
       const first = normalizeSKU(parts[0])
       const last = parts[parts.length - 1]
-      if (first && first.length > 3 && /^\d+$/.test(last)) {
+      if (first && isValidSku(first) && /^\d+$/.test(last)) {
         fallback.push({ sku: first, qty: parseInt(last), serialNumber: null })
       }
     }
@@ -339,7 +303,7 @@ function extractItemsFromExcelWB(wb: XLSX.WorkBook): PTExtraction {
     if (!row) continue
     const sku = normalizeSKU(row[skuCol])
     const raw = String(row[qtyCol] ?? '').replace(/[^\d.]/g, '')
-    if (sku && raw) {
+    if (sku && isValidSku(sku) && raw) {
       const qty = parseInt(raw) || 0
       if (qty > 0) {
         const serial = serialCol >= 0 ? normalizeSerial(row[serialCol]) : null

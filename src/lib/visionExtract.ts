@@ -14,6 +14,7 @@ import { supabase } from './supabase'
 import {
   normalizeSKU,
   looksLikeSKU,
+  isValidSku,
   isEmptyLike,
   type PTExtraction,
   type PTLineItem,
@@ -105,8 +106,10 @@ function coerceItems(raw: unknown): PTLineItem[] {
     const row = el as Record<string, unknown>
 
     const normalized = normalizeSKU(row.sku)
-    if (!normalized || !looksLikeSKU(normalized)) continue
+    if (!normalized) continue
     const sku = stripOrgLeak(normalized)
+    // Filtro estricto: descarta palabras sueltas (fecha, total, shipped, lerma…).
+    if (!isValidSku(sku)) continue
 
     const qty = Math.trunc(Number(row.qty))
     if (!Number.isFinite(qty) || qty <= 0) continue
