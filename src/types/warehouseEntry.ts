@@ -13,9 +13,18 @@ export type EntryFlowStatus = 'paso1' | 'paso2' | 'paso3' | 'completada' | 'canc
 export type ExtractedVia = 'vision' | 'text' | null
 
 /** Paso 1 — validación de alta de SKUs contra el catálogo de Extensiv. */
+export type SkuMatch = 'exact' | 'partial' | 'none'
+
 export interface ValidationRow {
   sku:        string
   qty:        number
+  /** Resultado del matching: exacto, parcial (candidatos) o sin coincidencia. */
+  match:      SkuMatch
+  /** Para 'partial': SKUs registrados que coinciden parcialmente (a confirmar). */
+  candidates: string[]
+  /** SKU registrado que el usuario confirmó como equivalente (o null). */
+  confirmedSku: string | null
+  /** Efectivo: exacto, o parcial ya confirmado. Lo que cuenta como "dado de alta". */
   registered: boolean
 }
 

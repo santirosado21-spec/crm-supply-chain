@@ -10,9 +10,11 @@
 import * as XLSX from 'xlsx'
 
 interface UnregisteredRow {
-  sku:        string
-  qty:        number
-  registered: boolean
+  sku:         string
+  qty:         number
+  registered:  boolean
+  match?:      'exact' | 'partial' | 'none'
+  candidates?: string[]
 }
 
 interface DiscrepancyRow {
@@ -23,19 +25,23 @@ interface DiscrepancyRow {
   anomaly?: string
 }
 
-/** Paso 1 — exporta los SKUs que aún no están dados de alta en Extensiv. */
+/** Paso 1 — exporta los SKUs pendientes (sin alta, o por confirmar coincidencia). */
 export function downloadUnregistered(results: UnregisteredRow[], docName: string): void {
-  const rows = results
-    .filter(r => !r.registered)
-    .map(r => ({
+  const pending = results.filter(r => !r.registered)
+  const hasPartial = pending.some(r => r.match === 'partial')
+  const rows = pending.map(r => {
+    const base: Record<string, string | number> = {
       SKU: r.sku,
       'Cantidad en Documento': r.qty,
-      Estado: 'Necesita darse de alta en Extensiv',
-    }))
+      Estado: r.match === 'partial' ? 'Por confirmar coincidencia' : 'Necesita darse de alta en Extensiv',
+    }
+    if (hasPartial) base['Posible SKU en Extensiv'] = r.match === 'partial' ? (r.candidates ?? []).join(' | ') : ''
+    return base
+  })
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [{ wch: 30 }, { wch: 22 }, { wch: 36 }]
-  XLSX.utils.book_append_sheet(wb, ws, 'SKUs por dar de alta')
+  ws['!cols'] = [{ wch: 30 }, { wch: 22 }, { wch: 32 }, ...(hasPartial ? [{ wch: 40 }] : [])]
+  XLSX.utils.book_append_sheet(wb, ws, 'SKUs pendientes')
   XLSX.writeFile(wb, `Codigos_Faltantes_${docName.replace(/\.[^.]+$/, '')}.xlsx`)
 }
 

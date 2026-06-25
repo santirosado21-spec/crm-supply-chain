@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidSku, normalizeSKU } from './skuValidation'
+import { isValidSku, normalizeSKU, findPartialSkuCandidates } from './skuValidation'
 
 describe('isValidSku — guardarraíl contra palabras sueltas como SKU', () => {
   // Casos reportados en producción: NUNCA deben aceptarse como SKU.
@@ -36,5 +36,34 @@ describe('isValidSku — guardarraíl contra palabras sueltas como SKU', () => {
     const n = normalizeSKU('GA-47V OAK SAND') // quita espacios → GA-47VOAKSAND
     expect(n).toBe('GA-47VOAKSAND')
     expect(isValidSku(n)).toBe(true)
+  })
+
+  it('normalizeSKU unifica variantes de guion (– — − ‐) a hyphen ASCII', () => {
+    expect(normalizeSKU('NTL49926–1')).toBe('NTL49926-1')  // en-dash
+    expect(normalizeSKU('NTL49926—1')).toBe('NTL49926-1')  // em-dash
+    expect(normalizeSKU('NTL49926−1')).toBe('NTL49926-1')  // minus sign
+    expect(normalizeSKU('NTL49926‐1')).toBe('NTL49926-1')  // hyphen U+2010
+  })
+})
+
+describe('findPartialSkuCandidates — coincidencias parciales (NTL49926-1 ⊂ NTL49926-1000)', () => {
+  const catalog = ['NTL49926-1000', 'NTEL16825', 'NTL49926-1500', 'GA-SP-S-9127']
+
+  it('encuentra el candidato cuando el doc es prefijo del registrado', () => {
+    expect(findPartialSkuCandidates('NTL49926-1', catalog)).toContain('NTL49926-1000')
+  })
+
+  it('lista TODOS los candidatos cuando hay varios (requiere elegir)', () => {
+    const c = findPartialSkuCandidates('NTL49926-1', catalog)
+    expect(c).toEqual(expect.arrayContaining(['NTL49926-1000', 'NTL49926-1500']))
+    expect(c.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('no devuelve candidatos para SKUs sin relación', () => {
+    expect(findPartialSkuCandidates('PFTL90924', catalog)).toEqual([])
+  })
+
+  it('ignora SKUs demasiado cortos para evitar ruido', () => {
+    expect(findPartialSkuCandidates('NT', catalog)).toEqual([])
   })
 })

@@ -10,8 +10,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import * as XLSX from 'xlsx'
 // Lógica pura de SKU (sin pdfjs) — re-exportada para compatibilidad con imports existentes.
-import { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku } from './skuValidation'
-export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku }
+import { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates } from './skuValidation'
+export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates }
 
 // Serve worker locally from /public to avoid CDN version-mismatch issues
 // (cdnjs doesn't always mirror the exact pdfjs-dist version we have installed).

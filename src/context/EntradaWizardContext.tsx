@@ -15,7 +15,7 @@ import {
 } from 'react'
 import { useAuthContext } from './AuthContext'
 import { getExtensivInventoryByCustomer, getExtensivRegisteredSkus } from '../lib/extensiv'
-import { normalizeSKU, type PTLineItem } from '../lib/ptParser'
+import { normalizeSKU, findPartialSkuCandidates, type PTLineItem } from '../lib/ptParser'
 import { extractItemsFromFile } from '../lib/entradaExtract'
 import { getClientImportHint } from '../lib/clientImportFormats'
 import {
@@ -59,7 +59,8 @@ interface EntradaWizardContextType {
   saving:         boolean
   lastSavedAt:    Date | null
   // derivados
-  unregisteredCount: number
+  unregisteredCount: number        // SKUs sin coincidencia (match='none')
+  pendingConfirmCount: number      // SKUs con coincidencia parcial sin confirmar
   extractedTotalQty: number        // suma de cantidades extraídas
   totalMismatch:    boolean        // true si documentTotalQty != suma extraída
   // acciones
@@ -67,6 +68,7 @@ interface EntradaWizardContextType {
   setNotaFile:        (file: File) => Promise<void>
   clearNota:          () => void
   runStep1Validation: () => void
+  confirmSkuMatch:    (docSku: string, registeredSku: string) => void
   goToStep:           (step: WizardStep) => void
   setRef:             (ref: string) => void
   updateStep2Item:    (idx: number, field: 'sku' | 'qty' | 'serialNumber', value: string | number | null) => void
@@ -258,15 +260,38 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     const cur = stateRef.current
     const set = catalogSetRef.current
     if (!set || cur.originalItems.length === 0) return
-    const results: ValidationRow[] = cur.originalItems.flatMap(item => {
+    const catalogArr = Array.from(set)
+    const results: ValidationRow[] = cur.originalItems.flatMap((item): ValidationRow[] => {
       const sku = normalizeSKU(item.sku)
       if (!sku) return []
-      return [{ sku, qty: item.qty, registered: set.has(sku) }]
+      if (set.has(sku)) {
+        return [{ sku, qty: item.qty, match: 'exact', candidates: [], confirmedSku: null, registered: true }]
+      }
+      // Sin match exacto → busca coincidencias parciales (NTL49926-1 ⊂ NTL49926-1000).
+      const candidates = findPartialSkuCandidates(sku, catalogArr)
+      const match = candidates.length > 0 ? 'partial' : 'none'
+      // 'partial' NO cuenta como registrado hasta que el usuario confirme (decisión del usuario).
+      return [{ sku, qty: item.qty, match, candidates, confirmedSku: null, registered: false }]
     })
-    results.sort((a, b) => Number(a.registered) - Number(b.registered))
+    // Orden: pendientes primero (none, luego partial), registrados al final.
+    const rank = (r: ValidationRow) => r.registered ? 2 : r.match === 'partial' ? 1 : 0
+    results.sort((a, b) => rank(a) - rank(b))
     const complete = results.length > 0 && results.every(r => r.registered)
     setState(prev => ({ ...prev, step1Results: results, step1Complete: complete }))
     schedulePersist({ step1_results: results, step1_complete: complete })
+  }, [schedulePersist])
+
+  // Confirma que un SKU del documento equivale a uno registrado en Extensiv
+  // (coincidencia parcial). Tras confirmar cuenta como "dado de alta".
+  const confirmSkuMatch = useCallback((docSku: string, registeredSku: string) => {
+    setState(prev => {
+      const results = prev.step1Results.map(r =>
+        r.sku === docSku ? { ...r, confirmedSku: registeredSku, registered: true } : r,
+      )
+      const complete = results.length > 0 && results.every(r => r.registered)
+      schedulePersist({ step1_results: results, step1_complete: complete })
+      return { ...prev, step1Results: results, step1Complete: complete }
+    })
   }, [schedulePersist])
 
   const goToStep = useCallback((step: WizardStep) => {
@@ -324,10 +349,17 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
       }
       const STATUS_ORDER: Record<VerificationStatus, number> = { not_found: 0, qty_diff: 1, confirmed: 2 }
       const prevAnomalies = cur.anomalies
+      // Alias confirmados en el Paso 1 (doc SKU → SKU real de Extensiv) para que la
+      // verificación busque el inventario por el SKU correcto.
+      const aliasMap = new Map<string, string>()
+      for (const r of cur.step1Results) {
+        if (r.confirmedSku) aliasMap.set(r.sku, r.confirmedSku)
+      }
       const results: VerificationRow[] = cur.originalItems.flatMap((item: PTLineItem) => {
         const sku = normalizeSKU(item.sku)
         if (!sku) return []
-        const qtyExt = map.has(sku) ? (map.get(sku) ?? null) : null
+        const lookupSku = aliasMap.get(sku) ?? sku
+        const qtyExt = map.has(lookupSku) ? (map.get(lookupSku) ?? null) : null
         const status: VerificationStatus =
           qtyExt === null ? 'not_found' : qtyExt >= item.qty ? 'confirmed' : 'qty_diff'
         return [{ sku, qtyDoc: item.qty, qtyExt, status, anomaly: prevAnomalies[sku] ?? '' }]
@@ -421,7 +453,8 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(''), [])
 
-  const unregisteredCount = state.step1Results.filter(r => !r.registered).length
+  const unregisteredCount = state.step1Results.filter(r => !r.registered && r.match !== 'partial').length
+  const pendingConfirmCount = state.step1Results.filter(r => !r.registered && r.match === 'partial').length
   const extractedTotalQty = state.originalItems.reduce((s, it) => s + (Number(it.qty) || 0), 0)
   const totalMismatch =
     state.documentTotalQty != null &&
@@ -431,8 +464,8 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
   const value: EntradaWizardContextType = {
     state,
     catalogCount, catalogLoading, extracting, verifyLoading, error, saving, lastSavedAt,
-    unregisteredCount, extractedTotalQty, totalMismatch,
-    setCustomer, setNotaFile, clearNota, runStep1Validation, goToStep, setRef,
+    unregisteredCount, pendingConfirmCount, extractedTotalQty, totalMismatch,
+    setCustomer, setNotaFile, clearNota, runStep1Validation, confirmSkuMatch, goToStep, setRef,
     updateStep2Item, addStep2Item, deleteStep2Item, markExportGenerated,
     runStep3Verification, setAnomaly, setTransactionId, finishWizard, resetWizard, resumeFromEntry,
     clearError,

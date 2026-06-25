@@ -32,9 +32,44 @@ export function normalizeSKU(raw: unknown): string | null {
   if (!s) return null
   // SKUs never contain whitespace — strip all (handles cases where PDF text
   // extraction splits a SKU like "ASPT-SL-ALLXN-12" into pieces joined with spaces).
-  const cleaned = s.replace(/\s+/g, '').replace(/^(\d+)\.0$/, '$1').toUpperCase()
+  // Unifica variantes Unicode de guion (– — ‐ ‑ ‒ ― −) a un hyphen ASCII '-',
+  // así "NTL49926–1" (en-dash de OCR) coincide con "NTL49926-1..." de Extensiv.
+  const cleaned = s
+    .replace(/\s+/g, '')
+    .replace(/[‐-―−]/g, '-')
+    .replace(/^(\d+)\.0$/, '$1')
+    .toUpperCase()
   if (isEmptyLike(cleaned)) return null
   return cleaned
+}
+
+export type SkuMatchKind = 'exact' | 'partial' | 'none'
+
+/**
+ * Busca SKUs registrados que sean una coincidencia PARCIAL del SKU del documento:
+ * cuando uno es prefijo o subcadena del otro (ej. doc "NTL49926-1" ⊂ registrado
+ * "NTL49926-1000"). Es el comportamiento de "Contiene" de Extensiv. Devuelve los
+ * candidatos (hasta 12) para que el usuario confirme la equivalencia.
+ * `catalog` debe venir ya normalizado (normalizeSKU).
+ */
+export function findPartialSkuCandidates(docSku: string, catalog: string[]): string[] {
+  const MIN = 4
+  if (!docSku || docSku.length < MIN) return []
+  const out = new Set<string>()
+  for (const r of catalog) {
+    if (r === docSku || r.length < MIN) continue
+    if (r.startsWith(docSku) || docSku.startsWith(r) || r.includes(docSku) || docSku.includes(r)) {
+      out.add(r)
+    }
+  }
+  // Prioriza prefijos (más fuertes) y limita el listado.
+  return Array.from(out)
+    .sort((a, b) => {
+      const ap = a.startsWith(docSku) || docSku.startsWith(a) ? 0 : 1
+      const bp = b.startsWith(docSku) || docSku.startsWith(b) ? 0 : 1
+      return ap - bp || a.localeCompare(b)
+    })
+    .slice(0, 12)
 }
 
 export function looksLikeSKU(text: string): boolean {
