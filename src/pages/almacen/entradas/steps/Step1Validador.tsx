@@ -50,7 +50,7 @@ export function Step1Validador() {
               )}
               {!catalogLoading && catalogCount > 0 && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
-                  <Database size={14} /> {catalogCount.toLocaleString()} SKUs en el catálogo de Extensiv
+                  <Database size={14} /> {catalogCount.toLocaleString()} SKUs dados de alta en Extensiv
                 </div>
               )}
             </>

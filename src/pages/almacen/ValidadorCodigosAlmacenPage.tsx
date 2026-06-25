@@ -11,9 +11,8 @@ import { extractReceiptItemsWithVision } from '../../lib/visionExtract'
 import {
   isExtensivConfigured,
   getExtensivCustomers,
-  getExtensivInventoryByCustomer,
+  getExtensivRegisteredSkus,
   type ExtensivCustomer,
-  type ExtensivStockItem,
 } from '../../lib/extensiv'
 import { downloadUnregistered } from '../../lib/entradaExports'
 
@@ -54,10 +53,12 @@ export function ValidadorCodigosAlmacenPage() {
     setCatalogCount(0)
     setError('')
     try {
-      const items: ExtensivStockItem[] = await getExtensivInventoryByCustomer(customerId)
+      // Item master (SKUs dados de alta), NO stock: un SKU registrado con 0
+      // existencias debe contar como "Registrado".
+      const skus = await getExtensivRegisteredSkus(customerId)
       const skuSet = new Set<string>()
-      for (const item of items) {
-        const n = normalizeSKU(item.sku)
+      for (const raw of skus) {
+        const n = normalizeSKU(raw)
         if (n) skuSet.add(n)
       }
       setCatalogCache(skuSet)
@@ -202,7 +203,7 @@ export function ValidadorCodigosAlmacenPage() {
                   {catalogCache && (
                     <div className="flex items-center gap-2 text-sm text-green-600">
                       <Database size={14} />
-                      {catalogCount.toLocaleString()} SKUs en el catálogo de Extensiv
+                      {catalogCount.toLocaleString()} SKUs dados de alta en Extensiv
                     </div>
                   )}
                 </>

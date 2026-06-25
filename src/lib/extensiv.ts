@@ -153,6 +153,51 @@ export async function getExtensivInventoryByCustomer(
   return allItems
 }
 
+/* ─── Item master: SKUs registrados (dados de alta) por cliente ────────── */
+// A diferencia de `/inventory/stockdetails` (que solo lista SKUs CON existencias),
+// el item master lista TODOS los SKUs registrados del cliente, tengan o no stock.
+// Úsalo para validar "dado de alta" (Paso 1 de entradas), NO para inventario.
+//
+// Notas del endpoint (verificadas en vivo contra Extensiv):
+//  - El SKU vive en `item.sku` (top-level), no en `item.itemIdentifier.sku`.
+//  - El array embedded usa la rel completa 'http://api.3plCentral.com/rels/customers/item'.
+//  - Los objetos item son grandes → pgsiz=100 (con 500 el upstream responde 502).
+//  - Se excluyen los items con `readOnly.deactivated` (SKUs dados de baja).
+export async function getExtensivRegisteredSkus(customerId: number): Promise<string[]> {
+  const ITEM_REL = 'http://api.3plCentral.com/rels/customers/item'
+  const skus: string[] = []
+  let page = 1
+  const pageSize = 100
+
+  while (page <= MAX_PAGES) {
+    const data = await callProxy<{
+      totalResults?: number
+      _embedded?: Record<string, Array<{
+        sku?:            string
+        itemIdentifier?: { sku?: string }
+        readOnly?:       { deactivated?: boolean }
+      }>>
+    }>({
+      method: 'GET',
+      path:   `/customers/${customerId}/items`,
+      query:  { pgsiz: pageSize, pgnum: page },
+    })
+
+    // Parseo defensivo: rel completa o clave corta 'item'.
+    const items = data._embedded?.[ITEM_REL] ?? data._embedded?.item ?? []
+    for (const item of items) {
+      if (item.readOnly?.deactivated) continue
+      const sku = (item.sku ?? item.itemIdentifier?.sku ?? '').toUpperCase()
+      if (sku) skus.push(sku)
+    }
+
+    if (items.length < pageSize) break
+    page++
+  }
+
+  return skus
+}
+
 /* ─── Stock summaries (facility-wide) ──────────────────────────────── */
 export async function getExtensivStockSummaries(): Promise<ExtensivStockItem[]> {
   const data = await callProxy<{

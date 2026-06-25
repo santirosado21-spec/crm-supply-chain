@@ -14,7 +14,7 @@ import {
   createContext, useCallback, useContext, useRef, useState, type ReactNode,
 } from 'react'
 import { useAuthContext } from './AuthContext'
-import { getExtensivInventoryByCustomer } from '../lib/extensiv'
+import { getExtensivInventoryByCustomer, getExtensivRegisteredSkus } from '../lib/extensiv'
 import { normalizeSKU, type PTLineItem } from '../lib/ptParser'
 import { extractItemsFromFile } from '../lib/entradaExtract'
 import { getClientImportHint } from '../lib/clientImportFormats'
@@ -134,15 +134,17 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
   }, [flushPending])
 
   // ── Catálogo Extensiv (Paso 1) ──────────────────────────────────────────
+  // Valida contra el ITEM MASTER (SKUs dados de alta), NO contra el stock — un
+  // SKU registrado con 0 existencias debe contar como "Registrado".
   const loadCatalog = useCallback(async (customerId: number) => {
     setCatalogLoading(true)
     setCatalogSet(null)
     setCatalogCount(0)
     try {
-      const items = await getExtensivInventoryByCustomer(customerId)
+      const skus = await getExtensivRegisteredSkus(customerId)
       const set = new Set<string>()
-      for (const it of items) {
-        const n = normalizeSKU(it.sku)
+      for (const raw of skus) {
+        const n = normalizeSKU(raw)
         if (n) set.add(n)
       }
       setCatalogSet(set)
