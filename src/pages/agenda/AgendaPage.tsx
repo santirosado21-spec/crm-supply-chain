@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2, LayoutGrid, AlignJustify } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, LayoutGrid, AlignJustify, ListChecks } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { Spinner } from '../../components/ui/Spinner'
 import { QuickEventModal } from '../../components/agenda/QuickEventModal'
 import { MonthGrid } from '../../components/agenda/MonthGrid'
+import { TaskTraceabilityPanel } from '../../components/tasks/TaskTraceabilityPanel'
 import { useTasks } from '../../hooks/useTasks'
 import { useAuthContext } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -37,8 +38,8 @@ export function AgendaPage() {
   const email = user?.email ?? ''
   const { tasks, loading, list } = useTasks()
 
-  // ── Vista: semana (lista) o mes (grid)
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
+  // ── Vista: semana (lista), mes (grid) o tareas (trazabilidad)
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'list'>('week')
 
   // ── Estado vista semana
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
@@ -59,6 +60,7 @@ export function AgendaPage() {
 
   useEffect(() => {
     if (!email) return
+    if (viewMode === 'list') return // el panel de tareas carga sus propios datos
     if (viewMode === 'week') {
       list({
         fromDate: weekStart.toISOString(),
@@ -171,6 +173,18 @@ export function AgendaPage() {
                 >
                   <LayoutGrid size={15} />
                 </button>
+                <button
+                  type="button"
+                  title="Tareas — pendientes y cerradas"
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-lg transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-white shadow-sm text-[#1e3a5f]'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <ListChecks size={15} />
+                </button>
               </div>
 
               <button
@@ -182,6 +196,13 @@ export function AgendaPage() {
               </button>
             </div>
           </div>
+
+          {/* ════════════════════════════════════════════════════════════
+              VISTA TAREAS (trazabilidad — pendientes y cerradas)
+          ════════════════════════════════════════════════════════════ */}
+          {viewMode === 'list' && (
+            <TaskTraceabilityPanel onChanged={refresh} />
+          )}
 
           {/* ════════════════════════════════════════════════════════════
               VISTA MES

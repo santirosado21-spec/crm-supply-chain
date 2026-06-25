@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, CalendarDays, ListChecks } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { Spinner } from '../../components/ui/Spinner'
 import { QuickEventModal } from '../../components/agenda/QuickEventModal'
+import { TaskTraceabilityPanel } from '../../components/tasks/TaskTraceabilityPanel'
 import { useTasks } from '../../hooks/useTasks'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, DAY_OF_WEEK_LABEL, type Task } from '../../types/tasks'
@@ -26,6 +27,7 @@ function toYMD(d: Date): string { return d.toISOString().slice(0, 10) }
 export function CalendarioAlmacenPage() {
   const { tasks, loading, list } = useTasks()
 
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
   const [activeDay, setActiveDay] = useState<Date>(() => {
     const t = new Date(); t.setHours(0, 0, 0, 0); return t
@@ -37,6 +39,7 @@ export function CalendarioAlmacenPage() {
   const refresh = useCallback(() => setRefetchKey(k => k + 1), [])
 
   useEffect(() => {
+    if (viewMode === 'list') return // el panel de tareas carga sus propios datos
     // Carga tareas asignadas al almacén para el rango de la semana.
     // Excluye rechazadas y canceladas — solo lo operativo relevante.
     list({
@@ -45,7 +48,7 @@ export function CalendarioAlmacenPage() {
       toDate: addDays(weekStart, 7).toISOString(),
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, refetchKey])
+  }, [weekStart, refetchKey, viewMode])
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -110,15 +113,57 @@ export function CalendarioAlmacenPage() {
                 Cargas, descargas y actividades asignadas al almacén
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity shrink-0"
-            >
-              <Plus size={16} /> Nueva actividad
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Toggle vista calendario / tareas */}
+              <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1">
+                <button
+                  type="button"
+                  title="Vista calendario"
+                  onClick={() => setViewMode('calendar')}
+                  className={`p-2 rounded-lg transition-all ${
+                    viewMode === 'calendar'
+                      ? 'bg-white shadow-sm text-[#1e3a5f]'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <CalendarDays size={15} />
+                </button>
+                <button
+                  type="button"
+                  title="Tareas — pendientes y cerradas"
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-lg transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-white shadow-sm text-[#1e3a5f]'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <ListChecks size={15} />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity"
+              >
+                <Plus size={16} /> Nueva actividad
+              </button>
+            </div>
           </div>
 
+          {/* ════════════════════════════════════════════════════════════
+              VISTA TAREAS (trazabilidad — solo almacén)
+          ════════════════════════════════════════════════════════════ */}
+          {viewMode === 'list' && (
+            <TaskTraceabilityPanel assignee={ALMACEN_RECEPTOR_EMAIL} onChanged={refresh} />
+          )}
+
+          {/* ════════════════════════════════════════════════════════════
+              VISTA CALENDARIO
+          ════════════════════════════════════════════════════════════ */}
+          {viewMode === 'calendar' && (
+          <>
           {/* ── Navegador de semana ── */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-4">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -280,6 +325,8 @@ export function CalendarioAlmacenPage() {
               )
             })}
           </div>
+          </>
+          )}
         </main>
       </div>
 
