@@ -35,6 +35,10 @@ import { TarifariosPage } from './pages/tarifarios/TarifariosPage'
 import { ServiciosPage } from './pages/servicios/ServiciosPage'
 import { ValidadorSKUPage } from './pages/sac/ValidadorSKUPage'
 import { ReceiptGeneratorPage } from './pages/almacen/ReceiptGeneratorPage'
+import { ValidadorCodigosAlmacenPage } from './pages/almacen/ValidadorCodigosAlmacenPage'
+import { ValidacionNotaEntradaPage } from './pages/almacen/ValidacionNotaEntradaPage'
+import { EntradaWizardPage } from './pages/almacen/entradas/EntradaWizardPage'
+import { EntradasHistorialPage } from './pages/almacen/entradas/EntradasHistorialPage'
 import { TaskInbox } from './pages/tasks/TaskInbox'
 import { TaskCalendar } from './pages/tasks/TaskCalendar'
 import { TaskCreate } from './pages/tasks/TaskCreate'
@@ -128,6 +132,23 @@ function App() {
           } />
           <Route path="/almacen/receipt-generator" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ReceiptGeneratorPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/validador-codigos" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ValidadorCodigosAlmacenPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/validacion-entrada" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><ValidacionNotaEntradaPage /></ProtectedRoute>
+          } />
+          {/* Wizard unificado de entradas (3 pasos). El historial debe ir ANTES
+              que /:id para no capturarlo como id. */}
+          <Route path="/almacen/entradas" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><EntradaWizardPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/entradas/historial" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><EntradasHistorialPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/entradas/:id" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><EntradaWizardPage /></ProtectedRoute>
           } />
           {/* Compat redirect viejo */}
           <Route path="/almacen-layout" element={<Navigate to="/almacen/cedis" replace />} />

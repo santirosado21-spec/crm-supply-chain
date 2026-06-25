@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, FileInput } from 'lucide-react'
+import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, FileInput, ScanBarcode, FileCheck, PackagePlus } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 
@@ -48,10 +48,31 @@ const tools: Tool[] = [
     category: 'calendario',
   },
   {
+    to: '/almacen/entradas',
+    title: 'Entradas guiadas (Wizard)',
+    description: 'Flujo unificado en 3 pasos — 1 cliente, 1 nota: validar alta → generar receipt → verificar inventario.',
+    icon: PackagePlus,
+    category: 'entradas',
+  },
+  {
+    to: '/almacen/validador-codigos',
+    title: 'Validador de Códigos',
+    description: 'Paso 1 (suelto) — Verifica que todos los SKUs de la nota de entrada ya estén dados de alta en Extensiv.',
+    icon: ScanBarcode,
+    category: 'entradas',
+  },
+  {
     to: '/almacen/receipt-generator',
     title: 'Facilitador de entradas',
-    description: 'Genera el Excel Receipt_Import para Extensiv desde un PT (PDF o Excel) validando SKUs.',
+    description: 'Paso 2 — Genera el Excel Receipt_Import para Extensiv desde un PT (PDF o Excel).',
     icon: FileInput,
+    category: 'entradas',
+  },
+  {
+    to: '/almacen/validacion-entrada',
+    title: 'Validación de Entrada',
+    description: 'Paso 3 — Confirma que todo lo que entró según el documento está en el inventario actual de Extensiv.',
+    icon: FileCheck,
     category: 'entradas',
   },
   {

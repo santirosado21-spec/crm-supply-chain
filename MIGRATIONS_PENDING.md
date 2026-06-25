@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR
+## Estado: 11 MIGRACIONES PENDIENTES DE APLICAR
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -104,6 +104,22 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Sin esta migración: el selector "Ligar a tarea de almacén" funciona en UI
   (banner verde aparece) pero el `warehouse_task_id` NO se persiste — al
   recargar desde el historial, el vínculo se pierde.
+
+### 11. `20260624000001_warehouse_entries.sql`
+- Nueva tabla `warehouse_entries` que respalda el **wizard unificado de entradas
+  de almacén** (`/almacen/entradas`): 3 pasos en un solo flujo con estado
+  compartido (cliente + nota subida una sola vez).
+- Columnas JSONB para nota original (`original_items`), validación de alta
+  (`step1_results`/`step1_complete`), items editados + export
+  (`step2_items`/`export_generated`), y verificación + anomalías
+  (`step3_results`/`anomalies`). Estado del flujo en `flow_status` +
+  `current_step`. Trazabilidad por email (`created_by`).
+- 3 índices (status+fecha, customer_id, created_by) + trigger `updated_at` +
+  RLS abierta. Patrón base: `cartas_instruccion.sql`.
+- Sin esta migración: el wizard carga pero **no persiste ni reanuda** — cada
+  paso funciona en memoria de la sesión y se pierde el historial al recargar.
+  Las 3 páginas sueltas (Validador de Códigos / Facilitador / Validación de
+  Entrada) siguen funcionando sin la tabla.
 
 ## Cómo aplicar
 
