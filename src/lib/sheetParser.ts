@@ -179,3 +179,24 @@ export function parseDeliveryNoteLines(lines: string[]): PTLineItem[] {
     serialNumber: e.serials.length ? Array.from(new Set(e.serials)).join(', ') : null,
   }))
 }
+
+/* ─── Expansión a UNA FILA POR UNIDAD (para el receipt de Extensiv) ──────── */
+// Cada unidad va en su propia fila (qty 1) con UN serial alineado a su SKU.
+// El receipt (Receipt_Import.xlsx) tiene columnas Quantity y Serial# por renglón,
+// así que un SKU con N seriales = N filas, y un SKU sin serial qty N = N filas.
+// Separa seriales concatenados ("s1, s2, …"); si hay menos seriales que qty, las
+// filas restantes quedan con serial null; si hay más seriales que qty, no se pierde
+// ninguno (count = max(qty, #seriales)). Es puro → testeable en Node.
+export function expandToUnits(items: PTLineItem[]): PTLineItem[] {
+  const out: PTLineItem[] = []
+  for (const it of items) {
+    const serials = (it.serialNumber ?? '')
+      .split(/[,;]+/).map(s => s.trim()).filter(Boolean)
+    const qty = Math.max(1, Math.trunc(Number(it.qty) || 0))
+    const count = Math.max(qty, serials.length)
+    for (let i = 0; i < count; i++) {
+      out.push({ sku: it.sku, qty: 1, serialNumber: serials[i] ?? null })
+    }
+  }
+  return out
+}

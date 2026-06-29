@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as XLSX from 'xlsx'
-import { extractItemsFromWorkbook, parseDeliveryNoteLines } from './sheetParser'
+import { extractItemsFromWorkbook, parseDeliveryNoteLines, expandToUnits } from './sheetParser'
 
 describe('sheetParser — CSV serializado de LINET (; europeo)', () => {
   // Replica ExpSN_*.csv: ; como separador, SKU en "Model number", nombre en
@@ -90,5 +90,46 @@ describe('parseDeliveryNoteLines — Delivery Note LINET (PDF digital, sin model
     const garrido = ['GA-47V OAK SAND BATHROOM CABINET 54 54 44 2376 88*55*58 15.12']
     expect(parseDeliveryNoteLines(ifit)).toEqual([])
     expect(parseDeliveryNoteLines(garrido)).toEqual([])
+  })
+})
+
+describe('expandToUnits — una fila por unidad para el receipt', () => {
+  it('separa seriales concatenados: 1 fila por serial (qty 1)', () => {
+    const out = expandToUnits([{ sku: 'X', qty: 3, serialNumber: 's1, s2, s3' }])
+    expect(out).toEqual([
+      { sku: 'X', qty: 1, serialNumber: 's1' },
+      { sku: 'X', qty: 1, serialNumber: 's2' },
+      { sku: 'X', qty: 1, serialNumber: 's3' },
+    ])
+  })
+
+  it('SKU sin serial qty N → N filas qty 1 con serial null', () => {
+    const out = expandToUnits([{ sku: 'Y', qty: 36, serialNumber: null }])
+    expect(out).toHaveLength(36)
+    expect(out.every(r => r.qty === 1 && r.sku === 'Y' && r.serialNumber === null)).toBe(true)
+  })
+
+  it('qty 1 sin serial → una sola fila', () => {
+    expect(expandToUnits([{ sku: 'Z', qty: 1, serialNumber: null }]))
+      .toEqual([{ sku: 'Z', qty: 1, serialNumber: null }])
+  })
+
+  it('count = max(qty, #seriales): qty 2 con 1 serial → 2 filas (s1, null)', () => {
+    expect(expandToUnits([{ sku: 'W', qty: 2, serialNumber: 's1' }]))
+      .toEqual([
+        { sku: 'W', qty: 1, serialNumber: 's1' },
+        { sku: 'W', qty: 1, serialNumber: null },
+      ])
+  })
+
+  it('preserva orden entre SKUs distintos y no mezcla seriales', () => {
+    const out = expandToUnits([
+      { sku: 'A', qty: 2, serialNumber: 'a1, a2' },
+      { sku: 'B', qty: 1, serialNumber: null },
+    ])
+    expect(out.map(r => r.sku)).toEqual(['A', 'A', 'B'])
+    expect(out[0].serialNumber).toBe('a1')
+    expect(out[1].serialNumber).toBe('a2')
+    expect(out[2].serialNumber).toBeNull()
   })
 })

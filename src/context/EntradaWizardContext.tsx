@@ -16,6 +16,7 @@ import {
 import { useAuthContext } from './AuthContext'
 import { getExtensivInventoryByCustomer, getExtensivRegisteredSkus } from '../lib/extensiv'
 import { normalizeSKU, findPartialSkuCandidates, type PTLineItem } from '../lib/ptParser'
+import { expandToUnits } from '../lib/sheetParser'
 import { extractItemsFromFile } from '../lib/entradaExtract'
 import { getClientImportHint } from '../lib/clientImportFormats'
 import {
@@ -190,7 +191,9 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
       if (items.length === 0) {
         setError('No se encontraron SKUs en el documento. Verifica que tenga columnas de SKU y Cantidad.')
       }
-      const step2Items = items.map(it => ({ sku: it.sku, qty: it.qty, serialNumber: it.serialNumber }))
+      // Receipt = UNA FILA POR UNIDAD (qty 1, un serial por renglón alineado a su
+      // SKU). originalItems se queda agrupado por SKU (Paso 1/3 + totales).
+      const step2Items = expandToUnits(items)
       setState(prev => ({
         ...prev,
         notaFile: file,
