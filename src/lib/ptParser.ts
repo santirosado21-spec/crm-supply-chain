@@ -12,44 +12,28 @@ import * as XLSX from 'xlsx'
 // Lógica pura de SKU (sin pdfjs) — re-exportada para compatibilidad con imports existentes.
 import { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates } from './skuValidation'
 export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates }
+// Parser de hojas (Excel/CSV) sin pdfjs — fuente única de tipos y regex de encabezado.
+import {
+  SKU_HEADER_RE, QTY_HEADER_RE, SERIAL_HEADER_RE, normalizeSerial,
+  extractItemsFromWorkbook, detectRefFromExcel,
+  type PTLineItem, type PTExtraction,
+} from './sheetParser'
+export { detectRefFromExcel }
+export type { PTLineItem, PTExtraction }
 
 // Serve worker locally from /public to avoid CDN version-mismatch issues
 // (cdnjs doesn't always mirror the exact pdfjs-dist version we have installed).
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-/* ─── Types ──────────────────────────────────────────────────────────── */
-export interface PTLineItem {
-  sku:          string
-  qty:          number
-  serialNumber: string | null
-}
-
-export interface PTExtraction {
-  ref:   string | null
-  items: PTLineItem[]
-  /** Total de unidades declarado en el documento (si está impreso), para auto-verificación. */
-  documentTotalQty?: number | null
-}
-
 interface PDFItem { text: string; x: number; y: number; page: number }
 type PDFRow = PDFItem[]
 
-/* ─── Patterns (encabezados de columnas, específicos del parser) ──────── */
+/* ─── Patterns (PDF Strategy B; SKU/QTY/SERIAL vienen de sheetParser) ──── */
 const DESC_HEADER_RE      = /descripci[oó]n/i
 const CANT_HEADER_RE      = /^cant\.?$/i
-const SKU_HEADER_RE       = /sku|item|product|producto|articulo|art[ií]culo|style|n°\s*de\s*parte|no\.?\s*de\s*parte|código|codigo|parte|model(\s*#|\s*number|o)?/i
-const QTY_HEADER_RE       = /qty|cantidad|quantity|piezas|pzs|pcs|pieces|unidades|units|req|cant\b|unit\s*qty/i
-const SERIAL_HEADER_RE    = /serial\s*(number|#)?|n[°º]?\s*de\s*serie|n[uú]mero\s*de\s*serie|no\.?\s*de\s*serie/i
 
 function rowToLine(row: PDFRow): string {
   return row.map(i => i.text).join(' ')
-}
-
-function normalizeSerial(raw: unknown): string | null {
-  const s = String(raw ?? '').trim()
-  if (!s) return null
-  if (isEmptyLike(s)) return null
-  return s
 }
 
 /* ─── PDF: Grid extraction ───────────────────────────────────────────── */
@@ -108,32 +92,6 @@ export function detectRefFromGrid(grid: PDFRow[]): string | null {
     const m = text.match(p)
     if (m && m[1]) {
       // Clean up: add SO prefix if pattern matched SO
-      if (p.source.includes('SO') && !m[1].toUpperCase().startsWith('SO')) {
-        return 'SO' + m[1]
-      }
-      return m[1].trim()
-    }
-  }
-  return null
-}
-
-export function detectRefFromExcel(wb: XLSX.WorkBook): string | null {
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  if (!ws) return null
-  const data = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' })
-
-  const topText = data.slice(0, 30)
-    .map(r => (r || []).map(c => String(c ?? '')).join(' '))
-    .join(' ')
-  const patterns = [
-    /#\s*de\s*(?:orden\s*de\s*venta|orden|venta)\s*:?\s*([A-Z0-9][\w\-]*)/i,
-    /\b(?:purchase\s*order|PO|P\.O\.)\s*#?\s*:?\s*([A-Z0-9][\w\-]*)/i,
-    /\b(?:orden|referencia|ref|folio)\s*#?\s*:?\s*([A-Z0-9][\w\-]*)/i,
-    /\bSO\s*([0-9]+)/i,
-  ]
-  for (const p of patterns) {
-    const m = topText.match(p)
-    if (m && m[1]) {
       if (p.source.includes('SO') && !m[1].toUpperCase().startsWith('SO')) {
         return 'SO' + m[1]
       }
@@ -262,64 +220,14 @@ async function extractItemsFromPDF(file: File): Promise<PTExtraction> {
   return { ref, items: fallback }
 }
 
-/* ─── Excel extractor ────────────────────────────────────────────────── */
-function extractItemsFromExcelWB(wb: XLSX.WorkBook): PTExtraction {
-  const ref = detectRefFromExcel(wb)
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  if (!ws) return { ref, items: [] }
-
-  const data = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' })
-
-  // Find header row
-  let skuCol = -1
-  let qtyCol = -1
-  let serialCol = -1
-  let headerRow = -1
-
-  for (let r = 0; r < data.length; r++) {
-    const row = data[r]
-    if (!row) continue
-    let foundSku = -1, foundQty = -1, foundSerial = -1
-    for (let c = 0; c < row.length; c++) {
-      const h = String(row[c] ?? '').toLowerCase()
-      if (SKU_HEADER_RE.test(h) && foundSku === -1)     foundSku = c
-      if (QTY_HEADER_RE.test(h) && foundQty === -1)     foundQty = c
-      if (SERIAL_HEADER_RE.test(h) && foundSerial === -1) foundSerial = c
-    }
-    if (foundSku !== -1 && foundQty !== -1) {
-      skuCol = foundSku
-      qtyCol = foundQty
-      serialCol = foundSerial
-      headerRow = r
-      break
-    }
-  }
-
-  if (headerRow === -1) return { ref, items: [] }
-
-  const items: PTLineItem[] = []
-  for (let r = headerRow + 1; r < data.length; r++) {
-    const row = data[r]
-    if (!row) continue
-    const sku = normalizeSKU(row[skuCol])
-    const raw = String(row[qtyCol] ?? '').replace(/[^\d.]/g, '')
-    if (sku && isValidSku(sku) && raw) {
-      const qty = parseInt(raw) || 0
-      if (qty > 0) {
-        const serial = serialCol >= 0 ? normalizeSerial(row[serialCol]) : null
-        items.push({ sku, qty, serialNumber: serial })
-      }
-    }
-  }
-  return { ref, items }
-}
-
 /* ─── Public API ─────────────────────────────────────────────────────── */
 export async function extractReceiptItemsFromPT(file: File): Promise<PTExtraction> {
   const isPDF = file.name.toLowerCase().endsWith('.pdf')
   if (isPDF) return extractItemsFromPDF(file)
 
+  // Excel / CSV → sheetParser (sin pdfjs): exclusión de columnas de nombre,
+  // qty-por-serial y agrupación por SKU.
   const buf = await file.arrayBuffer()
   const wb = XLSX.read(buf)
-  return extractItemsFromExcelWB(wb)
+  return extractItemsFromWorkbook(wb)
 }

@@ -54,6 +54,24 @@ const FIXTURES: Fixture[] = [
       'NTL49926-1': 3, NTRW15125: 18, NTRW19425: 15, PFTL90924: 40,
     },
   },
+  {
+    name: 'LINET Delivery Note (Material Description = código, no nombre)',
+    pdf: 'ExpDL_0030191411.pdf',
+    customer: 'LINET',
+    expectedTotal: 190,
+    expected: {
+      '1GE412055-2313': 36, '4PW171100LS': 36, '4PV340290000': 36,
+      '11028700B0000': 72, '2G0PACK100004': 9, '2M1600000000': 1,
+    },
+  },
+  {
+    // Bill of Lading / waybill: NO es packing list → debe extraer 0 items.
+    name: 'Maersk B/L (transporte, sin SKUs)',
+    pdf: 'document.pdf',
+    customer: 'LINET',
+    expectedTotal: 0,
+    expected: {},
+  },
 ]
 
 function pdfToImages(pdfPath: string): string[] {

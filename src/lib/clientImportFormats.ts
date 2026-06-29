@@ -35,6 +35,16 @@ const PROFILES: ClientFormatProfile[] = [
       'declarado es el "TOTAL" de la columna PCS.',
   },
   {
+    keywords: ['LINET', 'WIBO', 'WISSNER', 'BOSSERHOFF', 'ELEGANZA'],
+    hint:
+      'Camas/equipo médico LINET. El SKU es el CÓDIGO alfanumérico (ej. 1GE412055-2313, ' +
+      '1K40B611-336, 4PW171100LS), bajo "Material Description" (Delivery Note), "Article Code" ' +
+      '(Proforma), "Model number" (CSV) o "Product number" (Excel). El NOMBRE ("Eleganza 4 With ' +
+      'scales", "Solido 3", "Praktika 2") está en la columna de al lado y NUNCA es el SKU. ' +
+      'Cantidad = "Quantity"/"pcs"/"Item Qty". Seriales bajo "Serial no". IGNORA Unit Price/VAT/' +
+      'Gross Price/Discount (USD), HS code, pesos, dimensiones y "Pcs in colli".',
+  },
+  {
     keywords: ['FITNESS FOR LIFE', 'LIFE FITNESS', 'RIVIERA MAYA'],
     hint:
       'Layout "Model # & COO": SKU = el código de la columna "Model #" (ej. ASPT-SL-ALLXN-13, ' +

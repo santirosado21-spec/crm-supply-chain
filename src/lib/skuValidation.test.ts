@@ -17,6 +17,8 @@ describe('isValidSku — guardarraíl contra palabras sueltas como SKU', () => {
     'GA-47V OAK SAND', 'GA-341 VINTAGE BROWN', 'GA-SP-S-9127', 'GA-SP-S9127NEGRA', // Garrido
     'ASPT-SL-ALLXN-13', 'OP-HAA', 'HS-OB-1004-01', 'IC-LFICGIC5-01', 'LBR-DB',     // Life Fitness
     'LOG-MOU-MX3S-NEG',                                          // ejemplo del usuario
+    '1GE412055-2313', '1K40B611-336', '12BD30301-475', '1F22227-356',             // LINET / Wibo
+    '4PW171100LS', '4PV340290000', '11028700B0000', '2G0PACK100004',              // LINET / Wibo
   ]
   it.each(valid)('acepta "%s"', (s) => {
     expect(isValidSku(s)).toBe(true)

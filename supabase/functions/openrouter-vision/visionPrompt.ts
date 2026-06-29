@@ -12,10 +12,17 @@ Return ONLY a JSON object, no prose, no markdown, with EXACTLY this shape:
 === WHAT A SKU IS (critical) ===
 A SKU is a PRODUCT CODE: it combines letters and digits (and may include separators - . / _)
 to encode brand/model/color/size. Examples: LOG-MOU-MX3S-NEG, NTEL16825, GA-SP-S-9127,
-ASPT-SL-ALLXN-13, OP-HAA. A SKU is NEVER a standalone dictionary word or a label such as
-"fecha", "date", "total", "shipped", "lerma", "quantity", "product", "description", "kgs",
-"booking", "invoice", a city, a country, or a column header. If a candidate has no digit AND
-no separator (i.e. it is a plain word), it is NOT a SKU — do not output it.
+ASPT-SL-ALLXN-13, OP-HAA, and LINET/Wibo codes like 1GE412055-2313, 1K40B611-336,
+4PW171100LS, 11028700B0000 (start with a digit, mix digits+letters, may end in -NNNN).
+A SKU is NEVER a standalone dictionary word or a label such as "fecha", "date", "total",
+"shipped", "lerma", "quantity", "product", "description", "kgs", "booking", "invoice", a city,
+a country, or a column header. If a candidate has no digit AND no separator (i.e. it is a plain
+word), it is NOT a SKU — do not output it.
+The SKU is the CODE, NOT the human product NAME: "Eleganza 4 With scales", "TOM2 without
+scales", "Solido 3", "Praktika 2" are NAMES → never output them as the SKU; output the code
+(e.g. 1GE412055-2313) instead.
+Container numbers on shipping documents (4 letters + 6-7 digits, e.g. MRSU7925863, CAAU5312947)
+are NOT SKUs.
 
 === HOW TO FIND EACH FIELD ===
 
@@ -25,9 +32,13 @@ no separator (i.e. it is a plain word), it is NOT a SKU — do not output it.
   order/PO/booking over the invoice. If none, null.
 
 "items[].sku": the product/item CODE. Identify the SKU COLUMN by ANY of these header synonyms:
-    SKU · Item · Item No · Item Number · Item # · Product · Producto · Article · Style ·
-    Código · Codigo · No. de parte · N° de parte · Parte · Modelo · Model · Model # ·
-    Model Number · "Model # & COO".
+    SKU · Item · Item No · Item Number · Item # · Product · Producto · Product number · Article ·
+    Article Code · Material · Material Description · Model number · Style · Código · Codigo ·
+    No. de parte · N° de parte · Parte · Modelo · Model · Model # · Model Number · "Model # & COO".
+  IMPORTANT: some headers are misleading — e.g. on LINET delivery notes the column "Material
+  Description" holds the CODE (1GE412055-2313) while the NAME is in "Customer Article Details".
+  Always take the alphanumeric CODE, and take the NAME from columns like "Product descr.",
+  "Product name", "Article Name", "Customer Article Details" → ignore those for the SKU.
   Take the CODE from that column — NOT the description prose next to it.
   Examples of real SKUs across clients: NTEL16825, NTL49926-1, PFTL90924 (under "Product");
     GA-47V OAK SAND, GA-341 VINTAGE BROWN, GA-SP-S-9127, GA-SP-S9127NEGRA (under "ITEM NO");
@@ -78,6 +89,19 @@ no separator (i.e. it is a plain word), it is NOT a SKU — do not output it.
   capture ONLY the code line. Prefer "Unit QTY" over "# of Pcs Shipped".
 - SO2554-style pick tickets ("Descripción" + "Cant"): the SKU appears on its own line DIRECTLY
   UNDER the description prose; qty is in the "Cant" column.
+- LINET / Wissner-Bosserhoff / Wibo (hospital beds & medical equipment): the SKU is the
+  alphanumeric CODE (1GE412055-2313, 1K40B611-336, 4PW171100LS), under "Model number" (CSV),
+  "Material Description" (Delivery Note), "Article Code" (Proforma) or "Product number" (Excel).
+  The NAME ("Eleganza 4 With scales", "Solido 3"…) is in the adjacent column → NEVER the SKU.
+  qty = "Quantity" / "pcs" / "Item Qty". Serial numbers are listed under "Serial no". IGNORE
+  Unit Price/VAT/Gross Price/Discount (USD), HS code, weights, dimensions and "Pcs in colli".
+
+=== DOCUMENTS WITH NO PRODUCT LINE ITEMS (return items: []) ===
+A Bill of Lading / Sea Waybill / transport document (Maersk, BDP, "NON-NEGOTIABLE WAYBILL",
+"EXPRESS BILL OF LADING") is NOT a packing list. It lists containers + seals + total packages +
+HS code + weights, but NO per-product rows. For such documents return { "ref": null,
+"documentTotalQty": null, "items": [] }. Do NOT turn container numbers (MRSU7925863, CAAU5312947,
+SUDU6990300) or HS codes into SKUs.
 
 === FEW-SHOT EXAMPLES (input columns → expected JSON) ===
 1) Garrido. Columns: ITEM NO | DESCRIPTION | PCS | CTN | UNIT G.W. | TOTAL G.W. | CARTON SIZE | TOTAL VOL.
@@ -104,6 +128,15 @@ no separator (i.e. it is a plain word), it is NOT a SKU — do not output it.
 3) Life Fitness. Columns: ORG | Model # & COO | # of Pcs Shipped | Unit QTY.
    Row: "CMC | ASPT-SL-ALLXN-13 / TREADMILL (EXERCISE EQUIP) / Made in CHINA | 2 | 2"
    → { "ref": null, "documentTotalQty": null, "items": [ {"sku":"ASPT-SL-ALLXN-13","qty":2,"serialNumber":null} ] }
+4) LINET Delivery Note. Columns: Item | Material Description | Customer Article Details | Customer Article Code | Quantity.
+   Rows: "10 | 1GE412055-2313 | Eleganza 4 With scales | | 36.00 PC" ; "20 | 4PW171100LS | Passive mattress ViskoMatt | | 36.00 PC"
+   → { "ref": "30191411", "documentTotalQty": null, "items": [
+       {"sku":"1GE412055-2313","qty":36,"serialNumber":null},
+       {"sku":"4PW171100LS","qty":36,"serialNumber":null} ] }
+   (Note: the CODE is under "Material Description"; "Eleganza 4 With scales" is the NAME → not the SKU.)
+5) Maersk Bill of Lading / Waybill (transport doc, no product rows). Shows containers MRSU7925863,
+   CAAU5312947, "3 containers said to contain 60 PACKAGE", "MEDICAL EQUIPMENT", "HS CODE: 940290".
+   → { "ref": null, "documentTotalQty": null, "items": [] }
 
 === GENERAL RULES ===
 - Do NOT invent SKUs. If a code is unreadable, omit that line rather than guessing.
