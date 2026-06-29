@@ -20,7 +20,11 @@ function WizardInner() {
     state, error, saving, lastSavedAt,
     goToStep, finishWizard, resetWizard, resumeFromEntry,
   } = useEntradaWizard()
-  const { currentStep, step1Complete, exportGenerated, flowStatus, extensivTransactionId } = state
+  const { currentStep, step1Complete, exportGenerated, flowStatus, extensivTransactionId, originalItems } = state
+
+  // Override de PRUEBA: permite saltar el bloqueo del Paso 1 (SKUs sin dar de alta)
+  // cuando ya hay una nota cargada. Solo para pruebas; en producción se valida.
+  const showStep1Override = currentStep === 1 && !step1Complete && originalItems.length > 0
 
   // Resume / clean — solo una vez al montar.
   const inited = useRef(false)
@@ -120,11 +124,20 @@ function WizardInner() {
             >
               <ArrowLeft size={16} /> Atrás
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap justify-end">
               {!nextEnabled && nextHint && (
                 <span className="text-xs text-amber-700 flex items-center gap-1.5">
                   <AlertTriangle size={13} /> {nextHint}
                 </span>
+              )}
+              {showStep1Override && (
+                <button
+                  onClick={() => goToStep(2)}
+                  title="Solo para pruebas: avanza sin que todos los SKUs estén dados de alta"
+                  className="h-10 px-4 rounded-lg border border-dashed border-amber-400 bg-amber-50 text-sm font-medium text-amber-700 flex items-center gap-2 hover:bg-amber-100 transition-colors"
+                >
+                  Continuar sin validar (prueba) <ArrowRight size={16} />
+                </button>
               )}
               <button
                 onClick={handleNext}

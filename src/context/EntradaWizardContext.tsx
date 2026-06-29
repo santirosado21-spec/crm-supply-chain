@@ -139,6 +139,14 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
   // Valida contra el ITEM MASTER (SKUs dados de alta), NO contra el stock — un
   // SKU registrado con 0 existencias debe contar como "Registrado".
   const loadCatalog = useCallback(async (customerId: number) => {
+    // Cliente de PRUEBA (id < 0): no existe en Extensiv → catálogo vacío, sin error.
+    // Todos los SKUs saldrán "por dar de alta"; se avanza con el override de prueba.
+    if (customerId < 0) {
+      setCatalogSet(new Set())
+      setCatalogCount(0)
+      setCatalogLoading(false)
+      return
+    }
     setCatalogLoading(true)
     setCatalogSet(null)
     setCatalogCount(0)
@@ -341,7 +349,8 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     setError('')
     try {
       // Inventario FRESCO (el usuario ya subió el receipt a Extensiv).
-      const items = await getExtensivInventoryByCustomer(cur.customerId)
+      // Cliente de prueba (id < 0): sin inventario en Extensiv → todo "no encontrado".
+      const items = cur.customerId < 0 ? [] : await getExtensivInventoryByCustomer(cur.customerId)
       const map = new Map<string, number>()
       for (const it of items) {
         const n = normalizeSKU(it.sku)

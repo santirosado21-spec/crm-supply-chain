@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import {
   isExtensivConfigured, getExtensivCustomers, type ExtensivCustomer,
 } from '../../../../lib/extensiv'
+import { TEST_CLIENTS } from './testClients'
 
 interface Props {
   value:      number | null
@@ -24,6 +25,8 @@ export function ClienteExtensivSelector({ value, onChange, disabled, statusSlot 
       .catch(e => console.warn('Could not load Extensiv customers:', e))
   }, [apiConfigured])
 
+  const allClients = [...customers, ...TEST_CLIENTS]
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
       <label className="text-xs font-semibold text-gray-600 block">Cliente en Extensiv</label>
@@ -35,7 +38,7 @@ export function ClienteExtensivSelector({ value, onChange, disabled, statusSlot 
             onChange={e => {
               const id = e.target.value ? Number(e.target.value) : 0
               if (!id) return
-              const name = customers.find(c => c.id === id)?.name ?? ''
+              const name = allClients.find(c => c.id === id)?.name ?? ''
               onChange(id, name)
             }}
             className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 disabled:bg-gray-50 disabled:text-gray-400"
@@ -44,6 +47,13 @@ export function ClienteExtensivSelector({ value, onChange, disabled, statusSlot 
             {customers.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
+            {TEST_CLIENTS.length > 0 && (
+              <optgroup label="Pruebas (no en Extensiv)">
+                {TEST_CLIENTS.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
           {statusSlot}
         </>
