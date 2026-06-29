@@ -130,3 +130,52 @@ export function extractItemsFromWorkbook(wb: XLSX.WorkBook): PTExtraction {
   }))
   return { ref, items }
 }
+
+/* ─── PDF tipo Delivery Note (líneas), p.ej. LINET ──────────────────────── */
+// Cada renglón de item es: "<#pos> <CÓDIGO> <nombre…> <cant> PC".
+// El SKU es el código tras el número de posición; la cantidad es el número justo
+// antes de la unidad ("PC"/"PCS"/"EA"/"PZA"/"ST"/"UN"). Los seriales vienen en
+// renglones "Serial no …" (que pueden continuar en renglones siguientes con solo
+// números largos). Se agrupa por SKU. Es puro (sin pdfjs) → testeable en Node.
+// El sufijo de unidad ("PC") evita falsos positivos con iFIT/Garrido/SO2554/Life Fitness.
+const DN_ITEM_RE   = /^\s*\d{1,4}\s+(\S+)\s+.*?(\d+(?:[.,]\d+)?)\s*(?:PC|PCS|EA|PZA|ST|UN|UNIT)\b/i
+const DN_SERIAL_RE = /serial\s*(?:no|number|#)?\.?\s*[:.]?\s*(.+)$/i
+
+export function parseDeliveryNoteLines(lines: string[]): PTLineItem[] {
+  const agg = new Map<string, { sku: string; qty: number; serials: string[] }>()
+  let lastSku: string | null = null
+
+  const pushSerials = (sku: string, text: string) => {
+    const serials = text.split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{6,}$/.test(s))
+    if (serials.length) agg.get(sku)?.serials.push(...serials)
+  }
+
+  for (const raw of lines) {
+    const line = (raw ?? '').trim()
+    if (!line) continue
+
+    // Renglón de seriales: "Serial no 2026…, 2026…".
+    const sm = DN_SERIAL_RE.exec(line)
+    if (sm && lastSku && /\d{6,}/.test(sm[1])) { pushSerials(lastSku, sm[1]); continue }
+    // Continuación de seriales: renglón con solo números largos + comas.
+    if (lastSku && /^[\d,\s]+$/.test(line) && /\d{6,}/.test(line)) { pushSerials(lastSku, line); continue }
+
+    // Renglón de item con unidad "PC".
+    const m = DN_ITEM_RE.exec(line)
+    if (!m) continue
+    const sku = normalizeSKU(m[1])
+    if (!sku || !isValidSku(sku)) continue
+    const qty = Math.trunc(parseFloat(m[2].replace(',', '.')) || 0)
+    if (qty <= 0) continue
+    const e = agg.get(sku) ?? { sku, qty: 0, serials: [] }
+    e.qty += qty
+    agg.set(sku, e)
+    lastSku = sku
+  }
+
+  return Array.from(agg.values()).map(e => ({
+    sku: e.sku,
+    qty: e.qty,
+    serialNumber: e.serials.length ? Array.from(new Set(e.serials)).join(', ') : null,
+  }))
+}

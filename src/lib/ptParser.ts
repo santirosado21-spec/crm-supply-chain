@@ -15,7 +15,7 @@ export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku,
 // Parser de hojas (Excel/CSV) sin pdfjs — fuente única de tipos y regex de encabezado.
 import {
   SKU_HEADER_RE, QTY_HEADER_RE, SERIAL_HEADER_RE, normalizeSerial,
-  extractItemsFromWorkbook, detectRefFromExcel,
+  extractItemsFromWorkbook, detectRefFromExcel, parseDeliveryNoteLines,
   type PTLineItem, type PTExtraction,
 } from './sheetParser'
 export { detectRefFromExcel }
@@ -151,6 +151,11 @@ function extractDescriptionFormat(
 async function extractItemsFromPDF(file: File): Promise<PTExtraction> {
   const grid = await extractPDFGrid(file)
   const ref = detectRefFromGrid(grid)
+
+  // Estrategia C (líneas): Delivery Notes tipo LINET "<#> <CÓDIGO> <nombre> <cant> PC".
+  // Determinista (no depende de visión). Solo aplica si encuentra items con unidad "PC".
+  const dnItems = parseDeliveryNoteLines(grid.map(rowToLine))
+  if (dnItems.length > 0) return { ref, items: dnItems }
 
   // Scan rows looking for header signatures
   for (let r = 0; r < grid.length; r++) {
