@@ -82,6 +82,10 @@ export interface CotizadorInput {
   maniobrasHoras:   number
   maniobrasMinutos: number
   maniobraCosto:    number      // $/hr
+  // Monto fijo adicional de maniobra (p.ej. maniobrista externo que cobra a precio
+  // cerrado). Se SUMA encima de la maniobra por horas y es un costo más: entra a
+  // costoTotal, gana markup y se cobra al cliente.
+  maniobraExtra?:   number
   // Lista de maniobristas asignados (mezcla interno/externo). Reemplaza al
   // antiguo `maniobrista?: string` — el motor concatena los nombres para PDF.
   maniobristas?:    ManiobristaAsignado[]
@@ -135,6 +139,7 @@ export interface CotizadorResult {
   gastosFijos:       number
   maniobra:          number
   maniobraDetalle:   { horas: number; minutos: number; costoPorHora: number }
+  maniobraExtra:     number                                       // monto fijo adicional (gana markup)
   maniobristas:      ManiobristaAsignado[]                        // todos los asignados
   maniobrista?:      string                                       // string concatenado (PDF/notas)
   horasExtra:        number
@@ -244,6 +249,9 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
   // ── maniobra ────────────────────────────────────────────────────────────────
   const totalHorasManiobra = inp.maniobrasHoras + inp.maniobrasMinutos / 60
   const maniobra = Math.round(totalHorasManiobra * inp.maniobraCosto)
+  // Monto fijo adicional de maniobra: se SUMA encima de la maniobra por horas.
+  // Es un costo operativo más (entra a costoTotal y gana markup). Nunca negativo.
+  const maniobraExtra = Math.max(0, Math.round(inp.maniobraExtra ?? 0))
 
   // ── días especiales ─────────────────────────────────────────────────────────
   const horasExtra = Math.round(
@@ -264,7 +272,7 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
 
   // ── totals (markup formula: precio = costo + costo×margen) ─────────────────
   const costoTotal = bonosBase + horasExtra + viaticos + costoCombustible +
-                     casetas + depreciacion + gastosFijos + maniobra + dadiva
+                     casetas + depreciacion + gastosFijos + maniobra + maniobraExtra + dadiva
 
   const margen      = MARGENES_CLIENTE[inp.tipoCliente] ?? 0.35
   const ganancia    = Math.round(costoTotal * margen)
@@ -297,6 +305,7 @@ export function calcularFlete(inp: CotizadorInput): CotizadorResult {
     gastosFijos,
     maniobra,
     maniobraDetalle: { horas: inp.maniobrasHoras, minutos: inp.maniobrasMinutos, costoPorHora: inp.maniobraCosto },
+    maniobraExtra,
     maniobristas:   inp.maniobristas ?? [],
     maniobrista:    formatManiobristas(inp.maniobristas ?? []) || undefined,
     horasExtra,

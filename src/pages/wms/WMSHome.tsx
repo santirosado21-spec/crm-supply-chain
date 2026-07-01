@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi, CalendarClock } from 'lucide-react'
+import { ArrowLeft, ScanBarcode, FileCheck, FileText, Users, ArrowRight, RefreshCw, AlertTriangle, TrendingUp, Package, Wifi } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { useWMSOperationsData } from '../../hooks/useWMSOperationsData'
@@ -13,13 +13,6 @@ interface Tool {
 }
 
 const tools: Tool[] = [
-  {
-    to: '/calendario/ejecutivo',
-    title: 'Calendario SAC',
-    description: 'Vista ejecutiva de tareas enviadas a almacén — pendientes, en curso y completadas.',
-    icon: CalendarClock,
-    category: 'sac',
-  },
   {
     to: '/sac/validador',
     title: 'Validador de SKUs',

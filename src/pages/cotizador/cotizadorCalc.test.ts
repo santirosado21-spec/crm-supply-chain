@@ -400,3 +400,44 @@ describe('calcularFlete — dádiva (contingencia Guardia Nacional)', () => {
     expect(neg.precioFinal).toBe(base.precioFinal)
   })
 })
+
+describe('calcularFlete — maniobra personalizada (monto fijo adicional)', () => {
+  it('sin maniobraExtra (undefined) no altera costoTotal ni precioFinal y maniobraExtra = 0', () => {
+    const base = calcularFlete(makeInput())
+    const sin  = calcularFlete(makeInput({ maniobraExtra: undefined }))
+    expect(sin.maniobraExtra).toBe(0)
+    expect(sin.costoTotal).toBe(base.costoTotal)
+    expect(sin.precioFinal).toBe(base.precioFinal)
+  })
+
+  it('la maniobra personalizada se suma al costoTotal y gana markup en el precioFinal', () => {
+    const margen = MARGENES_CLIENTE.FINAL // 0.35
+    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
+    const conM = calcularFlete(makeInput({ tipoCliente: 'FINAL', maniobraExtra: 1800 }))
+
+    expect(conM.maniobraExtra).toBe(1800)
+    expect(conM.costoTotal).toBe(base.costoTotal + 1800)
+    expect(conM.ganancia).toBe(base.ganancia + Math.round(1800 * margen))            // +630
+    expect(conM.precioFinal).toBe(base.precioFinal + 1800 + Math.round(1800 * margen)) // +2430
+  })
+
+  it('coexiste con la maniobra por horas: ambas suman al costoTotal', () => {
+    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
+    const conAmbas = calcularFlete(makeInput({
+      tipoCliente: 'FINAL',
+      maniobrasHoras: 2, maniobrasMinutos: 0, maniobraCosto: 500, // $1000 por horas
+      maniobraExtra: 800,
+    }))
+    expect(conAmbas.maniobra).toBe(1000)
+    expect(conAmbas.maniobraExtra).toBe(800)
+    expect(conAmbas.costoTotal).toBe(base.costoTotal + 1000 + 800)
+  })
+
+  it('maniobra personalizada negativa se acota a 0 (sin efecto)', () => {
+    const base = calcularFlete(makeInput())
+    const neg  = calcularFlete(makeInput({ maniobraExtra: -5000 }))
+    expect(neg.maniobraExtra).toBe(0)
+    expect(neg.costoTotal).toBe(base.costoTotal)
+    expect(neg.precioFinal).toBe(base.precioFinal)
+  })
+})

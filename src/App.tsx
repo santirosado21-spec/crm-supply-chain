@@ -17,8 +17,6 @@ import { PizarronPage } from './pages/almacen/PizarronPage'
 import { PizarronKioskPage } from './pages/almacen/PizarronKioskPage'
 import { PizarronAdminPage } from './pages/almacen/PizarronAdminPage'
 import { DiaPage } from './pages/almacen/DiaPage'
-import { CalendarioAlmacenPage } from './pages/almacen/CalendarioAlmacenPage'
-import { AlmacenAgendaPage } from './pages/almacen/AlmacenAgendaPage'
 import { TMSHome } from './pages/tms/TMSHome'
 import { TMSDashboard } from './pages/tms/TMSDashboard'
 import { VehiculosPage } from './pages/tms/VehiculosPage'
@@ -39,18 +37,16 @@ import { ValidadorCodigosAlmacenPage } from './pages/almacen/ValidadorCodigosAlm
 import { ValidacionNotaEntradaPage } from './pages/almacen/ValidacionNotaEntradaPage'
 import { EntradaWizardPage } from './pages/almacen/entradas/EntradaWizardPage'
 import { EntradasHistorialPage } from './pages/almacen/entradas/EntradasHistorialPage'
-import { TaskInbox } from './pages/tasks/TaskInbox'
-import { TaskCalendar } from './pages/tasks/TaskCalendar'
 import { TaskCreate } from './pages/tasks/TaskCreate'
 import { TaskDetail } from './pages/tasks/TaskDetail'
 import { TaskTemplates } from './pages/tasks/TaskTemplates'
-import { ExecutiveCalendarPage } from './pages/tasks/ExecutiveCalendarPage'
 import { TeamSettings } from './pages/tasks/admin/TeamSettings'
 import { Reports } from './pages/tasks/admin/Reports'
 import { AuditLog } from './pages/tasks/admin/AuditLog'
+import { TagsAdmin } from './pages/tasks/admin/TagsAdmin'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { AGENDA_ROLES, ALMACEN_ROLES, CALENDARIO_ROLES, EJECUTIVO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { AGENDA_ROLES, ALMACEN_ROLES, CALENDARIO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
 import { AgendaPage } from './pages/agenda/AgendaPage'
 
 // Preserva el :id en el redirect compat /tasks/:id → /calendario/:id
@@ -101,12 +97,9 @@ function App() {
           <Route path="/almacen/hoy" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><HoyPage /></ProtectedRoute>
           } />
-          <Route path="/almacen/calendario" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><CalendarioAlmacenPage /></ProtectedRoute>
-          } />
-          <Route path="/almacen/agenda" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><AlmacenAgendaPage /></ProtectedRoute>
-          } />
+          {/* El operativo de almacén vive dentro del Calendario General (vista Operativo). */}
+          <Route path="/almacen/calendario" element={<Navigate to="/agenda?vista=operativo" replace />} />
+          <Route path="/almacen/agenda" element={<Navigate to="/agenda" replace />} />
           <Route path="/almacen/dia" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><DiaPage /></ProtectedRoute>
           } />
@@ -205,22 +198,17 @@ function App() {
           } />
           {/* Compat redirect: ruta vieja /sac/receipt-generator → módulo Almacén */}
           <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />
-          {/* Calendario (cross-team) — antes Task Tracker, ahora expuesto desde WMS / TMS */}
-          <Route path="/calendario" element={
-            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskInbox /></ProtectedRoute>
-          } />
-          <Route path="/calendario/semana" element={
-            <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskCalendar /></ProtectedRoute>
-          } />
+          {/* Calendario General es el único módulo de calendario. La bandeja (inbox)
+              es una pestaña dentro de /agenda; /calendario redirige a ella. */}
+          <Route path="/calendario" element={<Navigate to="/agenda?vista=bandeja" replace />} />
+          <Route path="/calendario/semana" element={<Navigate to="/agenda" replace />} />
           <Route path="/calendario/nueva" element={
             <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskCreate /></ProtectedRoute>
           } />
           <Route path="/calendario/plantillas" element={
             <ProtectedRoute allowedRoles={CALENDARIO_ROLES}><TaskTemplates /></ProtectedRoute>
           } />
-          <Route path="/calendario/ejecutivo" element={
-            <ProtectedRoute allowedRoles={EJECUTIVO_ROLES}><ExecutiveCalendarPage /></ProtectedRoute>
-          } />
+          <Route path="/calendario/ejecutivo" element={<Navigate to="/agenda" replace />} />
           <Route path="/calendario/admin/equipo" element={
             <ProtectedRoute allowedRoles={['admin']}><TeamSettings /></ProtectedRoute>
           } />
@@ -229,6 +217,9 @@ function App() {
           } />
           <Route path="/calendario/admin/auditoria" element={
             <ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>
+          } />
+          <Route path="/calendario/admin/etiquetas" element={
+            <ProtectedRoute allowedRoles={['admin']}><TagsAdmin /></ProtectedRoute>
           } />
           <Route path="/calendario/:id" element={
             <ProtectedRoute><TaskDetail /></ProtectedRoute>

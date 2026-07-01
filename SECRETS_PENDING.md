@@ -68,9 +68,49 @@ supabase functions deploy openrouter-vision
 `SUPABASE_URL` y `SUPABASE_ANON_KEY` (usados para validar el JWT del usuario) los
 inyecta la plataforma automáticamente — no hay que configurarlos.
 
+## 4. Resend — verificar dominio para el correo de tareas ⚠️ PENDIENTE
+
+**Síntoma confirmado (prod, tabla `email_log`, 2026-07-01):** los correos de
+notificación de tareas (`notify_task_event` → `db_send_task_email` → edge fn
+`notify-task-email` → Resend) **solo llegan a `santirosado21@gmail.com`** (dueño
+de la cuenta Resend, HTTP 200). Cualquier otro destinatario del equipo falla con
+`403 validation_error: "You can only send testing emails to your own email address"`.
+El gate 401 histórico (EDGE_SHARED_SECRET) ya está resuelto — hoy el pipeline sí
+llega a Resend. **Lo único que falta es verificar un dominio propio.**
+
+> Esto NO bloquea mandar/recibir tareas ni la campanita in-app (las notificaciones
+> in-app funcionan). Solo afecta la entrega por correo al resto del equipo.
+
+Pasos (el usuario los hace cuando tenga acceso al DNS):
+
+1. En Resend → **Domains** → agregar `supplychain.com.mx` y crear los registros
+   **SPF + DKIM** (y DMARC) que Resend indique en el DNS del dominio. Esperar a
+   que Resend marque el dominio como **Verified**.
+2. Setear el remitente en Supabase secrets (hoy cae al sandbox
+   `onboarding@resend.dev`, ver `supabase/functions/notify-task-email/index.ts:12`):
+
+   ```bash
+   supabase secrets set FROM_EMAIL="CRM Supply Chain <notificaciones@supplychain.com.mx>"
+   ```
+3. Confirmar que `RESEND_API_KEY` y `EDGE_SHARED_SECRET` sigan configurados:
+
+   ```bash
+   supabase secrets list
+   ```
+4. Redeploy de la función tras cambiar secrets:
+
+   ```bash
+   supabase functions deploy notify-task-email
+   ```
+5. Validar: crear una tarea y revisar `email_log` (status `sent`, http 200) para
+   un destinatario `@supplychain.com.mx`.
+
 ## Estado
 
-- [ ] Migración `20260521000001` aplicada
-- [ ] Seed de `team_members` ejecutado
+- [x] Migración `20260521000001` (task_distribution) aplicada — vía MCP, 2026-07-01
+- [x] Cuenta receptora + distribuidores ya existen en prod (dominio real
+  `@supplychain.com.mx`; el seed de §1 con `@supplychain.mx` quedó de ejemplo).
+  `gluna.lrm@supplychain.com.mx` (Memo) marcado `can_distribute_tasks = true`.
 - [ ] (Opcional) `VITE_ALMACEN_RECEPTOR_EMAIL` configurada si difiere del default
 - [ ] `OPENROUTER_API_KEY` configurada (rotada) + `openrouter-vision` desplegada
+- [ ] **Resend: dominio `supplychain.com.mx` verificado + `FROM_EMAIL` seteado** (§4)

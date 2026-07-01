@@ -23,7 +23,7 @@ const tools: Tool[] = [
   { to: '/cotizador',     title: 'Cotizador',  description: 'Cotizador de fletes locales y foráneos.',              icon: Calculator,      category: 'com' },
   { to: '/tms/carta-porte',title: 'Carta Porte',description: 'Genera CFDI 4.0 con complemento Carta Porte 3.1 (sin timbrar).', icon: FileText,  category: 'tms' },
   { to: '/tramites',      title: 'Trámites',   description: 'Vencimientos, verificaciones y trámites pendientes.',  icon: CalendarClock,   category: 'com' },
-  { to: '/calendario',    title: 'Calendario', description: 'Bandeja de tareas — crea y sigue solicitudes hacia almacén.', icon: Calendar, category: 'com' },
+  { to: '/agenda',        title: 'Calendario', description: 'Calendario General — tu bandeja, tareas del equipo y solicitudes hacia almacén.', icon: Calendar, category: 'com' },
 ]
 
 // Identidad visual unificada: todas las categorías comparten el navy

@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR (la #11 ya está aplicada)
+## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR (#11, #12 y #13 ya aplicadas)
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -127,6 +127,20 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   (total declarado de la nota para auto-verificación) + índice `idx_we_transaction`.
 - Sin esta migración el wizard funciona, pero no persiste el número de transacción ni
   el total para reconciliación.
+
+### 13. `20260625130000_task_tags.sql` ✅ APLICADA (2026-06-25, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; tablas + RLS + realtime + seed de 18 etiquetas activos)
+- Nueva tabla `task_tags` (catálogo de etiquetas de clasificación de tareas,
+  agrupado por `dimension`: movimiento | area | actividad | prioridad | proveedor)
+  con `label`, `color`, `sort_order`, `active`. RLS: lectura autenticada, escritura
+  solo admin (`current_user_is_admin()`, igual que `task_categories`). Índice
+  único `(dimension, lower(label))` + índice `(dimension, active, sort_order)`.
+- Nueva tabla puente `task_tag_links` (task_id FK → tasks, tag_id FK → task_tags,
+  PK compuesta) con RLS abierta + índice en `tag_id`.
+- Realtime habilitado en ambas. Seed idempotente de movimiento/área/actividad/
+  prioridad (proveedor queda vacío — lo llena admin desde Dirección → Etiquetas).
+- Respalda la clasificación obligatoria de tareas del **Calendario General** y
+  los filtros por etiqueta. Sin esta migración el formulario de "Crear tarea para
+  Calendario General" y los filtros de `/agenda` fallan al leer `task_tags`.
 
 ## Cómo aplicar
 

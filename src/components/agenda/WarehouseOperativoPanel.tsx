@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus, CheckCircle2, CalendarDays, ListChecks } from 'lucide-react'
-import { Header } from '../../components/layout/Header'
-import { Sidebar } from '../../components/layout/Sidebar'
-import { Spinner } from '../../components/ui/Spinner'
-import { QuickEventModal } from '../../components/agenda/QuickEventModal'
-import { TaskTraceabilityPanel } from '../../components/tasks/TaskTraceabilityPanel'
+import { Spinner } from '../ui/Spinner'
+import { QuickEventModal } from './QuickEventModal'
+import { TaskTraceabilityPanel } from '../tasks/TaskTraceabilityPanel'
+import { TaskRouteLabel } from '../tasks/TaskRouteLabel'
 import { useTasks } from '../../hooks/useTasks'
+import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, DAY_OF_WEEK_LABEL, type Task } from '../../types/tasks'
 import { ALMACEN_RECEPTOR_EMAIL } from '../../config/almacen'
@@ -24,8 +24,15 @@ function toYMD(d: Date): string { return d.toISOString().slice(0, 10) }
 
 // ─── componente ──────────────────────────────────────────────────────────────
 
-export function CalendarioAlmacenPage() {
+/**
+ * Calendario operativo de almacén — es el Calendario General acotado a lo que
+ * le compete a almacén (`assignee = ALMACEN_RECEPTOR_EMAIL`). Sin chrome de
+ * página: se renderiza como la vista "Operativo" dentro de AgendaPage
+ * (visible solo a almacén + admin).
+ */
+export function WarehouseOperativoPanel() {
   const { tasks, loading, list } = useTasks()
+  const { byEmail } = useTeamMembers()
 
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
@@ -93,77 +100,69 @@ export function CalendarioAlmacenPage() {
 
   // Contadores del día activo
   const activeCounts = {
-    pending:   dayTasks.filter(t => t.status === 'propuesta' || t.status === 'aceptada').length,
+    pending:    dayTasks.filter(t => t.status === 'propuesta' || t.status === 'aceptada').length,
     inProgress: dayTasks.filter(t => t.status === 'en_curso' || t.status === 'pausada').length,
-    done:      dayTasks.filter(t => t.status === 'finalizada').length,
+    done:       dayTasks.filter(t => t.status === 'finalizada').length,
   }
 
   return (
-    <div className="flex h-dvh min-h-dvh flex-col overflow-hidden" style={{ background: 'var(--page-bg)' }}>
-      <Header />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden touch-pan-y p-4 sm:p-6">
-
-          {/* ── Header ── */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div>
-              <h1 className="text-xl font-bold text-[#1e3a5f]">Calendario Operaciones</h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Cargas, descargas y actividades asignadas al almacén
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Toggle vista calendario / tareas */}
-              <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1">
-                <button
-                  type="button"
-                  title="Vista calendario"
-                  onClick={() => setViewMode('calendar')}
-                  className={`p-2 rounded-lg transition-all ${
-                    viewMode === 'calendar'
-                      ? 'bg-white shadow-sm text-[#1e3a5f]'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  <CalendarDays size={15} />
-                </button>
-                <button
-                  type="button"
-                  title="Tareas — pendientes y cerradas"
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-all ${
-                    viewMode === 'list'
-                      ? 'bg-white shadow-sm text-[#1e3a5f]'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  <ListChecks size={15} />
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setModalOpen(true)}
-                className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity"
-              >
-                <Plus size={16} /> Nueva actividad
-              </button>
-            </div>
+    <div>
+      {/* ── Barra del operativo ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <p className="text-xs font-semibold text-[#1e3a5f]">
+          Operativo · solo actividades asignadas al almacén
+        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Toggle vista calendario / tareas */}
+          <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1">
+            <button
+              type="button"
+              title="Vista calendario"
+              onClick={() => setViewMode('calendar')}
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === 'calendar'
+                  ? 'bg-white shadow-sm text-[#1e3a5f]'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <CalendarDays size={15} />
+            </button>
+            <button
+              type="button"
+              title="Tareas — pendientes y cerradas"
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === 'list'
+                  ? 'bg-white shadow-sm text-[#1e3a5f]'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <ListChecks size={15} />
+            </button>
           </div>
 
-          {/* ════════════════════════════════════════════════════════════
-              VISTA TAREAS (trazabilidad — solo almacén)
-          ════════════════════════════════════════════════════════════ */}
-          {viewMode === 'list' && (
-            <TaskTraceabilityPanel assignee={ALMACEN_RECEPTOR_EMAIL} onChanged={refresh} />
-          )}
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity"
+          >
+            <Plus size={16} /> Nueva actividad
+          </button>
+        </div>
+      </div>
 
-          {/* ════════════════════════════════════════════════════════════
-              VISTA CALENDARIO
-          ════════════════════════════════════════════════════════════ */}
-          {viewMode === 'calendar' && (
-          <>
+      {/* ════════════════════════════════════════════════════════════
+          VISTA TAREAS (trazabilidad — solo almacén)
+      ════════════════════════════════════════════════════════════ */}
+      {viewMode === 'list' && (
+        <TaskTraceabilityPanel assignee={ALMACEN_RECEPTOR_EMAIL} onChanged={refresh} />
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          VISTA CALENDARIO
+      ════════════════════════════════════════════════════════════ */}
+      {viewMode === 'calendar' && (
+        <>
           {/* ── Navegador de semana ── */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-4">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -289,9 +288,9 @@ export function CalendarioAlmacenPage() {
                       {t.description && (
                         <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{t.description}</p>
                       )}
-                      <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                        Por: {t.assigner_email}
-                      </p>
+                      <div className="mt-1">
+                        <TaskRouteLabel assigner={t.assigner_email} assignee={t.assignee_email} dir={byEmail} />
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {done ? (
@@ -325,10 +324,8 @@ export function CalendarioAlmacenPage() {
               )
             })}
           </div>
-          </>
-          )}
-        </main>
-      </div>
+        </>
+      )}
 
       <QuickEventModal
         open={modalOpen}

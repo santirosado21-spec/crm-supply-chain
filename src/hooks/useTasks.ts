@@ -7,8 +7,16 @@ const TASK_SELECT = `
   assigner_email, assignee_email, scheduled_start, scheduled_end,
   status, rejection_reason, template_id, created_at,
   category:task_categories ( id, code, name, color, is_billable ),
-  client:clients ( id, name, codigo )
+  client:clients ( id, name, codigo ),
+  tag_links:task_tag_links ( tag:task_tags ( id, dimension, label, color ) )
 `
+
+// Aplana la forma anidada de PostgREST (tag_links[].tag) a Task.tags[].
+function mapTaskRow(row: Record<string, unknown>): Task {
+  const links = (row.tag_links as { tag: unknown }[] | null) ?? []
+  const tags = links.map(l => l.tag).filter(Boolean)
+  return { ...row, tags } as unknown as Task
+}
 
 export interface TaskFilter {
   forEmail?:  string                  // tareas que me involucran (asignadas o creadas por mí)
@@ -59,7 +67,7 @@ export function useTasks() {
 
       const { data, error } = await q
       if (error) throw error
-      const result = (data ?? []) as unknown as Task[]
+      const result = (data ?? []).map(r => mapTaskRow(r as Record<string, unknown>))
       setTasks(result)
       return result
     } catch (e: unknown) {
@@ -77,7 +85,7 @@ export function useTasks() {
       .eq('id', id)
       .maybeSingle()
     if (error) throw new Error(error.message)
-    return (data as unknown as Task | null)
+    return data ? mapTaskRow(data as Record<string, unknown>) : null
   }, [])
 
   const create = useCallback(async (input: CreateTaskInput): Promise<Task> => {
@@ -116,6 +124,17 @@ export function useTasks() {
   }, [])
 
   return { tasks, loading, error, list, get, create, updateStatus }
+}
+
+// ── Etiquetas de clasificación (task_tag_links) ──────────────────────────────
+/** Vincula una tarea a sus etiquetas seleccionadas (Calendario General). */
+export async function linkTaskTags(taskId: string, tagIds: string[]): Promise<void> {
+  const ids = tagIds.filter(Boolean)
+  if (!ids.length) return
+  const { error } = await supabase
+    .from('task_tag_links')
+    .insert(ids.map(tag_id => ({ task_id: taskId, tag_id })))
+  if (error) throw new Error(error.message)
 }
 
 // ── Categorías (cache con TTL) ───────────────────────────────────────────────

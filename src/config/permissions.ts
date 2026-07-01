@@ -1,6 +1,6 @@
 import type { UserRole } from '../types'
 
-export type AppModule = 'wms' | 'tms' | 'calendario' | 'almacen' | 'direccion' | 'agenda'
+export type AppModule = 'wms' | 'tms' | 'almacen' | 'direccion' | 'agenda'
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin:             'Administrador',
@@ -13,18 +13,16 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 export const MODULE_LABEL: Record<AppModule, string> = {
   wms:        'Herramientas de WMS / SAC',
   tms:        'Transportes',
-  calendario: 'Calendario SAC',
   almacen:    'Almacén',
   direccion:  'Dirección',
   agenda:     'Calendario General',
 }
 
-// Matriz de acceso por módulo. El "Calendario Ejecutivo" ya no es un módulo
-// top-level — vive como tool card dentro de WMS (admin + SAC entran al WMS).
-// Cobranza y transporte siguen sin ver la vista ejecutiva. El acceso por ruta
-// a /calendario/ejecutivo lo gobierna EJECUTIVO_ROLES (PATH_ROLE_OVERRIDES).
-// 'direccion' agrupa las herramientas administrativas (equipo, reportes,
-// reporte ejecutivo, auditoría) — exclusivo de admin.
+// Matriz de acceso por módulo. Existe UN solo módulo de calendario: 'agenda'
+// (Calendario General), accesible a todos los roles. El inbox vive como pestaña
+// dentro de él y almacén ve además la vista "Operativo" (el General acotado a
+// almacén). 'direccion' agrupa las herramientas administrativas (equipo,
+// reportes, reporte ejecutivo, auditoría) — exclusivo de admin.
 export const MODULE_ACCESS: Record<UserRole, AppModule[]> = {
   admin:             ['wms', 'tms', 'almacen', 'direccion', 'agenda'],
   almacen:           ['almacen', 'agenda'],
@@ -37,12 +35,10 @@ export const WMS_ROLES: UserRole[]     = ['admin', 'servicio_cliente', 'cobranza
 export const TMS_ROLES: UserRole[]     = ['admin', 'transporte']
 export const ALMACEN_ROLES: UserRole[] = ['admin', 'almacen']
 export const TASK_ROLES: UserRole[]    = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte']
-// CALENDARIO_ROLES: Calendario cross-team (bandeja, semana, plantillas).
-// Almacén queda EXCLUIDO — opera en su propio módulo (Calendario Almacén).
+// CALENDARIO_ROLES: gate del CRUD de tareas bajo /calendario/* (crear, plantillas,
+// detalle). Almacén queda EXCLUIDO de crear tareas cross-team — usa "Nueva
+// actividad" (QuickEventModal) desde la vista Operativo del Calendario General.
 export const CALENDARIO_ROLES: UserRole[] = ['admin', 'servicio_cliente', 'cobranza', 'transporte']
-// EJECUTIVO_ROLES: la vista ejecutiva (/calendario/ejecutivo) es solo para
-// quien da seguimiento ejecutivo a lo enviado a almacén: admin + SAC.
-export const EJECUTIVO_ROLES: UserRole[] = ['admin', 'servicio_cliente']
 // DIRECCION_ROLES: módulo Dirección — equipo, reportes, reporte ejecutivo y
 // auditoría. Solo admin.
 export const DIRECCION_ROLES: UserRole[] = ['admin']
@@ -66,15 +62,6 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
       'Crea viajes desde el TMS y mantén estado/costos actualizados.',
       'Usa el cotizador antes de prometer tarifas al cliente.',
       'Revisa trámites y vencimientos de unidades con frecuencia.',
-    ],
-  },
-  calendario: {
-    title: 'Calendario SAC',
-    body: 'Da seguimiento ejecutivo a las actividades enviadas al almacén, con vista de progreso por pendientes, en curso y completadas.',
-    tips: [
-      'Revisa pendientes para detectar tareas sin arranque operativo.',
-      'Usa la vista ejecutiva para dar seguimiento sin entrar al detalle de cada tarea.',
-      'Abre una tarea desde su tarjeta para corregir o completar información.',
     ],
   },
   almacen: {
@@ -119,11 +106,9 @@ export function moduleFromPath(path: string): AppModule | null {
   // /calendario/admin/* es un sub-prefijo. /admin/* también vive aquí.
   if (path.startsWith('/calendario/admin') || path.startsWith('/admin')) return 'direccion'
   if (path === '/almacen' || path.startsWith('/almacen/')) return 'almacen'
-  // Cualquier ruta /calendario/* (incluida /calendario/ejecutivo) pertenece al
-  // módulo Calendario. El gate de /calendario/ejecutivo lo refina EJECUTIVO_ROLES
-  // en PATH_ROLE_OVERRIDES (admin + SAC). El link "Calendario SAC" en el sidebar
-  // de WMS es un atajo navegacional, no implica que pertenezca al módulo WMS.
-  if (path.startsWith('/calendario') || path.startsWith('/tasks')) return 'calendario'
+  // Todas las rutas /calendario/* y /tasks/* (bandeja, crear, plantillas, detalle)
+  // pertenecen al único módulo de calendario: 'agenda' (Calendario General).
+  if (path.startsWith('/calendario') || path.startsWith('/tasks')) return 'agenda'
   if (path.startsWith('/tms') || path === '/cotizador' || path === '/tramites') return 'tms'
   if (path === '/agenda' || path.startsWith('/agenda/')) return 'agenda'
   if (
@@ -144,11 +129,8 @@ const PATH_ROLE_OVERRIDES: { prefix: string; roles: UserRole[] }[] = [
   // DEBEN ir antes que '/calendario' porque /calendario/admin es sub-prefijo.
   { prefix: '/calendario/admin', roles: DIRECCION_ROLES },
   { prefix: '/admin',            roles: DIRECCION_ROLES },
-  // Vista ejecutiva: solo admin + SAC. DEBE ir antes que '/calendario' porque
-  // el match es por prefijo y se devuelve el primero que coincide.
-  { prefix: '/calendario/ejecutivo', roles: EJECUTIVO_ROLES },
-  // Calendario (cross-team): admin + SAC + cobranza + transporte.
-  // Almacén queda EXCLUIDO — usa su propio módulo /almacen.
+  // CRUD de tareas bajo /calendario/*: admin + SAC + cobranza + transporte.
+  // Almacén queda EXCLUIDO de crear tareas cross-team (usa QuickEventModal).
   { prefix: '/calendario', roles: CALENDARIO_ROLES },
   // Compat: las rutas viejas /tasks/admin/* y /tasks/* siguen el mismo gate
   // hasta que los redirects las absorban en Navigate (defensa en profundidad).
@@ -170,7 +152,6 @@ export function defaultRouteForRole(role: UserRole | undefined) {
   const first = getModulesForRole(role)[0]
   if (first === 'wms')     return '/wms'
   if (first === 'tms')     return '/tms'
-  if (first === 'calendario') return '/calendario/ejecutivo'
   if (first === 'almacen') return '/almacen'
   if (first === 'direccion') return '/admin/executive-report'
   return '/'

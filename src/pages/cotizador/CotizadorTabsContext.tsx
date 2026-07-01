@@ -61,6 +61,8 @@ export interface CotizadorFormState {
   mHoras: number
   mMinutos: number
   mCosto: number
+  // Monto fijo adicional de maniobra (se suma encima de horas×costo, gana markup).
+  maniobraExtra: number
   maniobristas: ManiobristaAsignado[]
 
   // Viáticos / dádiva
@@ -91,7 +93,7 @@ export const INITIAL_FORM_STATE: CotizadorFormState = {
   cliente: '', tipoCliente: 'FINAL', unidadClave: '', operador: '',
   referenciaExtensiv: '', referenciaSAC: '',
   contenedores: [], contCantidad: 0, contTipo: '', descripcionCarga: '',
-  mHoras: 0, mMinutos: 0, mCosto: 150, maniobristas: [],
+  mHoras: 0, mMinutos: 0, mCosto: 150, maniobraExtra: 0, maniobristas: [],
   viaticosExtras: 0, dadiva: 0,
   incluyeBonos: false,
   bonoSueldo: BONOS_DEFAULT.SUELDO,
@@ -169,6 +171,7 @@ function normalizeFormState(fs: Record<string, unknown>): CotizadorFormState {
   const rec = base as unknown as Record<string, unknown>
   if (typeof rec.referenciaExtensiv !== 'string') rec.referenciaExtensiv = ''
   if (typeof rec.referenciaSAC !== 'string')      rec.referenciaSAC = ''
+  if (typeof rec.maniobraExtra !== 'number')      rec.maniobraExtra = 0
   return base
 }
 

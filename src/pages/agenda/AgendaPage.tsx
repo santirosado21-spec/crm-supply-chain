@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2, LayoutGrid, AlignJustify, ListChecks } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, LayoutGrid, AlignJustify, ListChecks, Filter, X, Inbox, Warehouse } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Spinner } from '../../components/ui/Spinner'
-import { QuickEventModal } from '../../components/agenda/QuickEventModal'
 import { MonthGrid } from '../../components/agenda/MonthGrid'
 import { TaskTraceabilityPanel } from '../../components/tasks/TaskTraceabilityPanel'
+import { TaskInboxPanel } from '../../components/tasks/TaskInboxPanel'
+import { WarehouseOperativoPanel } from '../../components/agenda/WarehouseOperativoPanel'
+import { TaskRouteLabel } from '../../components/tasks/TaskRouteLabel'
 import { useTasks } from '../../hooks/useTasks'
+import { useTaskTags } from '../../hooks/useTaskTags'
+import { useClients } from '../../hooks/useClients'
+import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { useAuthContext } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { TASK_STATUS_COLOR, DAY_OF_WEEK_LABEL, type Task } from '../../types/tasks'
+import { TASK_STATUS_COLOR, DAY_OF_WEEK_LABEL, TAG_DIMENSIONS, type TagDimension, type Task } from '../../types/tasks'
+
+const EMPTY_FILTERS: Record<TagDimension, string> = {
+  movimiento: '', area: '', actividad: '', prioridad: '', proveedor: '',
+}
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -21,7 +31,6 @@ function addDays(d: Date, n: number): Date {
   const r = new Date(d); r.setDate(r.getDate() + n); return r
 }
 function sameDate(a: Date, b: Date): boolean { return a.toDateString() === b.toDateString() }
-function toYMD(d: Date): string { return d.toISOString().slice(0, 10) }
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0)
 }
@@ -34,12 +43,31 @@ const MONTH_NAMES = [
 // ─── componente ──────────────────────────────────────────────────────────────
 
 export function AgendaPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthContext()
   const email = user?.email ?? ''
   const { tasks, loading, list } = useTasks()
+  const { byEmail } = useTeamMembers()
 
-  // ── Vista: semana (lista), mes (grid) o tareas (trazabilidad)
-  const [viewMode, setViewMode] = useState<'week' | 'month' | 'list'>('week')
+  // Solo almacén y admin ven el calendario "Operativo" (el General acotado a almacén).
+  const canSeeOperativo = user?.role === 'almacen' || user?.role === 'admin'
+
+  // ── Vista: semana (lista), mes (grid), tareas (trazabilidad), bandeja (inbox)
+  // u operativo (solo almacén/admin). ?vista=bandeja|operativo abre directo.
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'list' | 'inbox' | 'operativo'>(
+    () => {
+      const v = searchParams.get('vista')
+      if (v === 'bandeja') return 'inbox'
+      if (v === 'operativo') return 'operativo'
+      return 'week'
+    },
+  )
+
+  // Guardarraíl: si cae en operativo sin permiso, regresa a semana.
+  useEffect(() => {
+    if (viewMode === 'operativo' && !canSeeOperativo) setViewMode('week')
+  }, [viewMode, canSeeOperativo])
 
   // ── Estado vista semana
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
@@ -52,15 +80,27 @@ export function AgendaPage() {
     const t = new Date(); t.setHours(0, 0, 0, 0); return t
   })
 
-  const [modalOpen, setModalOpen]   = useState(false)
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId]   = useState<string | null>(null)
+
+  // ── Filtros por etiqueta (Calendario General) ──
+  const { byDimension } = useTaskTags()
+  const { clients, getClients } = useClients()
+  const [showFilters, setShowFilters] = useState(true)
+  const [filters, setFilters] = useState<Record<TagDimension, string>>(EMPTY_FILTERS)
+  const [clientFilter, setClientFilter] = useState('')
+
+  useEffect(() => { getClients() }, [getClients])
+
+  const activeFilterCount =
+    TAG_DIMENSIONS.filter(d => filters[d.code]).length + (clientFilter ? 1 : 0)
+  const clearFilters = () => { setFilters(EMPTY_FILTERS); setClientFilter('') }
 
   const refresh = useCallback(() => setRefetchKey(k => k + 1), [])
 
   useEffect(() => {
     if (!email) return
-    if (viewMode === 'list') return // el panel de tareas carga sus propios datos
+    if (viewMode === 'list' || viewMode === 'inbox' || viewMode === 'operativo') return // estos paneles cargan sus propios datos
     if (viewMode === 'week') {
       list({
         fromDate: weekStart.toISOString(),
@@ -94,8 +134,17 @@ export function AgendaPage() {
   )
 
   const visibleTasks = useMemo(
-    () => tasks.filter(t => t.status !== 'cancelada'),
-    [tasks],
+    () => tasks.filter(t => {
+      if (t.status === 'cancelada') return false
+      // Filtros por etiqueta: la tarea debe tener el tag elegido en cada dimensión activa.
+      for (const dim of TAG_DIMENSIONS) {
+        const wanted = filters[dim.code]
+        if (wanted && !(t.tags ?? []).some(tag => tag.id === wanted)) return false
+      }
+      if (clientFilter && t.client_id !== clientFilter) return false
+      return true
+    }),
+    [tasks, filters, clientFilter],
   )
 
   const tasksByDay = useMemo(() => {
@@ -128,6 +177,57 @@ export function AgendaPage() {
 
   const fmt = (d: Date) => d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
   const isMine = (t: Task) => t.assignee_email === email || t.assigner_email === email
+
+  // Panel de filtros por etiqueta (Departamento, Movimiento, etc.) — se muestra
+  // como columna izquierda en las vistas de calendario (semana / mes).
+  const filtersPanel = (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 inline-flex items-center gap-1.5">
+          <Filter size={13} /> Filtros
+        </p>
+        {activeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-[#c8373c]"
+          >
+            <X size={12} /> Limpiar
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col gap-3">
+        {TAG_DIMENSIONS.map(dim => (
+          <div key={dim.code}>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{dim.label}</label>
+            <select
+              value={filters[dim.code]}
+              onChange={e => setFilters(f => ({ ...f, [dim.code]: e.target.value }))}
+              className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
+            >
+              <option value="">Todas</option>
+              {(byDimension[dim.code] ?? []).map(tag => (
+                <option key={tag.id} value={tag.id}>{tag.label}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+        <div>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Cliente</label>
+          <select
+            value={clientFilter}
+            onChange={e => setClientFilter(e.target.value)}
+            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
+          >
+            <option value="">Todos</option>
+            {clients.map(c => (
+              <option key={c.id} value={c.id}>{c.codigo ? `${c.codigo} · ` : ''}{c.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  )
 
   // ─── render ────────────────────────────────────────────────────────────────
 
@@ -185,14 +285,59 @@ export function AgendaPage() {
                 >
                   <ListChecks size={15} />
                 </button>
+                <button
+                  type="button"
+                  title="Bandeja — mis tareas recibidas y enviadas"
+                  onClick={() => setViewMode('inbox')}
+                  className={`p-2 rounded-lg transition-all ${
+                    viewMode === 'inbox'
+                      ? 'bg-white shadow-sm text-[#1e3a5f]'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <Inbox size={15} />
+                </button>
+                {canSeeOperativo && (
+                  <button
+                    type="button"
+                    title="Operativo — solo actividades de almacén"
+                    onClick={() => setViewMode('operativo')}
+                    className={`p-2 rounded-lg transition-all ${
+                      viewMode === 'operativo'
+                        ? 'bg-white shadow-sm text-[#1e3a5f]'
+                        : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <Warehouse size={15} />
+                  </button>
+                )}
               </div>
+
+              {(viewMode === 'week' || viewMode === 'month') && (
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(s => !s)}
+                  className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-2.5 rounded-xl border transition-colors ${
+                    showFilters || activeFilterCount > 0
+                      ? 'border-[#1e3a5f] text-[#1e3a5f] bg-blue-50'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Filter size={15} /> Filtros
+                  {activeFilterCount > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#1e3a5f] text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               <button
                 type="button"
-                onClick={() => setModalOpen(true)}
+                onClick={() => navigate('/calendario/nueva')}
                 className="inline-flex items-center justify-center gap-2 bg-[#1e3a5f] hover:opacity-90 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-opacity"
               >
-                <Plus size={16} /> Nueva entrada
+                <Plus size={16} /> Nueva tarea
               </button>
             </div>
           </div>
@@ -205,8 +350,32 @@ export function AgendaPage() {
           )}
 
           {/* ════════════════════════════════════════════════════════════
-              VISTA MES
+              VISTA BANDEJA (inbox personal — recibidas y enviadas)
           ════════════════════════════════════════════════════════════ */}
+          {viewMode === 'inbox' && (
+            <TaskInboxPanel />
+          )}
+
+          {/* ════════════════════════════════════════════════════════════
+              VISTA OPERATIVO (Calendario General acotado a almacén)
+          ════════════════════════════════════════════════════════════ */}
+          {viewMode === 'operativo' && canSeeOperativo && (
+            <WarehouseOperativoPanel />
+          )}
+
+          {/* ════════════════════════════════════════════════════════════
+              VISTAS CALENDARIO (mes / semana) — filtros en columna izquierda
+          ════════════════════════════════════════════════════════════ */}
+          {(viewMode === 'week' || viewMode === 'month') && (
+            <div className="flex flex-col lg:flex-row gap-4">
+              {showFilters && (
+                <aside className="lg:w-60 lg:shrink-0">
+                  {filtersPanel}
+                </aside>
+              )}
+              <div className="min-w-0 flex-1">
+
+          {/* ── VISTA MES ── */}
           {viewMode === 'month' && (
             <>
               {/* Navegador de mes */}
@@ -386,10 +555,10 @@ export function AgendaPage() {
                   <p className="text-sm text-gray-400 mb-2">Sin actividades para este día</p>
                   <button
                     type="button"
-                    onClick={() => setModalOpen(true)}
+                    onClick={() => navigate('/calendario/nueva')}
                     className="text-xs font-semibold text-[#1e3a5f] hover:underline"
                   >
-                    + Agregar entrada
+                    + Nueva tarea
                   </button>
                 </div>
               )}
@@ -400,9 +569,6 @@ export function AgendaPage() {
                   const end      = new Date(t.scheduled_end)
                   const mine     = isMine(t)
                   const done     = t.status === 'finalizada'
-                  const relation = mine
-                    ? (t.assignee_email === email ? `← ${t.assigner_email}` : `→ ${t.assignee_email}`)
-                    : `${t.assigner_email} → ${t.assignee_email}`
                   const canClose = !done && t.status !== 'cancelada'
                   return (
                     <div
@@ -420,9 +586,10 @@ export function AgendaPage() {
                           <h3 className={`text-sm font-semibold mt-0.5 truncate ${done ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                             {t.title}
                           </h3>
-                          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                            {relation}{t.client?.name ? ` · ${t.client.name}` : ''}
-                          </p>
+                          <div className="mt-1">
+                            <TaskRouteLabel assigner={t.assigner_email} assignee={t.assignee_email} dir={byEmail} />
+                            {t.client?.name && <span className="text-[11px] text-gray-400"> · {t.client.name}</span>}
+                          </div>
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           {done ? (
@@ -458,15 +625,11 @@ export function AgendaPage() {
               </div>
             </>
           )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
-
-      <QuickEventModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreated={refresh}
-        defaultDate={toYMD(activeDay)}
-      />
     </div>
   )
 }

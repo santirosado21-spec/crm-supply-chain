@@ -3,6 +3,8 @@ import { CheckCircle2, ClipboardList } from 'lucide-react'
 import { Spinner } from '../ui/Spinner'
 import { EmptyState } from '../ui/EmptyState'
 import { useTasks } from '../../hooks/useTasks'
+import { useTeamMembers } from '../../hooks/useTeamMembers'
+import { TaskRouteLabel } from './TaskRouteLabel'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, TASK_STATUS_LABEL, type Task } from '../../types/tasks'
 
@@ -32,6 +34,7 @@ interface Props {
 
 export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
   const { tasks, loading, list } = useTasks()
+  const { byEmail } = useTeamMembers()
   const [range, setRange] = useState<RangeKey>('30')
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId] = useState<string | null>(null)
@@ -108,10 +111,10 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
             <h3 className={`text-sm font-semibold mt-0.5 truncate ${done ? 'line-through text-gray-400' : 'text-gray-900'}`}>
               {t.title}
             </h3>
-            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-              {t.assigner_email} → {t.assignee_email}
-              {t.client?.name ? ` · ${t.client.name}` : ''}
-            </p>
+            <div className="mt-1">
+              <TaskRouteLabel assigner={t.assigner_email} assignee={t.assignee_email} dir={byEmail} />
+              {t.client?.name && <span className="text-[11px] text-gray-400"> · {t.client.name}</span>}
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             {done ? (

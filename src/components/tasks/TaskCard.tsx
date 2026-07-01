@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { Calendar, User, Building2, ArrowRight } from 'lucide-react'
 import type { Task } from '../../types/tasks'
 import { TaskStatusBadge } from './TaskStatusBadge'
+import { TaskRouteLabel } from './TaskRouteLabel'
+import type { EmailDirectory } from '../../hooks/useTeamMembers'
 
 function formatRange(startISO: string, endISO: string): string {
   const s = new Date(startISO)
@@ -12,7 +14,7 @@ function formatRange(startISO: string, endISO: string): string {
   return sameDay ? `${date} · ${t(s)} – ${t(e)}` : `${date} ${t(s)} → ${e.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })} ${t(e)}`
 }
 
-export function TaskCard({ task, currentEmail }: { task: Task; currentEmail: string }) {
+export function TaskCard({ task, currentEmail, dir }: { task: Task; currentEmail: string; dir?: EmailDirectory }) {
   const isAssignee = task.assignee_email === currentEmail
   const counterpart = isAssignee ? task.assigner_email : task.assignee_email
   const direction = isAssignee ? 'Asignada por' : 'Asignada a'
@@ -49,7 +51,10 @@ export function TaskCard({ task, currentEmail }: { task: Task; currentEmail: str
           </div>
           <div className="flex items-center gap-2">
             <User size={13} className="text-gray-400 shrink-0" />
-            <span className="truncate">{direction} <strong className="font-medium text-gray-800">{counterpart}</strong></span>
+            {dir
+              ? <TaskRouteLabel assigner={task.assigner_email} assignee={task.assignee_email} dir={dir} />
+              : <span className="truncate">{direction} <strong className="font-medium text-gray-800">{counterpart}</strong></span>
+            }
           </div>
           {task.client?.name && (
             <div className="flex items-center gap-2">

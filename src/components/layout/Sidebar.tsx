@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Inbox, Calendar, CalendarDays, Globe2, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, CalendarPlus, Tag } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -20,7 +20,6 @@ interface Link {
 */
 const WMS_LINKS: Link[] = [
   { to: '/wms',                   label: 'Herramientas de WMS', icon: Warehouse },
-  { to: '/calendario/ejecutivo',  label: 'Calendario SAC',      icon: CalendarClock },
   { to: '/sac/validador',         label: 'Validador SKU',       icon: ScanBarcode },
   { to: '/rc',                    label: 'Rendición RC',        icon: FileCheck },
   { to: '/clients',               label: 'Clientes',            icon: Users },
@@ -29,8 +28,7 @@ const WMS_LINKS: Link[] = [
 const ALMACEN_LINKS: Link[] = [
   { to: '/almacen',                  label: 'Inicio',              icon: Home },
   { to: '/almacen/hoy',              label: 'Hoy',                 icon: Calendar },
-  { to: '/almacen/calendario',       label: 'Cal. Operaciones',    icon: CalendarDays,  section: 'Calendarios' },
-  { to: '/almacen/agenda',           label: 'Cal. General',        icon: Globe2,         section: 'Calendarios' },
+  { to: '/agenda?vista=operativo',   label: 'Calendario',          icon: CalendarDays },
   { to: '/almacen/dia',              label: 'Día (timeline)',      icon: CalendarClock },
   { to: '/almacen/distribucion',     label: 'Distribución tareas', icon: UserCheck },
   { to: '/almacen/pizarron',         label: 'Pizarrón',            icon: LayoutDashboard },
@@ -56,25 +54,24 @@ const TMS_LINKS: Link[] = [
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
 ]
 
-const CALENDARIO_LINKS: Link[] = [
-  { to: '/calendario',             label: 'Mi bandeja',         icon: Inbox },
-  { to: '/calendario/semana',      label: 'Calendario',         icon: Calendar },
-  { to: '/calendario/ejecutivo',   label: 'Calendario SAC',     icon: CalendarClock },
-  { to: '/calendario/plantillas',  label: 'Plantillas',         icon: Repeat },
-]
 
 const DIRECCION_LINKS: Link[] = [
   { to: '/admin/executive-report',     label: 'Reporte ejecutivo',   icon: FileSpreadsheet },
+  { to: '/calendario/nueva?destino=libre', label: 'Crear tarea',     icon: CalendarPlus },
   { to: '/calendario/admin/reportes',  label: 'Reportes operativos', icon: BarChart3 },
   { to: '/calendario/admin/equipo',    label: 'Equipo y horarios',   icon: UserCog },
+  { to: '/calendario/admin/etiquetas', label: 'Etiquetas',           icon: Tag },
   { to: '/calendario/admin/auditoria', label: 'Auditoría',           icon: History },
 ]
 
+// Un solo módulo de calendario. El inbox vive como pestaña "Bandeja" dentro
+// de /agenda (no como link aparte).
 const AGENDA_LINKS: Link[] = [
-  { to: '/agenda', label: 'Calendario General', icon: CalendarDays },
+  { to: '/agenda',                label: 'Calendario General', icon: CalendarDays },
+  { to: '/calendario/plantillas', label: 'Plantillas',         icon: Repeat },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'calendario' | 'direccion' | 'agenda'
+type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'direccion' | 'agenda'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                              return 'home'
@@ -84,11 +81,9 @@ function detectModule(pathname: string): ModuleKey {
   if (pathname === '/almacen' || pathname.startsWith('/almacen/'))                   return 'almacen'
   // Agenda: módulo global de calendario.
   if (pathname === '/agenda' || pathname.startsWith('/agenda/'))                     return 'agenda'
-  // Cualquier ruta /calendario/* (incluida /calendario/ejecutivo) usa el sidebar
-  // de Calendario — ahí viven los accesos a Mi bandeja, Calendario semana y
-  // Plantillas, que son donde se crean tareas. El acceso a Calendario SAC desde
-  // WMS es un atajo (WMS_LINKS); al entrar, el sidebar cambia a Calendario.
-  if (pathname.startsWith('/calendario') || pathname.startsWith('/tasks'))           return 'calendario'
+  // Calendario General es el ÚNICO módulo de calendario. Todas las rutas
+  // /calendario/* no-admin (crear tarea, detalle, plantillas) usan su sidebar.
+  if (pathname.startsWith('/calendario') || pathname.startsWith('/tasks'))           return 'agenda'
   if (pathname.startsWith('/tms') || pathname === '/cotizador' || pathname === '/tramites')
     return 'tms'
   // Default: WMS (/, /wms, /sac/*, /rc, /clients, etc.)
@@ -99,7 +94,6 @@ const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: 
   wms:        { label: 'Herramientas de WMS', links: WMS_LINKS },
   tms:        { label: 'Transportes',         links: TMS_LINKS },
   almacen:    { label: 'Almacén',             links: ALMACEN_LINKS },
-  calendario: { label: 'Calendario',          links: CALENDARIO_LINKS },
   direccion:  { label: 'Dirección',           links: DIRECCION_LINKS },
   agenda:     { label: 'Calendario General',   links: AGENDA_LINKS },
 }

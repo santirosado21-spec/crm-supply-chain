@@ -20,6 +20,36 @@ export interface TaskCategory {
   created_at?:  string
 }
 
+// ── Etiquetas de clasificación (Calendario General) ──────────────────────────
+export type TagDimension = 'movimiento' | 'area' | 'actividad' | 'prioridad' | 'proveedor'
+
+export interface TaskTag {
+  id:         string
+  dimension:  TagDimension
+  label:      string
+  color:      string
+  sort_order?: number
+  active?:    boolean
+}
+
+// Dimensiones en orden de captura. `required` = obligatoria al crear una tarea
+// del Calendario General (cliente se maneja aparte vía la tabla `clients`).
+export const TAG_DIMENSIONS: { code: TagDimension; label: string; required: boolean }[] = [
+  { code: 'movimiento', label: 'Movimiento',       required: true  },
+  { code: 'area',       label: 'Departamento',       required: true  },
+  { code: 'actividad',  label: 'Tipo de actividad',  required: true  },
+  { code: 'prioridad',  label: 'Prioridad',          required: true  },
+  { code: 'proveedor',  label: 'Proveedor',          required: false },
+]
+
+export const TAG_DIMENSION_LABEL: Record<TagDimension, string> = {
+  movimiento: 'Movimiento',
+  area:       'Departamento',
+  actividad:  'Tipo de actividad',
+  prioridad:  'Prioridad',
+  proveedor:  'Proveedor',
+}
+
 export interface Task {
   id:               string
   ref:              string | null
@@ -39,6 +69,7 @@ export interface Task {
   // joins (opcionales según query)
   category?:        TaskCategory | null
   client?:          { id: string; name: string; codigo: string | null } | null
+  tags?:            TaskTag[]
 }
 
 export interface TaskTimeEntry {
