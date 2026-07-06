@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Package, Truck, ArrowRight, Warehouse, Briefcase, CalendarDays } from 'lucide-react'
+import { Package, Truck, ArrowRight, Warehouse, Briefcase, CalendarDays, Target } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, type AppModule } from '../../config/permissions'
@@ -78,6 +78,17 @@ export function HomePage() {
       accentColor: '#eff6ff',
       onClick: () => navigate('/admin/executive-report'),
       tools: ['Reporte ejecutivo', 'Reportes operativos', 'Equipo y horarios', 'Auditoría'],
+    },
+    {
+      id: 'comercial',
+      title: 'Comercial',
+      subtitle: 'Seguimiento de Leads',
+      description: 'Pipeline de leads por canal, notas de seguimiento, próxima acción y dashboard de métricas de conversión.',
+      icon: Target,
+      color: '#1e3a5f',
+      accentColor: '#eff6ff',
+      onClick: () => navigate('/comercial'),
+      tools: ['Pipeline de leads', 'Lista de leads', 'Notas de seguimiento', 'Dashboard de métricas'],
     },
   ]
 
