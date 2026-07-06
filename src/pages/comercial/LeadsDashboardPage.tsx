@@ -15,13 +15,17 @@ export function LeadsDashboardPage() {
   const metrics = useMemo(() => {
     const total = leads.length
     const calientes = leads.filter(l => l.nivel_interes === 'caliente').length
-    const oportunidadesAbiertas = leads.filter(
-      l => l.nivel_interes === 'oportunidad' && !['cerrado_ganado', 'cerrado_perdido'].includes(l.estatus),
-    ).length
+    // Ya no hay etapa terminal en el pipeline (4 etapas lineales, sin "cerrado
+    // ganado/perdido") — "abierta" es simplemente cualquier oportunidad que no
+    // se haya marcado como perdida en el eje de nivel_interes.
+    const oportunidadesAbiertas = leads.filter(l => l.nivel_interes === 'oportunidad').length
 
     const porCanal = LEAD_CHANNELS.map(canal => {
       const leadsCanal = leads.filter(l => l.canal === canal)
-      const ganados = leadsCanal.filter(l => l.estatus === 'cerrado_ganado').length
+      // "Ganado" = conversión real (lead vinculado a un cliente), no una
+      // etapa del pipeline — así la métrica no depende de cómo se llamen
+      // las columnas.
+      const ganados = leadsCanal.filter(l => l.client_id !== null).length
       const tasa = leadsCanal.length > 0 ? (ganados / leadsCanal.length) * 100 : 0
       return { canal: CHANNEL_LABEL[canal], total: leadsCanal.length, ganados, tasa: Math.round(tasa) }
     })

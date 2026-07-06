@@ -10,13 +10,10 @@ import { LeadInterestBadge, LeadPriorityBadge } from '../../components/comercial
 import { LEAD_STAGES, STAGE_LABEL, CHANNEL_LABEL, type Lead, type LeadStage } from '../../types/leads'
 
 const STAGE_COLOR: Record<LeadStage, string> = {
-  nuevo:              '#3b82f6',
-  contactado:         '#06b6d4',
-  en_seguimiento:     '#8b5cf6',
-  reunion_agendada:   '#f59e0b',
-  cotizacion_enviada: '#ec4899',
-  cerrado_ganado:     '#16a34a',
-  cerrado_perdido:    '#ef4444',
+  lead_entrante:        '#3b82f6',
+  lead_junta_pendiente: '#f59e0b',
+  lead_post_junta:      '#8b5cf6',
+  lead_proceso_cliente: '#16a34a',
 }
 
 export function LeadsPipelinePage() {
@@ -24,8 +21,6 @@ export function LeadsPipelinePage() {
   const { leads, loading, error, updateLead } = useLeads()
   const toast = useToast()
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [losing, setLosing] = useState<Lead | null>(null)
-  const [motivo, setMotivo] = useState('')
 
   const columns = useMemo(() => {
     const byStage = new Map<LeadStage, Lead[]>(LEAD_STAGES.map(s => [s, []]))
@@ -33,31 +28,16 @@ export function LeadsPipelinePage() {
     return byStage
   }, [leads])
 
-  const commitStageChange = async (lead: Lead, nuevo: LeadStage, motivoPerdido?: string) => {
+  const handleStageChange = async (lead: Lead, nuevo: LeadStage) => {
     setBusyId(lead.id)
     try {
-      await updateLead(lead.id, { estatus: nuevo, ...(motivoPerdido ? { motivo_perdido: motivoPerdido } : {}) })
+      await updateLead(lead.id, { estatus: nuevo })
       toast.success('Etapa actualizada', `${lead.nombre} → ${STAGE_LABEL[nuevo]}`)
     } catch (e) {
       toast.error('No se pudo mover el lead', e instanceof Error ? e.message : String(e))
     } finally {
       setBusyId(null)
     }
-  }
-
-  const handleStageChange = (lead: Lead, nuevo: LeadStage) => {
-    if (nuevo === 'cerrado_perdido') {
-      setLosing(lead)
-      setMotivo('')
-      return
-    }
-    commitStageChange(lead, nuevo)
-  }
-
-  const confirmLost = async () => {
-    if (!losing) return
-    await commitStageChange(losing, 'cerrado_perdido', motivo.trim() || undefined)
-    setLosing(null)
   }
 
   return (
@@ -139,41 +119,6 @@ export function LeadsPipelinePage() {
           )}
         </main>
       </div>
-
-      {losing && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setLosing(null)}
-        >
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-[#1e3a5f] mb-1">Marcar como perdido</h2>
-            <p className="text-xs text-gray-500 mb-4">{losing.nombre} · {losing.empresa ?? 'Sin empresa'}</p>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Motivo (opcional)</label>
-            <textarea
-              autoFocus
-              rows={3}
-              value={motivo}
-              onChange={e => setMotivo(e.target.value)}
-              placeholder="¿Por qué se perdió el lead?"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
-            />
-            <div className="flex gap-2 mt-5">
-              <button
-                onClick={() => setLosing(null)}
-                className="flex-1 h-10 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmLost}
-                className="flex-1 h-10 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

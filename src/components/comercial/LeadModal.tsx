@@ -8,6 +8,7 @@ import type { Lead } from '../../types/leads'
 import {
   MANUAL_LEAD_CHANNELS, CHANNEL_LABEL, SERVICE_INTERESTS,
   PRIORITIES, PRIORITY_LABEL, INTEREST_LEVELS, INTEREST_LABEL, REMINDER_DAY_OPTIONS,
+  LEAD_STAGES, STAGE_LABEL,
 } from '../../types/leads'
 
 interface Props {
@@ -28,8 +29,10 @@ type FormState = {
   servicio_interes:      CreateLeadData['servicio_interes']
   notas_comerciales:     string
   responsable_comercial: string
+  estatus:               CreateLeadData['estatus']
   prioridad:             CreateLeadData['prioridad']
   nivel_interes:         CreateLeadData['nivel_interes']
+  motivo_perdido:        string
   recordatorio_dias:     number | null
 }
 
@@ -39,8 +42,10 @@ const EMPTY_FORM: FormState = {
   servicio_interes: 'Almacenaje de Mercancías',
   notas_comerciales: '',
   responsable_comercial: '',
+  estatus: 'lead_entrante',
   prioridad: 'media',
   nivel_interes: 'frio',
+  motivo_perdido: '',
   recordatorio_dias: null,
 }
 
@@ -64,8 +69,10 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
         servicio_interes: editing.servicio_interes,
         notas_comerciales: editing.notas_comerciales ?? '',
         responsable_comercial: editing.responsable_comercial ?? '',
+        estatus: editing.estatus,
         prioridad: editing.prioridad,
         nivel_interes: editing.nivel_interes,
+        motivo_perdido: editing.motivo_perdido ?? '',
         recordatorio_dias: editing.recordatorio_dias,
       })
     } else {
@@ -93,6 +100,9 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
       const recordatorioFecha = form.recordatorio_dias
         ? new Date(Date.now() + form.recordatorio_dias * 86400000).toISOString()
         : null
+      const motivoPerdido = form.nivel_interes === 'cliente_perdido'
+        ? (form.motivo_perdido.trim() || null)
+        : null
 
       if (editing) {
         await onUpdate(editing.id, {
@@ -105,8 +115,10 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
           servicio_interes: form.servicio_interes,
           notas_comerciales: form.notas_comerciales.trim() || null,
           responsable_comercial: form.responsable_comercial || null,
+          estatus: form.estatus,
           prioridad: form.prioridad,
           nivel_interes: form.nivel_interes,
+          motivo_perdido: motivoPerdido,
           recordatorio_dias: form.recordatorio_dias,
           recordatorio_fecha: recordatorioFecha,
           recordatorio_enviado: false,
@@ -123,13 +135,13 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
           servicio_interes: form.servicio_interes,
           notas_comerciales: form.notas_comerciales.trim() || null,
           responsable_comercial: form.responsable_comercial || null,
-          estatus: 'nuevo',
+          estatus: form.estatus,
           nivel_interes: form.nivel_interes,
           prioridad: form.prioridad,
           proxima_accion_tipo: null,
           proxima_accion_fecha: null,
           client_id: null,
-          motivo_perdido: null,
+          motivo_perdido: motivoPerdido,
           recordatorio_dias: form.recordatorio_dias,
           recordatorio_fecha: recordatorioFecha,
           recordatorio_enviado: false,
@@ -223,6 +235,13 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
             </select>
           </div>
 
+          <div>
+            <label className={label}>Estatus</label>
+            <select className={input} value={form.estatus} onChange={e => set('estatus', e.target.value as FormState['estatus'])}>
+              {LEAD_STAGES.map(s => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={label}>Prioridad</label>
@@ -237,6 +256,19 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
               </select>
             </div>
           </div>
+
+          {form.nivel_interes === 'cliente_perdido' && (
+            <div>
+              <label className={label}>Motivo de pérdida</label>
+              <textarea
+                className={input}
+                rows={2}
+                value={form.motivo_perdido}
+                onChange={e => set('motivo_perdido', e.target.value)}
+                placeholder="¿Por qué se perdió el lead?"
+              />
+            </div>
+          )}
 
           <div>
             <label className={label}>Recordatorio</label>

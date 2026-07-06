@@ -3,13 +3,10 @@
 export type LeadChannel = 'landing_page' | 'instagram' | 'linkedin' | 'cold_email' | 'organico'
 
 export type LeadStage =
-  | 'nuevo'
-  | 'contactado'
-  | 'en_seguimiento'
-  | 'reunion_agendada'
-  | 'cotizacion_enviada'
-  | 'cerrado_ganado'
-  | 'cerrado_perdido'
+  | 'lead_entrante'
+  | 'lead_junta_pendiente'
+  | 'lead_post_junta'
+  | 'lead_proceso_cliente'
 
 export type LeadInterestLevel = 'frio' | 'tibio' | 'caliente' | 'oportunidad' | 'cliente_perdido'
 
@@ -82,18 +79,14 @@ export const CHANNEL_LABEL: Record<LeadChannel, string> = {
 }
 
 export const LEAD_STAGES: LeadStage[] = [
-  'nuevo', 'contactado', 'en_seguimiento', 'reunion_agendada',
-  'cotizacion_enviada', 'cerrado_ganado', 'cerrado_perdido',
+  'lead_entrante', 'lead_junta_pendiente', 'lead_post_junta', 'lead_proceso_cliente',
 ]
 
 export const STAGE_LABEL: Record<LeadStage, string> = {
-  nuevo:               'Nuevo lead',
-  contactado:          'Contactado',
-  en_seguimiento:      'En seguimiento',
-  reunion_agendada:    'Reunión agendada',
-  cotizacion_enviada:  'Cotización enviada',
-  cerrado_ganado:      'Cerrado ganado',
-  cerrado_perdido:     'Cerrado perdido',
+  lead_entrante:         'Lead entrante',
+  lead_junta_pendiente:  'Lead con junta pendiente',
+  lead_post_junta:       'Lead post junta',
+  lead_proceso_cliente:  'Lead en proceso de ser cliente',
 }
 
 export const INTEREST_LEVELS: LeadInterestLevel[] = ['frio', 'tibio', 'caliente', 'oportunidad', 'cliente_perdido']

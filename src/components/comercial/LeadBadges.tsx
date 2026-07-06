@@ -4,13 +4,10 @@ import { STAGE_LABEL, INTEREST_LABEL, PRIORITY_LABEL } from '../../types/leads'
 type BadgeConfig = { label: string; bg: string; fg: string; border: string; dot: string }
 
 const STAGE_STYLES: Record<LeadStage, BadgeConfig> = {
-  nuevo:              { label: STAGE_LABEL.nuevo,              bg: '#eff6ff', fg: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
-  contactado:         { label: STAGE_LABEL.contactado,         bg: '#ecfeff', fg: '#155e75', border: '#a5f3fc', dot: '#06b6d4' },
-  en_seguimiento:     { label: STAGE_LABEL.en_seguimiento,     bg: '#f5f3ff', fg: '#5b21b6', border: '#ddd6fe', dot: '#8b5cf6' },
-  reunion_agendada:   { label: STAGE_LABEL.reunion_agendada,   bg: '#fef3c7', fg: '#92400e', border: '#fde68a', dot: '#f59e0b' },
-  cotizacion_enviada: { label: STAGE_LABEL.cotizacion_enviada, bg: '#fdf2f8', fg: '#9d174d', border: '#fbcfe8', dot: '#ec4899' },
-  cerrado_ganado:     { label: STAGE_LABEL.cerrado_ganado,     bg: '#dcfce7', fg: '#14532d', border: '#86efac', dot: '#16a34a' },
-  cerrado_perdido:    { label: STAGE_LABEL.cerrado_perdido,    bg: '#fef2f2', fg: '#991b1b', border: '#fecaca', dot: '#ef4444' },
+  lead_entrante:        { label: STAGE_LABEL.lead_entrante,        bg: '#eff6ff', fg: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
+  lead_junta_pendiente: { label: STAGE_LABEL.lead_junta_pendiente, bg: '#fef3c7', fg: '#92400e', border: '#fde68a', dot: '#f59e0b' },
+  lead_post_junta:      { label: STAGE_LABEL.lead_post_junta,      bg: '#f5f3ff', fg: '#5b21b6', border: '#ddd6fe', dot: '#8b5cf6' },
+  lead_proceso_cliente: { label: STAGE_LABEL.lead_proceso_cliente, bg: '#dcfce7', fg: '#14532d', border: '#86efac', dot: '#16a34a' },
 }
 
 const INTEREST_STYLES: Record<LeadInterestLevel, BadgeConfig> = {
