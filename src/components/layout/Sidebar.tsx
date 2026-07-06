@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, CalendarPlus, Tag } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, CalendarPlus, Tag, Target, List } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -71,13 +71,21 @@ const AGENDA_LINKS: Link[] = [
   { to: '/calendario/plantillas', label: 'Plantillas',         icon: Repeat },
 ]
 
-type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'direccion' | 'agenda'
+const COMERCIAL_LINKS: Link[] = [
+  { to: '/comercial',             label: 'Inicio',        icon: Home },
+  { to: '/comercial/leads',       label: 'Pipeline',      icon: Target },
+  { to: '/comercial/leads/lista', label: 'Lista de leads',icon: List },
+  { to: '/comercial/dashboard',   label: 'Dashboard',     icon: BarChart3 },
+]
+
+type ModuleKey = 'home' | 'wms' | 'tms' | 'almacen' | 'direccion' | 'agenda' | 'comercial'
 
 function detectModule(pathname: string): ModuleKey {
   if (pathname === '/')                                                              return 'home'
   // Dirección: rutas administrativas. DEBE ir antes que '/calendario' porque
   // /calendario/admin/* es un sub-prefijo.
   if (pathname.startsWith('/calendario/admin') || pathname.startsWith('/admin'))     return 'direccion'
+  if (pathname === '/comercial' || pathname.startsWith('/comercial/'))               return 'comercial'
   if (pathname === '/almacen' || pathname.startsWith('/almacen/'))                   return 'almacen'
   // Agenda: módulo global de calendario.
   if (pathname === '/agenda' || pathname.startsWith('/agenda/'))                     return 'agenda'
@@ -96,6 +104,7 @@ const MODULE_CONFIG: Record<Exclude<ModuleKey, 'home'>, { label: string; links: 
   almacen:    { label: 'Almacén',             links: ALMACEN_LINKS },
   direccion:  { label: 'Dirección',           links: DIRECCION_LINKS },
   agenda:     { label: 'Calendario General',   links: AGENDA_LINKS },
+  comercial:  { label: 'Comercial',            links: COMERCIAL_LINKS },
 }
 
 export function Sidebar() {

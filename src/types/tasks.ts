@@ -39,7 +39,6 @@ export const TAG_DIMENSIONS: { code: TagDimension; label: string; required: bool
   { code: 'area',       label: 'Departamento',       required: true  },
   { code: 'actividad',  label: 'Tipo de actividad',  required: true  },
   { code: 'prioridad',  label: 'Prioridad',          required: true  },
-  { code: 'proveedor',  label: 'Proveedor',          required: false },
 ]
 
 export const TAG_DIMENSION_LABEL: Record<TagDimension, string> = {
@@ -115,7 +114,7 @@ export interface UserWorkSchedule {
 export interface TeamMember {
   user_email:  string
   user_name:   string | null
-  role:        'admin' | 'almacen' | 'servicio_cliente' | 'cobranza' | 'transporte'
+  role:        'admin' | 'almacen' | 'servicio_cliente' | 'cobranza' | 'transporte' | 'comercial'
   active:      boolean
   created_at:  string
 }

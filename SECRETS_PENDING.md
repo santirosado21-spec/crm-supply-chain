@@ -105,8 +105,52 @@ Pasos (el usuario los hace cuando tenga acceso al DNS):
 5. Validar: crear una tarea y revisar `email_log` (status `sent`, http 200) para
    un destinatario `@supplychain.com.mx`.
 
+## 5. Extensiv — habilitar escritura para el alta de SKUs (Paso 1) ⚠️ PENDIENTE
+
+La feature "Dar de alta SKU en Extensiv" (Paso 1 del wizard de Entradas) hace
+`POST /customers/{id}/items` vía el proxy. Está **apagada por defecto** detrás de
+dos flags + una dependencia externa:
+
+1. **Proxy (Supabase secret):** habilita la allowlist de escritura del
+   `extensiv-proxy` (`supabase/functions/extensiv-proxy/index.ts`):
+
+   ```bash
+   supabase secrets set EXTENSIV_WRITE_ENABLED=true
+   supabase functions deploy extensiv-proxy
+   ```
+
+2. **UI (Vercel env + `.env` local):** muestra el botón "Dar de alta":
+
+   ```
+   VITE_EXTENSIV_WRITE_ENABLED=true
+   ```
+
+3. **Confirmar con Extensiv (contacto: John / api@extensiv.com) ANTES de activar
+   en prod:**
+   - Ruta/método exactos del endpoint de creación de item (hipótesis:
+     `POST /customers/{id}/items`, espejo del GET que ya usamos).
+   - Nombres/estructura exactos de los campos del body (hoy best-effort en
+     `buildCreateItemPayload` de `src/lib/extensiv.ts`: `sku`, `description`,
+     `unitOfMeasure`, `storageDimension{length,width,height}`, `weight`).
+   - Que las credenciales OAuth (`EXTENSIV_CLIENT_*`) tengan **permiso de escritura**
+     de items.
+
+   El esquema exacto NO está en la documentación pública de Extensiv (gated). Si
+   difiere, el único ajuste es el payload en `buildCreateItemPayload`.
+
+> Requiere la migración `20260702000001_extensiv_item_log.sql` aplicada
+> (ver `MIGRATIONS_PENDING.md §14`).
+
 ## Estado
 
+- Extensiv alta de SKUs (§5) — estado 2026-07-02:
+  - [x] Migración `extensiv_item_log` aplicada (MCP, prod `uifrgmiqpkbgyvzbcldn`)
+  - [x] Proxy `extensiv-proxy` redeployado con la allowlist (v10, `verify_jwt=false`)
+  - [x] Vercel env `VITE_EXTENSIV_WRITE_ENABLED=true` (production) — aplica al próximo build
+  - [x] `.env` local con `VITE_EXTENSIV_WRITE_ENABLED=true`
+  - [ ] **Secret Supabase `EXTENSIV_WRITE_ENABLED=true`** — falta (no había token/login local): `supabase login && supabase secrets set EXTENSIV_WRITE_ENABLED=true --project-ref uifrgmiqpkbgyvzbcldn`
+  - [ ] **Deploy del frontend a prod** con la feature (el árbol local tiene cambios ajenos sin commitear — deployar la feature de forma limpia)
+  - [ ] **Confirmar endpoint/campos/permiso con Extensiv** — borrador listo en `EXTENSIV_WRITE_API_QUESTIONS.md`
 - [x] Migración `20260521000001` (task_distribution) aplicada — vía MCP, 2026-07-01
 - [x] Cuenta receptora + distribuidores ya existen en prod (dominio real
   `@supplychain.com.mx`; el seed de §1 con `@supplychain.mx` quedó de ejemplo).
@@ -114,3 +158,44 @@ Pasos (el usuario los hace cuando tenga acceso al DNS):
 - [ ] (Opcional) `VITE_ALMACEN_RECEPTOR_EMAIL` configurada si difiere del default
 - [ ] `OPENROUTER_API_KEY` configurada (rotada) + `openrouter-vision` desplegada
 - [ ] **Resend: dominio `supplychain.com.mx` verificado + `FROM_EMAIL` seteado** (§4)
+- [ ] **Secrets del webhook de leads (landing page) — §5, ninguno configurado aún**
+
+## 5. Webhook de intake de leads (landing page → CRM) ⚠️ PENDIENTE
+
+Edge function `leads-intake-webhook` ya está **desplegada** (`verify_jwt=false`,
+2026-07-03) pero sin sus secrets — hoy responde `503 LEADS_INTAKE_SECRET not
+configured` a cualquier request. El proxy del lado de la landing
+(`/Users/santiagorosado/Desktop/Landing Page mexico/api/lead-intake.js`) y el
+cambio en `js/main.js` ya están en el repo de la landing, también sin sus env
+vars de Vercel — hoy responde `503 Not configured` sin romper el formulario.
+
+No pude configurar ninguno de los dos lados yo mismo: no hay MCP tool para
+`supabase secrets set`, y el binario local de `supabase` CLI está roto (`Bad
+CPU type in executable`). Pasos manuales:
+
+1. **Generar un secret compartido** (uno solo, se usa igual en ambos lados):
+   ```bash
+   openssl rand -hex 32
+   ```
+2. **En Supabase (proyecto `uifrgmiqpkbgyvzbcldn`)** — Dashboard → Edge
+   Functions → Secrets, o CLI si el binario funciona en otra máquina:
+   ```bash
+   supabase secrets set LEADS_INTAKE_SECRET=<el-secret-generado>
+   supabase secrets set COMERCIAL_ALERT_EMAIL=<email-o-lista-a-notificar>
+   ```
+   `EDGE_SHARED_SECRET` ya existe (lo usa `notify-task-email`) — no hay que tocarlo.
+3. **En Vercel, proyecto `supply-chain-mexico-web`** (repo `Landing Page mexico`)
+   → Settings → Environment Variables:
+   ```
+   LEADS_INTAKE_SECRET=<el-mismo-secret-del-paso-1>
+   CRM_LEADS_WEBHOOK_URL=https://uifrgmiqpkbgyvzbcldn.supabase.co/functions/v1/leads-intake-webhook
+   ```
+   Redeploy del sitio para que tomen efecto (env vars de Vercel no aplican en caliente).
+4. **Nota Resend (ver §4):** aunque se configure `COMERCIAL_ALERT_EMAIL`, el correo
+   de alerta de "nuevo lead" solo llegará de forma confiable si esa dirección es
+   `santirosado21@gmail.com` — cualquier otra falla con 403 hasta verificar el
+   dominio. El lead se guarda en el CRM de todas formas; solo el correo de aviso
+   depende de esto.
+5. **Verificar end-to-end:** llenar el formulario real en
+   `https://supply-chain-mexico-web.vercel.app/` y confirmar que aparece un lead
+   nuevo en `/comercial/leads/lista` con `canal = Landing page`.

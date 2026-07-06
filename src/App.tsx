@@ -28,6 +28,11 @@ import { CotizadorPage } from './pages/cotizador/CotizadorPage'
 import { TramitesPage } from './pages/tramites/TramitesPage'
 import { ClientsList } from './pages/clients/ClientsList'
 import { ClientDetail } from './pages/clients/ClientDetail'
+import { ComercialHome } from './pages/comercial/ComercialHome'
+import { LeadsListPage } from './pages/comercial/LeadsListPage'
+import { LeadsPipelinePage } from './pages/comercial/LeadsPipelinePage'
+import { LeadDetail } from './pages/comercial/LeadDetail'
+import { LeadsDashboardPage } from './pages/comercial/LeadsDashboardPage'
 import { RCPage } from './pages/billing/RCPage'
 import { TarifariosPage } from './pages/tarifarios/TarifariosPage'
 import { ServiciosPage } from './pages/servicios/ServiciosPage'
@@ -46,7 +51,7 @@ import { AuditLog } from './pages/tasks/admin/AuditLog'
 import { TagsAdmin } from './pages/tasks/admin/TagsAdmin'
 import { ExecutiveReportPage } from './pages/admin/ExecutiveReportPage'
 import { WelcomeTour } from './components/features/WelcomeTour'
-import { AGENDA_ROLES, ALMACEN_ROLES, CALENDARIO_ROLES, TMS_ROLES, WMS_ROLES } from './config/permissions'
+import { AGENDA_ROLES, ALMACEN_ROLES, CALENDARIO_ROLES, TMS_ROLES, WMS_ROLES, COMERCIAL_ROLES } from './config/permissions'
 import { AgendaPage } from './pages/agenda/AgendaPage'
 
 // Preserva el :id en el redirect compat /tasks/:id → /calendario/:id
@@ -181,6 +186,23 @@ function App() {
           } />
           <Route path="/clients/:id" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><ClientDetail /></ProtectedRoute>
+          } />
+
+          {/* Comercial — Seguimiento de Leads */}
+          <Route path="/comercial" element={
+            <ProtectedRoute allowedRoles={COMERCIAL_ROLES}><ComercialHome /></ProtectedRoute>
+          } />
+          <Route path="/comercial/leads/lista" element={
+            <ProtectedRoute allowedRoles={COMERCIAL_ROLES}><LeadsListPage /></ProtectedRoute>
+          } />
+          <Route path="/comercial/leads" element={
+            <ProtectedRoute allowedRoles={COMERCIAL_ROLES}><LeadsPipelinePage /></ProtectedRoute>
+          } />
+          <Route path="/comercial/leads/:id" element={
+            <ProtectedRoute allowedRoles={COMERCIAL_ROLES}><LeadDetail /></ProtectedRoute>
+          } />
+          <Route path="/comercial/dashboard" element={
+            <ProtectedRoute allowedRoles={COMERCIAL_ROLES}><LeadsDashboardPage /></ProtectedRoute>
           } />
 
           {/* WMS Billing */}

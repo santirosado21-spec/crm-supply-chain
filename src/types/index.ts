@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'almacen' | 'servicio_cliente' | 'cobranza' | 'transporte'
+export type UserRole = 'admin' | 'almacen' | 'servicio_cliente' | 'cobranza' | 'transporte' | 'comercial'
 
 // ── Estados del flujo operativo v2.0 (Procesos v2 Sistema Integrado) ──
 // creada → validada_sac → confirmada_almacen → cerrada_sac → tarifario_ok → enviada_bind

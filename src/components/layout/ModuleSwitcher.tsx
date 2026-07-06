@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Home, Package, Truck, Warehouse, ChevronRight, Menu, Briefcase, CalendarDays,
+  Home, Package, Truck, Warehouse, ChevronRight, Menu, Briefcase, CalendarDays, Target,
 } from 'lucide-react'
 import { useAuthContext } from '../../context/AuthContext'
 import { canAccessModule, moduleFromPath, type AppModule } from '../../config/permissions'
@@ -24,6 +24,7 @@ const MODULES: ModuleEntry[] = [
   { id: 'almacen',  to: '/almacen',                label: 'Almacén',              shortLabel: 'Almacén',      icon: Warehouse,    color: NAVY },
   { id: 'agenda',   to: '/agenda',                 label: 'Calendario General',   shortLabel: 'Cal. General', icon: CalendarDays, color: NAVY },
   { id: 'direccion',to: '/admin/executive-report', label: 'Dirección',             shortLabel: 'Dirección',    icon: Briefcase,    color: NAVY },
+  { id: 'comercial',to: '/comercial',              label: 'Comercial',            shortLabel: 'Comercial',    icon: Target,       color: NAVY },
 ]
 
 // Ancho del panel: 22rem (352px) o el viewport menos 2rem, lo que sea menor.
