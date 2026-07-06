@@ -38,6 +38,7 @@ export function TeamSettings() {
     cobranza:          { dows: [1,2,3,4,5], start: '09:00', end: '18:00' },
     transporte:        { dows: [1,2,3,4,5], start: '08:30', end: '18:30' },
     almacen:           { dows: [1,2,3,4,5], start: '08:30', end: '18:30' },
+    comercial:         { dows: [1,2,3,4,5], start: '09:00', end: '18:00' },
   }
   // Días editables por rol en el row card. Sólo almacén ve sáb/dom.
   const EDITABLE_DAYS: Record<Role, number[]> = {
@@ -46,6 +47,7 @@ export function TeamSettings() {
     cobranza:          [1,2,3,4,5],
     transporte:        [0,1,2,3,4,5,6],
     almacen:           [0,1,2,3,4,5,6],
+    comercial:         [1,2,3,4,5],
   }
 
   const reload = async () => {

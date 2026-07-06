@@ -18,7 +18,8 @@ function normalizeRole(role: unknown): UserRole {
     role === 'almacen' ||
     role === 'servicio_cliente' ||
     role === 'cobranza' ||
-    role === 'transporte'
+    role === 'transporte' ||
+    role === 'comercial'
   ) return role
   return 'almacen'
 }

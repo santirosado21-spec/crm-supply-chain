@@ -1,6 +1,6 @@
 import type { UserRole } from '../types'
 
-export type AppModule = 'wms' | 'tms' | 'almacen' | 'direccion' | 'agenda'
+export type AppModule = 'wms' | 'tms' | 'almacen' | 'direccion' | 'agenda' | 'comercial'
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin:             'Administrador',
@@ -8,6 +8,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   servicio_cliente:  'SAC',
   cobranza:          'Cobranza',
   transporte:        'Transportes',
+  comercial:         'Comercial',
 }
 
 export const MODULE_LABEL: Record<AppModule, string> = {
@@ -16,6 +17,7 @@ export const MODULE_LABEL: Record<AppModule, string> = {
   almacen:    'Almacén',
   direccion:  'Dirección',
   agenda:     'Calendario General',
+  comercial:  'Comercial',
 }
 
 // Matriz de acceso por módulo. Existe UN solo módulo de calendario: 'agenda'
@@ -24,11 +26,12 @@ export const MODULE_LABEL: Record<AppModule, string> = {
 // almacén). 'direccion' agrupa las herramientas administrativas (equipo,
 // reportes, reporte ejecutivo, auditoría) — exclusivo de admin.
 export const MODULE_ACCESS: Record<UserRole, AppModule[]> = {
-  admin:             ['wms', 'tms', 'almacen', 'direccion', 'agenda'],
+  admin:             ['wms', 'tms', 'almacen', 'direccion', 'agenda', 'comercial'],
   almacen:           ['almacen', 'agenda'],
   servicio_cliente:  ['wms', 'agenda'],
   cobranza:          ['wms', 'agenda'],
   transporte:        ['tms', 'agenda'],
+  comercial:         ['comercial', 'agenda'],
 }
 
 export const WMS_ROLES: UserRole[]     = ['admin', 'servicio_cliente', 'cobranza']
@@ -43,7 +46,9 @@ export const CALENDARIO_ROLES: UserRole[] = ['admin', 'servicio_cliente', 'cobra
 // auditoría. Solo admin.
 export const DIRECCION_ROLES: UserRole[] = ['admin']
 // AGENDA_ROLES: Calendario global — accesible a todos los roles del sistema.
-export const AGENDA_ROLES: UserRole[] = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte']
+export const AGENDA_ROLES: UserRole[] = ['admin', 'almacen', 'servicio_cliente', 'cobranza', 'transporte', 'comercial']
+// COMERCIAL_ROLES: módulo Comercial — seguimiento de leads. Admin + comercial.
+export const COMERCIAL_ROLES: UserRole[] = ['admin', 'comercial']
 
 export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tips: string[] }> = {
   wms: {
@@ -91,6 +96,15 @@ export const MODULE_BRIEFS: Record<AppModule, { title: string; body: string; tip
       'Usa "Nueva entrada" para agregar y "Cerrar" para marcar completadas.',
     ],
   },
+  comercial: {
+    title: 'Comercial',
+    body: 'Seguimiento de leads: registra prospectos de landing page, redes e email frío, clasifícalos por canal y nivel de interés, y da seguimiento en el pipeline hasta cerrar.',
+    tips: [
+      'Registra leads nuevos desde "Nuevo lead" con su canal de origen.',
+      'Usa el Pipeline para mover leads entre etapas conforme avanzas.',
+      'Agrega notas de seguimiento y define la próxima acción en cada lead.',
+    ],
+  },
 }
 
 export function canAccessModule(role: UserRole | undefined, module: AppModule) {
@@ -105,6 +119,7 @@ export function moduleFromPath(path: string): AppModule | null {
   // Dirección: rutas administrativas. DEBE ir antes que '/calendario' porque
   // /calendario/admin/* es un sub-prefijo. /admin/* también vive aquí.
   if (path.startsWith('/calendario/admin') || path.startsWith('/admin')) return 'direccion'
+  if (path === '/comercial' || path.startsWith('/comercial/')) return 'comercial'
   if (path === '/almacen' || path.startsWith('/almacen/')) return 'almacen'
   // Todas las rutas /calendario/* y /tasks/* (bandeja, crear, plantillas, detalle)
   // pertenecen al único módulo de calendario: 'agenda' (Calendario General).
@@ -129,6 +144,8 @@ const PATH_ROLE_OVERRIDES: { prefix: string; roles: UserRole[] }[] = [
   // DEBEN ir antes que '/calendario' porque /calendario/admin es sub-prefijo.
   { prefix: '/calendario/admin', roles: DIRECCION_ROLES },
   { prefix: '/admin',            roles: DIRECCION_ROLES },
+  // Comercial: seguimiento de leads. Admin + comercial.
+  { prefix: '/comercial', roles: COMERCIAL_ROLES },
   // CRUD de tareas bajo /calendario/*: admin + SAC + cobranza + transporte.
   // Almacén queda EXCLUIDO de crear tareas cross-team (usa QuickEventModal).
   { prefix: '/calendario', roles: CALENDARIO_ROLES },
@@ -154,5 +171,6 @@ export function defaultRouteForRole(role: UserRole | undefined) {
   if (first === 'tms')     return '/tms'
   if (first === 'almacen') return '/almacen'
   if (first === 'direccion') return '/admin/executive-report'
+  if (first === 'comercial') return '/comercial'
   return '/'
 }
