@@ -142,6 +142,9 @@ export function LeadDetail() {
                       ['Servicio de interés', lead.servicio_interes],
                       ['Responsable comercial', lead.responsable_comercial ?? 'Sin asignar'],
                       ['Fecha de entrada', new Date(lead.fecha_entrada).toLocaleDateString('es-MX')],
+                      ['Recordatorio', lead.recordatorio_fecha
+                        ? `${new Date(lead.recordatorio_fecha).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}${lead.recordatorio_enviado ? ' (enviado)' : ''}`
+                        : 'Sin recordatorio'],
                     ].map(([label, val]) => (
                       <div key={label} className="flex justify-between gap-3 border-b border-gray-50 pb-2 last:border-0">
                         <dt className="text-gray-500">{label}</dt>

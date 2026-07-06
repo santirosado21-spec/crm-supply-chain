@@ -1,7 +1,12 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Target, List, BarChart3, ArrowRight } from 'lucide-react'
+import { Target, List, BarChart3, ArrowRight, Mail } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
+import { Spinner } from '../../components/ui/Spinner'
+import { supabase } from '../../lib/supabase'
+import { useAuthContext } from '../../context/AuthContext'
+import { useToast } from '../../hooks/useToast'
 
 const NAVY = '#1e3a5f'
 
@@ -33,6 +38,72 @@ const tools: Tool[] = [
   },
 ]
 
+function ReminderEmailCard() {
+  const { user } = useAuthContext()
+  const toast = useToast()
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!user?.email) return
+    supabase
+      .from('team_members')
+      .select('reminder_email')
+      .eq('user_email', user.email)
+      .maybeSingle()
+      .then(({ data }) => {
+        setEmail((data?.reminder_email as string | null) ?? '')
+        setLoading(false)
+      })
+  }, [user?.email])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const { error } = await supabase.rpc('set_my_reminder_email', { p_email: email.trim() })
+      if (error) throw error
+      toast.success('Correo de recordatorios guardado', '')
+    } catch (e) {
+      toast.error('No se pudo guardar', e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Mail size={16} style={{ color: NAVY }} />
+        <h3 className="text-sm font-bold text-gray-900">Mi correo de recordatorios</h3>
+      </div>
+      <p className="text-xs text-gray-500 mb-3">
+        A este correo llegan los recordatorios de tus leads (no tiene que ser tu correo @supplychain.com.mx).
+      </p>
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-gray-400"><Spinner size={14} /> Cargando...</div>
+      ) : (
+        <div className="flex gap-2 max-w-md">
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="tucorreo@gmail.com"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1e3a5f]"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 bg-[#1e3a5f] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 shrink-0"
+          >
+            {saving && <Spinner size={14} />} Guardar
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ComercialHome() {
   const navigate = useNavigate()
 
@@ -46,6 +117,8 @@ export function ComercialHome() {
             <h1 className="text-2xl font-bold text-[#1e3a5f]">Comercial</h1>
             <p className="text-sm text-gray-500 mt-1">Seguimiento de leads por canal, pipeline y cierre</p>
           </div>
+
+          <ReminderEmailCard />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {tools.map(tool => {

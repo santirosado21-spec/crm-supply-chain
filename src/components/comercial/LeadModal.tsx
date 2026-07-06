@@ -7,7 +7,7 @@ import type { CreateLeadData, UpdateLeadData } from '../../hooks/useLeads'
 import type { Lead } from '../../types/leads'
 import {
   MANUAL_LEAD_CHANNELS, CHANNEL_LABEL, SERVICE_INTERESTS,
-  PRIORITIES, PRIORITY_LABEL, INTEREST_LEVELS, INTEREST_LABEL,
+  PRIORITIES, PRIORITY_LABEL, INTEREST_LEVELS, INTEREST_LABEL, REMINDER_DAY_OPTIONS,
 } from '../../types/leads'
 
 interface Props {
@@ -30,6 +30,7 @@ type FormState = {
   responsable_comercial: string
   prioridad:             CreateLeadData['prioridad']
   nivel_interes:         CreateLeadData['nivel_interes']
+  recordatorio_dias:     number | null
 }
 
 const EMPTY_FORM: FormState = {
@@ -40,6 +41,7 @@ const EMPTY_FORM: FormState = {
   responsable_comercial: '',
   prioridad: 'media',
   nivel_interes: 'frio',
+  recordatorio_dias: null,
 }
 
 export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props) {
@@ -64,6 +66,7 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
         responsable_comercial: editing.responsable_comercial ?? '',
         prioridad: editing.prioridad,
         nivel_interes: editing.nivel_interes,
+        recordatorio_dias: editing.recordatorio_dias,
       })
     } else {
       setForm(EMPTY_FORM)
@@ -87,6 +90,10 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
     }
     setLoading(true)
     try {
+      const recordatorioFecha = form.recordatorio_dias
+        ? new Date(Date.now() + form.recordatorio_dias * 86400000).toISOString()
+        : null
+
       if (editing) {
         await onUpdate(editing.id, {
           nombre: form.nombre.trim(),
@@ -100,6 +107,9 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
           responsable_comercial: form.responsable_comercial || null,
           prioridad: form.prioridad,
           nivel_interes: form.nivel_interes,
+          recordatorio_dias: form.recordatorio_dias,
+          recordatorio_fecha: recordatorioFecha,
+          recordatorio_enviado: false,
         })
       } else {
         await onSave({
@@ -120,6 +130,9 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
           proxima_accion_fecha: null,
           client_id: null,
           motivo_perdido: null,
+          recordatorio_dias: form.recordatorio_dias,
+          recordatorio_fecha: recordatorioFecha,
+          recordatorio_enviado: false,
           created_by: user?.email ?? '',
         })
       }
@@ -223,6 +236,22 @@ export function LeadModal({ isOpen, editing, onClose, onSave, onUpdate }: Props)
                 {INTEREST_LEVELS.map(n => <option key={n} value={n}>{INTEREST_LABEL[n]}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className={label}>Recordatorio</label>
+            <select
+              className={input}
+              value={form.recordatorio_dias === null ? '' : String(form.recordatorio_dias)}
+              onChange={e => set('recordatorio_dias', e.target.value === '' ? null : Number(e.target.value))}
+            >
+              {REMINDER_DAY_OPTIONS.map(opt => (
+                <option key={opt.label} value={opt.value === null ? '' : opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Llega por correo a tu "correo de recordatorios" personal (configúralo en Comercial → Inicio).
+            </p>
           </div>
 
           <div>

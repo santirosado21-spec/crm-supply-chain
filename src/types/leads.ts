@@ -52,6 +52,9 @@ export interface Lead {
   proxima_accion_fecha:   string | null
   client_id:              string | null
   motivo_perdido:         string | null
+  recordatorio_dias:      number | null
+  recordatorio_fecha:     string | null
+  recordatorio_enviado:   boolean
   created_by:             string
   created_at:             string
   updated_at:             string
@@ -117,6 +120,16 @@ export const NEXT_ACTION_LABEL: Record<NextActionType, string> = {
   whatsapp:'WhatsApp',
   reunion: 'Reunión',
 }
+
+// Presets de recordatorio (días desde la creación/edición). null = sin recordatorio.
+export const REMINDER_DAY_OPTIONS: { value: number | null; label: string }[] = [
+  { value: null, label: 'Sin recordatorio' },
+  { value: 1,    label: 'En 1 día' },
+  { value: 3,    label: 'En 3 días' },
+  { value: 7,    label: 'En 1 semana' },
+  { value: 15,   label: 'En 15 días' },
+  { value: 30,   label: 'En 1 mes' },
+]
 
 export const SERVICE_INTERESTS: ServiceInterest[] = [
   'Almacenaje de Mercancías',

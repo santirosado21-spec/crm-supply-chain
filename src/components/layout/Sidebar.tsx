@@ -140,7 +140,7 @@ export function Sidebar() {
     <NavLink
       key={to}
       to={to}
-      end={to === '/wms' || to === '/tms' || to === '/almacen'}
+      end={to === '/wms' || to === '/tms' || to === '/almacen' || to === '/comercial'}
       aria-label={linkLabel}
       className={({ isActive }) =>
         `flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium leading-snug transition-all duration-150 group
