@@ -886,3 +886,61 @@ export async function createExtensivInvoice(
     raw:       data,
   }
 }
+
+/* ─── Alta de items (SKUs) en el catálogo de un cliente ─────────────────── */
+export interface CreateExtensivItemInput {
+  customerId:    number
+  sku:           string
+  description:   string
+  unitOfMeasure: string
+  length:        number   // pies (como el CSV de setup ifit)
+  width:         number
+  height:        number
+  weight:        number   // libras
+}
+
+/**
+ * Construye el body para POST /customers/{id}/items. Puro (sin red) → testeable.
+ *
+ * NOTA: el esquema exacto de creación de items NO está en la documentación
+ * pública de Extensiv (gated vía api@extensiv.com). Estos nombres de campo son
+ * best-effort y deben confirmarse con Extensiv antes de activar la escritura
+ * (EXTENSIV_WRITE_ENABLED). Si difieren, este es el único punto a ajustar.
+ */
+export function buildCreateItemPayload(input: CreateExtensivItemInput) {
+  return {
+    sku:              input.sku,
+    description:      input.description,
+    unitOfMeasure:    input.unitOfMeasure,
+    storageDimension: {
+      length: input.length,
+      width:  input.width,
+      height: input.height,
+    },
+    weight: input.weight,
+  }
+}
+
+/**
+ * Da de alta un item (SKU) en el catálogo de un cliente en Extensiv.
+ * POST /customers/{customerId}/items (ruta espejo del GET que ya usamos en
+ * getExtensivRegisteredSkus). Solo funciona si el proxy tiene la escritura
+ * habilitada (allowlist + EXTENSIV_WRITE_ENABLED); si no, devuelve 403.
+ */
+export async function createExtensivItem(
+  input: CreateExtensivItemInput,
+): Promise<{ itemId: string; raw: unknown }> {
+  const data = await callProxy<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [k: string]: any
+  }>({
+    method: 'POST',
+    path:   `/customers/${input.customerId}/items`,
+    body:   buildCreateItemPayload(input),
+  })
+
+  return {
+    itemId: String(data.itemId ?? data.id ?? data.itemIdentifier?.id ?? ''),
+    raw:    data,
+  }
+}

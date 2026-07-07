@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidSku, normalizeSKU, findPartialSkuCandidates } from './skuValidation'
+import { isValidSku, normalizeSKU, findPartialSkuCandidates, classifySku } from './skuValidation'
 
 describe('isValidSku — guardarraíl contra palabras sueltas como SKU', () => {
   // Casos reportados en producción: NUNCA deben aceptarse como SKU.
@@ -67,5 +67,29 @@ describe('findPartialSkuCandidates — coincidencias parciales (NTL49926-1 ⊂ N
 
   it('ignora SKUs demasiado cortos para evitar ruido', () => {
     expect(findPartialSkuCandidates('NT', catalog)).toEqual([])
+  })
+})
+
+describe('classifySku — clasificación de un SKU contra el catálogo de Extensiv', () => {
+  const catalog = ['NTL49926-1000', 'PFTL90924', 'ABC-123']
+
+  it('exact → registrado, sin candidatos', () => {
+    expect(classifySku('PFTL90924', catalog)).toEqual({ match: 'exact', candidates: [], registered: true })
+  })
+
+  it('partial → candidatos, NO registrado (NTL49926-1 ⊂ NTL49926-1000)', () => {
+    const r = classifySku('NTL49926-1', catalog)
+    expect(r.match).toBe('partial')
+    expect(r.registered).toBe(false)
+    expect(r.candidates).toContain('NTL49926-1000')
+  })
+
+  it('none → sin coincidencia ni candidatos (por dar de alta)', () => {
+    expect(classifySku('ZZZ-999', catalog)).toEqual({ match: 'none', candidates: [], registered: false })
+  })
+
+  it('usa el Set provisto cuando se pasa (evita reconstruirlo)', () => {
+    const set = new Set(catalog)
+    expect(classifySku('ABC-123', catalog, set).registered).toBe(true)
   })
 })

@@ -21,9 +21,20 @@ const CLIENT_SECRET = Deno.env.get('EXTENSIV_CLIENT_SECRET') ?? ''
 const USER_LOGIN    = Deno.env.get('EXTENSIV_USER_LOGIN')    ?? ''
 const BASE_URL      = Deno.env.get('EXTENSIV_BASE_URL')      ?? 'https://secure-wms.com'
 
-// CRM es consumidor read-only de Extensiv. El flujo es unidireccional
-// Extensiv → CRM (ver Task A del plan). Cualquier intento de escritura se bloquea.
-const READ_ONLY = true
+// CRM es consumidor casi 100% read-only de Extensiv. La ÚNICA escritura
+// permitida es dar de alta items (SKUs) faltantes en el catálogo de un cliente
+// (POST /customers/{id}/items) desde el Paso 1 del wizard de Entradas, y solo
+// si EXTENSIV_WRITE_ENABLED='true'. Todo lo demás sigue bloqueado.
+const WRITE_ENABLED = Deno.env.get('EXTENSIV_WRITE_ENABLED') === 'true'
+
+// Allowlist de escritura: pares (método, patrón de path) explícitamente permitidos.
+const WRITE_ALLOWLIST: Array<{ method: string; re: RegExp }> = [
+  { method: 'POST', re: /^\/customers\/\d+\/items$/ },
+]
+
+function isWriteAllowed(method: string, path: string): boolean {
+  return WRITE_ALLOWLIST.some(rule => rule.method === method && rule.re.test(path))
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
@@ -100,9 +111,9 @@ serve(async (req: Request) => {
     })
   }
 
-  if (READ_ONLY && method !== 'GET') {
+  if (method !== 'GET' && !(WRITE_ENABLED && isWriteAllowed(method, path))) {
     return new Response(JSON.stringify({
-      error: 'Extensiv proxy está en modo READ_ONLY. El CRM no escribe a Extensiv.',
+      error: 'Extensiv proxy: escritura no permitida. Solo GET (y alta de items si está habilitada).',
     }), { status: 403, headers: CORS_HEADERS })
   }
 

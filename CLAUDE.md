@@ -88,8 +88,8 @@ captura `actual_duration_min` automáticamente.
 
 ## Integración Extensiv
 
-- El CRM consume **Extensiv 3PL Warehouse Manager** como **data source read-only** vía la edge function `supabase/functions/extensiv-proxy/` (`READ_ONLY = true`).
-- Endpoints consumidos viven en `src/lib/extensiv.ts`: customers, inventory, orders, receivers, locations, invoices.
+- El CRM consume **Extensiv 3PL Warehouse Manager** vía la edge function `supabase/functions/extensiv-proxy/`. Es **read-only salvo una excepción allowlisted**: `POST /customers/{id}/items` (alta de SKUs desde el Paso 1 del wizard de Entradas), permitida solo si el secret `EXTENSIV_WRITE_ENABLED=true` (default apagado). Cualquier otra escritura sigue devolviendo 403.
+- Endpoints consumidos viven en `src/lib/extensiv.ts`: customers, inventory, orders, receivers, locations, invoices, y `createExtensivItem` (alta). El alta usa el log idempotente `extensiv_item_log` (`src/lib/extensivItemCreation.ts`) — mismo patrón que billing. Ver `SECRETS_PENDING.md §5` para activar/confirmar con Extensiv.
 - **Extensiv Billing API** (`api-billing.extensiv.com`, auth Cognito JWT) es un servicio SEPARADO del proxy legacy — credenciales pendientes de Extensiv (contacto: John). `pushChargeToExtensiv()` en `src/lib/extensivBilling.ts` empuja charges al Billing Wizard vía `extensiv_billing_log`.
 
 ## Hechos del dominio (no obvios del código)

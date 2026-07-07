@@ -72,6 +72,28 @@ export function findPartialSkuCandidates(docSku: string, catalog: string[]): str
     .slice(0, 12)
 }
 
+export interface SkuClassification {
+  match:      SkuMatchKind
+  candidates: string[]
+  registered: boolean
+}
+
+/**
+ * Clasifica un SKU (ya normalizado) contra el catálogo de Extensiv:
+ *  - 'exact'   → está registrado tal cual (registered=true).
+ *  - 'partial' → hay candidatos por coincidencia parcial (registered=false hasta confirmar).
+ *  - 'none'    → no hay coincidencia (registered=false → por dar de alta).
+ * Lógica compartida por la validación inicial (Paso 1) y la re-validación al
+ * editar un SKU. `catalog` es el arreglo normalizado; `catalogSet` es opcional
+ * (se deriva del arreglo si no se pasa) para evitar reconstruirlo por fila.
+ */
+export function classifySku(sku: string, catalog: string[], catalogSet?: Set<string>): SkuClassification {
+  const set = catalogSet ?? new Set(catalog)
+  if (set.has(sku)) return { match: 'exact', candidates: [], registered: true }
+  const candidates = findPartialSkuCandidates(sku, catalog)
+  return { match: candidates.length > 0 ? 'partial' : 'none', candidates, registered: false }
+}
+
 export function looksLikeSKU(text: string): boolean {
   const t = text.replace(/\s+/g, '').trim().toUpperCase()
   if (t.length < 2 || t.length > 50) return false

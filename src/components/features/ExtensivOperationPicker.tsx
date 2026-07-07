@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, FileUp, Search, X, Link2, FileText, Edit3 } from 'lucide-react'
 import {
-  getExtensivCustomers,
   listExtensivTransactions,
   getExtensivOrderDetail,
   getExtensivReceiverDetail,
-  type ExtensivCustomer,
   type ExtensivTransactionListItem,
   type ExtensivPickResult,
 } from '../../lib/extensiv'
@@ -13,27 +11,67 @@ import { extractReceiptItemsFromPT } from '../../lib/ptParser'
 
 type Mode = 'extensiv' | 'pt' | 'manual'
 
+/** Cliente activo del CRM (tabla `clients`) — el único selector de cliente.
+ *  Campos opcionales para aceptar directamente el tipo `Client`. */
+export interface PickerClient {
+  id:                    string
+  name:                  string
+  codigo?:               string | null
+  extensiv_customer_id?: number | null
+}
+
 interface Props {
-  value:           ExtensivPickResult | null
-  onChange:        (result: ExtensivPickResult | null) => void
-  defaultCustomer?: number
-  fromDays?:        number          // Sprint E · default 7 días (última semana)
-  className?:      string
+  value:          ExtensivPickResult | null
+  onChange:       (result: ExtensivPickResult | null) => void
+  clients:        PickerClient[]
+  clientId:       string
+  onClientChange: (clientId: string) => void
+  fromDays?:      number          // Sprint E · default 7 días (última semana)
+  className?:     string
+}
+
+interface ModeProps {
+  value:         ExtensivPickResult | null
+  onChange:      (result: ExtensivPickResult | null) => void
+  extCustomerId: number | null    // extensiv_customer_id del cliente elegido
+  clientName:    string | null    // nombre del cliente elegido
+  fromDays?:     number
 }
 
 /**
- * Componente reusable para seleccionar la operación de una tarea/operation:
- *   A) Selector Extensiv: cliente → transaction (order/receipt) → autollenado del detalle
- *   B) Subir PT (PDF/Excel) → parser saca items y referencia → autollenado
- *   C) Manual: poder llenar todo a mano (operación interna sin Transaction)
- *
+ * Selector de operación de una tarea. Un ÚNICO dropdown de Cliente (clientes
+ * activos del CRM) arriba, compartido por los 3 modos:
+ *   A) Extensiv: el cliente (por su extensiv_customer_id) lista sus transactions.
+ *   B) Subir PT (PDF/Excel) → parser saca items y referencia.
+ *   C) Manual: referencia + unidades a mano (operación interna sin Transaction).
  * Output normalizado: ExtensivPickResult.
  */
-export function ExtensivOperationPicker({ value, onChange, defaultCustomer, fromDays = 7, className }: Props) {
+export function ExtensivOperationPicker({ value, onChange, clients, clientId, onClientChange, fromDays = 7, className }: Props) {
   const [mode, setMode] = useState<Mode>(value?.type === 'manual' ? 'manual' : 'extensiv')
+
+  const selectedClient = clients.find(c => c.id === clientId) ?? null
+  const extCustomerId  = selectedClient?.extensiv_customer_id ?? null
+  const clientName     = selectedClient?.name ?? null
 
   return (
     <div className={`bg-white border border-gray-200 rounded-xl ${className ?? ''}`}>
+      {/* Cliente — único selector (clientes activos del CRM) */}
+      <div className="p-3 border-b border-gray-100">
+        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
+          Cliente
+        </label>
+        <select
+          value={clientId}
+          onChange={e => onClientChange(e.target.value)}
+          className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg bg-white focus:border-[#1e3a5f] focus:outline-none"
+        >
+          <option value="">— selecciona cliente —</option>
+          {clients.map(c => (
+            <option key={c.id} value={c.id}>{c.codigo ? `${c.codigo} · ` : ''}{c.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Tabs de modo */}
       <div className="flex gap-1 p-2 border-b border-gray-100">
         <ModeTab active={mode === 'extensiv'} onClick={() => setMode('extensiv')} icon={Link2} label="Extensiv" />
@@ -43,9 +81,9 @@ export function ExtensivOperationPicker({ value, onChange, defaultCustomer, from
 
       {/* Cuerpo según modo */}
       <div className="p-4">
-        {mode === 'extensiv' && <ExtensivMode value={value} onChange={onChange} defaultCustomer={defaultCustomer} fromDays={fromDays} />}
-        {mode === 'pt'       && <PTMode       value={value} onChange={onChange} defaultCustomer={defaultCustomer} />}
-        {mode === 'manual'   && <ManualMode   value={value} onChange={onChange} />}
+        {mode === 'extensiv' && <ExtensivMode value={value} onChange={onChange} extCustomerId={extCustomerId} clientName={clientName} fromDays={fromDays} />}
+        {mode === 'pt'       && <PTMode       value={value} onChange={onChange} extCustomerId={extCustomerId} clientName={clientName} />}
+        {mode === 'manual'   && <ManualMode   value={value} onChange={onChange} extCustomerId={extCustomerId} clientName={clientName} />}
       </div>
 
       {/* Resumen de selección actual */}
@@ -98,10 +136,7 @@ function ModeTab({ active, onClick, icon: Icon, label }: {
 }
 
 // ── Modo A: Selector Extensiv ──────────────────────────────────────────────
-function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props) {
-  const [customers, setCustomers]       = useState<ExtensivCustomer[]>([])
-  const [loadingCustomers, setLC]        = useState(false)
-  const [customerId, setCustomerId]      = useState<number | null>(value?.customerId ?? defaultCustomer ?? null)
+function ExtensivMode({ value, onChange, extCustomerId, clientName, fromDays = 7 }: ModeProps) {
   const [transactions, setTransactions]  = useState<ExtensivTransactionListItem[]>([])
   const [loadingTxn, setLT]              = useState(false)
   const [search, setSearch]              = useState('')
@@ -109,24 +144,15 @@ function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props)
   const [hydrating, setHydrating]        = useState(false)
   const [error, setError]                = useState<string | null>(null)
 
-  // Carga inicial de clientes
+  // Cuando cambia el cliente (extCustomerId) o el rango, recarga transactions
   useEffect(() => {
-    setLC(true)
-    getExtensivCustomers()
-      .then(setCustomers)
-      .catch(e => setError(e instanceof Error ? e.message : 'Error cargando clientes'))
-      .finally(() => setLC(false))
-  }, [])
-
-  // Cuando cambia cliente o rango, recarga transactions
-  useEffect(() => {
-    if (!customerId) { setTransactions([]); return }
+    if (!extCustomerId) { setTransactions([]); return }
     setLT(true); setError(null)
-    listExtensivTransactions(customerId, { fromDays: days })
+    listExtensivTransactions(extCustomerId, { fromDays: days })
       .then(setTransactions)
       .catch(e => setError(e instanceof Error ? e.message : 'Error cargando transactions'))
       .finally(() => setLT(false))
-  }, [customerId, days])
+  }, [extCustomerId, days])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -138,8 +164,6 @@ function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props)
     )
   }, [transactions, search])
 
-  const selectedCustomerName = customers.find(c => c.id === customerId)?.name ?? null
-
   async function handleSelectTransaction(t: ExtensivTransactionListItem) {
     setHydrating(true); setError(null)
     try {
@@ -147,8 +171,8 @@ function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props)
         const detail = await getExtensivOrderDetail(t.numericId)
         onChange({
           type:          'order',
-          customerId:    detail.customerId || customerId,
-          customerName:  detail.customerName || selectedCustomerName,
+          customerId:    detail.customerId || extCustomerId,
+          customerName:  detail.customerName || clientName,
           transactionId: String(detail.orderId),
           reference:     detail.referenceNum || t.reference,
           poNum:         detail.poNum,
@@ -165,8 +189,8 @@ function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props)
         const detail = await getExtensivReceiverDetail(t.numericId)
         onChange({
           type:          'receipt',
-          customerId:    detail.customerId || customerId,
-          customerName:  detail.customerName || selectedCustomerName,
+          customerId:    detail.customerId || extCustomerId,
+          customerName:  detail.customerName || clientName,
           transactionId: String(detail.receiverId),
           reference:     detail.referenceNum || t.reference,
           poNum:         detail.poNum,
@@ -184,110 +208,96 @@ function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props)
     }
   }
 
+  if (!extCustomerId) {
+    return (
+      <p className="text-center text-xs text-gray-400 py-6">
+        Elige un cliente con mapeo a Extensiv para ver sus transactions.
+      </p>
+    )
+  }
+
   return (
     <div className="space-y-3">
-      {/* Cliente */}
+      {/* Buscador + selector rango + lista de transactions */}
       <div>
-        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
-          Cliente Extensiv
-        </label>
-        <select
-          value={customerId ?? ''}
-          onChange={e => setCustomerId(e.target.value ? Number(e.target.value) : null)}
-          disabled={loadingCustomers}
-          className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg bg-white focus:border-[#1e3a5f] focus:outline-none disabled:opacity-50"
-        >
-          <option value="">— elige cliente —</option>
-          {customers.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            Transaction · últimos {days} días
+          </label>
+          <select
+            value={days}
+            onChange={e => setDays(Number(e.target.value))}
+            className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:border-[#1e3a5f] focus:outline-none"
+            title="Cambiar rango de búsqueda"
+          >
+            <option value={7}>7 días</option>
+            <option value={14}>14 días</option>
+            <option value={30}>30 días</option>
+            <option value={60}>60 días</option>
+          </select>
+        </div>
+        <div className="relative">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por referencia, PO o ID..."
+            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none"
+          />
+        </div>
       </div>
 
-      {/* Buscador + selector rango + lista de transactions */}
-      {customerId && (
-        <>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                Transaction · últimos {days} días
-              </label>
-              <select
-                value={days}
-                onChange={e => setDays(Number(e.target.value))}
-                className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:border-[#1e3a5f] focus:outline-none"
-                title="Cambiar rango de búsqueda"
+      {loadingTxn && (
+        <div className="flex items-center justify-center py-6 text-gray-400 gap-2 text-xs">
+          <Loader2 className="animate-spin" size={14} /> Cargando transactions...
+        </div>
+      )}
+
+      {!loadingTxn && filtered.length === 0 && (
+        <p className="text-center text-xs text-gray-400 py-6">
+          {transactions.length === 0
+            ? `Sin transactions en los últimos ${days} días para este cliente`
+            : 'Sin coincidencias para tu búsqueda'}
+        </p>
+      )}
+
+      {!loadingTxn && filtered.length > 0 && (
+        <div className="max-h-64 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-1.5">
+          {filtered.map(t => {
+            const isSelected = value?.transactionId === String(t.numericId) && value?.type === t.type
+            return (
+              <button
+                key={t.id}
+                type="button"
+                disabled={hydrating}
+                onClick={() => handleSelectTransaction(t)}
+                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                  isSelected
+                    ? 'bg-blue-50 ring-1 ring-[#1e3a5f]'
+                    : 'hover:bg-gray-50'
+                }`}
               >
-                <option value={7}>7 días</option>
-                <option value={14}>14 días</option>
-                <option value={30}>30 días</option>
-                <option value={60}>60 días</option>
-              </select>
-            </div>
-            <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por referencia, PO o ID..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {loadingTxn && (
-            <div className="flex items-center justify-center py-6 text-gray-400 gap-2 text-xs">
-              <Loader2 className="animate-spin" size={14} /> Cargando transactions...
-            </div>
-          )}
-
-          {!loadingTxn && filtered.length === 0 && (
-            <p className="text-center text-xs text-gray-400 py-6">
-              {transactions.length === 0
-                ? `Sin transactions en los últimos ${days} días para este cliente`
-                : 'Sin coincidencias para tu búsqueda'}
-            </p>
-          )}
-
-          {!loadingTxn && filtered.length > 0 && (
-            <div className="max-h-64 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-1.5">
-              {filtered.map(t => {
-                const isSelected = value?.transactionId === String(t.numericId) && value?.type === t.type
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    disabled={hydrating}
-                    onClick={() => handleSelectTransaction(t)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                      isSelected
-                        ? 'bg-blue-50 ring-1 ring-[#1e3a5f]'
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                        t.type === 'order' ? 'text-emerald-600' : 'text-amber-600'
-                      }`}>
-                        {t.type === 'order' ? '↗ ORDER' : '↘ RECEIPT'} · {t.numericId}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {t.creationDate?.slice(0, 10)}
-                      </span>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-900 mt-0.5">{t.reference}</p>
-                    <p className="text-[11px] text-gray-500">
-                      {t.poNum && `PO: ${t.poNum} · `}
-                      {t.units} u · {t.weight} lb
-                      {t.shipTo && ` · ${t.shipTo}`}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                    t.type === 'order' ? 'text-emerald-600' : 'text-amber-600'
+                  }`}>
+                    {t.type === 'order' ? '↗ ORDER' : '↘ RECEIPT'} · {t.numericId}
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    {t.creationDate?.slice(0, 10)}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t.reference}</p>
+                <p className="text-[11px] text-gray-500">
+                  {t.poNum && `PO: ${t.poNum} · `}
+                  {t.units} u · {t.weight} lb
+                  {t.shipTo && ` · ${t.shipTo}`}
+                </p>
+              </button>
+            )
+          })}
+        </div>
       )}
 
       {hydrating && (
@@ -304,7 +314,7 @@ function ExtensivMode({ value, onChange, defaultCustomer, fromDays = 7 }: Props)
 }
 
 // ── Modo B: Subir PT ───────────────────────────────────────────────────────
-function PTMode({ onChange, defaultCustomer }: Props) {
+function PTMode({ onChange, extCustomerId, clientName }: ModeProps) {
   const [parsing, setParsing] = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement | null>(null)
@@ -315,8 +325,8 @@ function PTMode({ onChange, defaultCustomer }: Props) {
       const extraction = await extractReceiptItemsFromPT(file)
       onChange({
         type:          'receipt',
-        customerId:    defaultCustomer ?? null,
-        customerName:  null,
+        customerId:    extCustomerId,
+        customerName:  clientName,
         transactionId: null,
         reference:     extraction.ref ?? file.name.replace(/\.[^.]+$/, ''),
         poNum:         null,
@@ -369,16 +379,15 @@ function PTMode({ onChange, defaultCustomer }: Props) {
 }
 
 // ── Modo C: Manual ─────────────────────────────────────────────────────────
-function ManualMode({ value, onChange }: Props) {
-  const [reference, setReference]   = useState(value?.reference ?? '')
-  const [customerName, setCustomer] = useState(value?.customerName ?? '')
-  const [units, setUnits]           = useState<number>(value?.units ?? 0)
+function ManualMode({ value, onChange, extCustomerId, clientName }: ModeProps) {
+  const [reference, setReference] = useState(value?.reference ?? '')
+  const [units, setUnits]         = useState<number>(value?.units ?? 0)
 
   function commit() {
     onChange({
       type:          'manual',
-      customerId:    null,
-      customerName:  customerName.trim() || null,
+      customerId:    extCustomerId,
+      customerName:  clientName,
       transactionId: null,
       reference:     reference.trim() || null,
       poNum:         null,
@@ -390,7 +399,8 @@ function ManualMode({ value, onChange }: Props) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500">
-        Operación interna sin Transaction de Extensiv. Llena los datos a mano.
+        Operación interna sin Transaction de Extensiv. Llena la referencia a mano
+        (el cliente se toma del selector de arriba).
       </p>
 
       <div>
@@ -407,33 +417,18 @@ function ManualMode({ value, onChange }: Props) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
-            Cliente (opcional)
-          </label>
-          <input
-            type="text"
-            value={customerName}
-            onChange={e => setCustomer(e.target.value)}
-            onBlur={commit}
-            placeholder="LULULEMON"
-            className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
-            Unidades estimadas
-          </label>
-          <input
-            type="number"
-            min={0}
-            value={units}
-            onChange={e => setUnits(Number(e.target.value) || 0)}
-            onBlur={commit}
-            className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none"
-          />
-        </div>
+      <div>
+        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
+          Unidades estimadas
+        </label>
+        <input
+          type="number"
+          min={0}
+          value={units}
+          onChange={e => setUnits(Number(e.target.value) || 0)}
+          onBlur={commit}
+          className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none"
+        />
       </div>
     </div>
   )

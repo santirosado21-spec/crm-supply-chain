@@ -10,8 +10,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import * as XLSX from 'xlsx'
 // Lógica pura de SKU (sin pdfjs) — re-exportada para compatibilidad con imports existentes.
-import { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates } from './skuValidation'
-export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates }
+import { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates, classifySku } from './skuValidation'
+export { isEmptyLike, sanitizeCellValue, normalizeSKU, looksLikeSKU, isValidSku, findPartialSkuCandidates, classifySku }
 // Parser de hojas (Excel/CSV) sin pdfjs — fuente única de tipos y regex de encabezado.
 import {
   SKU_HEADER_RE, QTY_HEADER_RE, SERIAL_HEADER_RE, normalizeSerial,
@@ -83,9 +83,9 @@ export function detectRefFromGrid(grid: PDFRow[]): string | null {
   // Scan first 30 rows for a reference number
   const text = grid.slice(0, 30).map(rowToLine).join(' ')
   const patterns = [
-    /#\s*de\s*(?:orden\s*de\s*venta|orden|venta)\s*:?\s*([A-Z0-9][\w\-]*)/i,
-    /\b(?:purchase\s*order|PO|P\.O\.)\s*#?\s*:?\s*([A-Z0-9][\w\-]*)/i,
-    /\b(?:orden|referencia|ref|folio)\s*#?\s*:?\s*([A-Z0-9][\w\-]*)/i,
+    /#\s*de\s*(?:orden\s*de\s*venta|orden|venta)\s*:?\s*([A-Z0-9][\w-]*)/i,
+    /\b(?:purchase\s*order|PO|P\.O\.)\s*#?\s*:?\s*([A-Z0-9][\w-]*)/i,
+    /\b(?:orden|referencia|ref|folio)\s*#?\s*:?\s*([A-Z0-9][\w-]*)/i,
     /\bSO\s*([0-9]+)/i,
   ]
   for (const p of patterns) {

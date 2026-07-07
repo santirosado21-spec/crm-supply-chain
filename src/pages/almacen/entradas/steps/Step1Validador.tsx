@@ -1,21 +1,30 @@
 import { useState } from 'react'
 import {
-  Loader2, Database, CheckCircle2, XCircle, AlertTriangle, Search, Download, Sparkles, Link2, Check,
+  Loader2, Database, CheckCircle2, XCircle, AlertTriangle, Search, Download, Sparkles, Link2, Check, PackagePlus,
 } from 'lucide-react'
 import { useEntradaWizard } from '../../../../context/EntradaWizardContext'
 import { ClienteExtensivSelector } from '../components/ClienteExtensivSelector'
 import { NotaDropzone } from '../components/NotaDropzone'
+import { AltaSkuModal } from '../components/AltaSkuModal'
 import { downloadUnregistered } from '../../../../lib/entradaExports'
+import type { ValidationRow } from '../../../../types/warehouseEntry'
 
 export function Step1Validador() {
   const {
     state, catalogCount, catalogLoading, extracting, unregisteredCount, pendingConfirmCount,
     extractedTotalQty, totalMismatch,
     setCustomer, setNotaFile, clearNota, runStep1Validation, confirmSkuMatch,
+    updateStep1Sku, registerItemInExtensiv,
   } = useEntradaWizard()
   const [search, setSearch] = useState('')
   // Candidato seleccionado por fila cuando hay varias coincidencias parciales.
   const [sel, setSel] = useState<Record<string, string>>({})
+  // Alta de SKUs faltantes en Extensiv (detrás de flag hasta confirmar escritura).
+  const WRITE_ENABLED = import.meta.env.VITE_EXTENSIV_WRITE_ENABLED === 'true'
+  const [altaRow, setAltaRow] = useState<ValidationRow | null>(null)
+  const [altaBusy, setAltaBusy] = useState(false)
+  // Borrador de edición de SKU por fila (commit en blur/Enter para no perder el foco).
+  const [draftSku, setDraftSku] = useState<Record<string, string>>({})
 
   const { customerId, notaFileName, originalItems, step1Results, step1Complete, extractedVia, documentTotalQty } = state
 
@@ -178,7 +187,24 @@ export function Step1Validador() {
                   const chosen = sel[r.sku] ?? r.candidates[0]
                   return (
                     <tr key={r.sku} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors align-top">
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-800">{r.sku}</td>
+                      <td className="px-4 py-3">
+                        {r.registered ? (
+                          <span className="font-mono text-xs font-semibold text-gray-800">{r.sku}</span>
+                        ) : (
+                          <input
+                            type="text"
+                            value={draftSku[r.sku] ?? r.sku}
+                            onChange={e => setDraftSku(d => ({ ...d, [r.sku]: e.target.value }))}
+                            onBlur={() => {
+                              const v = draftSku[r.sku]
+                              if (v != null && v.trim() && v.trim().toUpperCase() !== r.sku) updateStep1Sku(r.sku, v)
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                            title="Edita el SKU si viene mal del documento"
+                            className="w-full max-w-[220px] h-8 px-2 rounded border border-transparent hover:border-gray-200 focus:border-[#1e3a5f] focus:outline-none font-mono text-xs font-semibold text-gray-800"
+                          />
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-gray-600">{r.qty.toLocaleString()}</td>
                       <td className="px-4 py-3">
                         {r.registered ? (
@@ -214,9 +240,25 @@ export function Step1Validador() {
                             </div>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold">
-                            <XCircle size={12} /> Necesita darse de alta
-                          </span>
+                          <div className="flex flex-col gap-1.5">
+                            <span className="inline-flex w-max items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold">
+                              <XCircle size={12} /> Necesita darse de alta
+                            </span>
+                            {r.altaStatus === 'failed' && (
+                              <span className="text-[11px] text-red-600">Falló el alta en Extensiv. Revisa y reintenta.</span>
+                            )}
+                            {WRITE_ENABLED && (
+                              <button
+                                onClick={() => setAltaRow(r)}
+                                disabled={r.altaStatus === 'pending'}
+                                className="h-8 w-max px-3 rounded-lg bg-[#1e3a5f] text-white text-[11px] font-medium flex items-center gap-1 hover:bg-[#16304d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {r.altaStatus === 'pending'
+                                  ? <><Loader2 size={12} className="animate-spin" /> Dando de alta…</>
+                                  : <><PackagePlus size={12} /> Dar de alta</>}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -234,6 +276,20 @@ export function Step1Validador() {
             </p>
           )}
         </>
+      )}
+
+      {altaRow && (
+        <AltaSkuModal
+          initialSku={altaRow.sku}
+          busy={altaBusy}
+          onClose={() => setAltaRow(null)}
+          onSubmit={async form => {
+            setAltaBusy(true)
+            const ok = await registerItemInExtensiv(altaRow.sku, form)
+            setAltaBusy(false)
+            if (ok) setAltaRow(null)
+          }}
+        />
       )}
     </>
   )

@@ -86,14 +86,6 @@ export function TaskCreate() {
   useEffect(() => { getTaskCategories().then(setCategories) }, [])
   useEffect(() => { getClients() }, [getClients])
 
-  // Extensiv solo se exige cuando la tarea va al almacén (roles operativos).
-  const requiresExtensivPick =
-    esAlmacen &&
-    (user?.role === 'servicio_cliente' || user?.role === 'almacen' || user?.role === 'transporte')
-  const extensivPickIsValid =
-    !!extensivPick && (extensivPick.type === 'manual' || !!extensivPick.transactionId)
-  const extensivOk = !requiresExtensivPick || extensivPickIsValid
-
   // Clasificación obligatoria: Destino (área) + cada dimensión required (movimiento/actividad/prioridad).
   const missingRequired =
     !areaId ||
@@ -103,7 +95,6 @@ export function TaskCreate() {
     title.trim()
     && scheduledStart && scheduledEnd
     && scheduledStart.getTime() >= minDate.getTime()
-    && extensivOk
     && !missingRequired
     && !submitting
   )
@@ -116,6 +107,16 @@ export function TaskCreate() {
     try {
       // Etiquetas a vincular: el Área (destino) + clasificación elegida.
       const tagIds = [areaId, ...CLASS_DIMENSIONS.map(d => selectedTags[d.code])].filter(Boolean)
+
+      // Vínculo opcional a una transacción de Extensiv — se persiste en cualquier
+      // rama (almacén, persona o entrada propia) si el usuario lo eligió.
+      const extensivFields = {
+        extensiv_transaction_type: extensivPick?.type ?? null,
+        extensiv_transaction_id:   extensivPick?.transactionId ?? null,
+        extensiv_customer_id:      extensivPick?.customerId ?? null,
+        extensiv_reference:        extensivPick?.reference ?? null,
+        extensiv_raw:              extensivPick?.raw ?? null,
+      }
 
       let taskId: string
       let notifyTo: string
@@ -131,11 +132,7 @@ export function TaskCreate() {
           assignee_email:  ALMACEN_RECEPTOR_EMAIL,
           scheduled_start: scheduledStart.toISOString(),
           scheduled_end:   scheduledEnd.toISOString(),
-          extensiv_transaction_type: extensivPick?.type ?? null,
-          extensiv_transaction_id:   extensivPick?.transactionId ?? null,
-          extensiv_customer_id:      extensivPick?.customerId ?? null,
-          extensiv_reference:        extensivPick?.reference ?? null,
-          extensiv_raw:              extensivPick?.raw ?? null,
+          ...extensivFields,
         })
         taskId = t.id
         notifyTo = ALMACEN_RECEPTOR_EMAIL
@@ -153,6 +150,7 @@ export function TaskCreate() {
           assignee_email:  personEmail,
           scheduled_start: scheduledStart.toISOString(),
           scheduled_end:   scheduledEnd.toISOString(),
+          ...extensivFields,
         })
         taskId = t.id
         notifyTo = personEmail
@@ -173,6 +171,7 @@ export function TaskCreate() {
             scheduled_start: scheduledStart.toISOString(),
             scheduled_end:   scheduledEnd.toISOString(),
             status:          'aceptada',
+            ...extensivFields,
           })
           .select('id')
           .single()
@@ -309,19 +308,6 @@ export function TaskCreate() {
                     </select>
                   </div>
                 ))}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Cliente</label>
-                  <select
-                    value={clientId}
-                    onChange={e => setClientId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
-                  >
-                    <option value="">— sin cliente —</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.codigo ? `${c.codigo} · ` : ''}{c.name}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
               <div>
@@ -336,29 +322,23 @@ export function TaskCreate() {
                 </select>
               </div>
 
-              {/* Operación (Extensiv) — solo cuando va a almacén */}
-              {esAlmacen && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                    Operación
-                    {requiresExtensivPick
-                      ? <span className="text-rose-500 ml-1">*</span>
-                      : <span className="text-[10px] font-normal text-gray-400 ml-1">(opcional)</span>
-                    }
-                  </label>
-                  <ExtensivOperationPicker
-                    value={extensivPick}
-                    onChange={setExtensivPick}
-                    fromDays={7}
-                    className={requiresExtensivPick && !extensivPickIsValid ? 'ring-2 ring-rose-200' : ''}
-                  />
-                  {requiresExtensivPick && !extensivPickIsValid && (
-                    <p className="mt-1.5 text-[11px] text-rose-600">
-                      Tu rol requiere ligar la tarea a un Transaction de Extensiv (o marcar modo Manual si es operación interna).
-                    </p>
-                  )}
-                </div>
-              )}
+              {/* Cliente único + ligado opcional a transacción de Extensiv.
+                  El dropdown de Cliente (clientes activos) vive dentro del picker;
+                  eliges cliente y, si quieres, su transacción (jalada de la API). */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Cliente y operación
+                  <span className="text-[10px] font-normal text-gray-400 ml-1">(transacción opcional)</span>
+                </label>
+                <ExtensivOperationPicker
+                  value={extensivPick}
+                  onChange={setExtensivPick}
+                  clients={clients}
+                  clientId={clientId}
+                  onClientChange={setClientId}
+                  fromDays={7}
+                />
+              </div>
             </div>
 
             {/* DERECHA: AvailabilityPicker */}
