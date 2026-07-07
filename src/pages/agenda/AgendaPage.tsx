@@ -443,7 +443,8 @@ export function AgendaPage() {
                     return (
                       <div
                         key={t.id}
-                        className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity ${done ? 'opacity-60' : ''}`}
+                        onClick={() => navigate(`/calendario/${t.id}`)}
+                        className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity cursor-pointer hover:border-gray-200 ${done ? 'opacity-60' : ''}`}
                         style={{ borderLeft: `${mine ? 5 : 3}px solid ${done ? '#28a745' : TASK_STATUS_COLOR[t.status] ?? '#cbd5e1'}` }}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -475,7 +476,7 @@ export function AgendaPage() {
                               <button
                                 type="button"
                                 disabled={closingId === t.id}
-                                onClick={() => setClosingTask(t)}
+                                onClick={e => { e.stopPropagation(); setClosingTask(t) }}
                                 className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                               >
                                 {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -578,7 +579,8 @@ export function AgendaPage() {
                   return (
                     <div
                       key={t.id}
-                      className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity ${
+                      onClick={() => navigate(`/calendario/${t.id}`)}
+                      className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity cursor-pointer hover:border-gray-200 ${
                         done ? 'opacity-60' : ''
                       }`}
                       style={{ borderLeft: `${mine ? 5 : 3}px solid ${done ? '#28a745' : TASK_STATUS_COLOR[t.status] ?? '#cbd5e1'}` }}
@@ -616,7 +618,7 @@ export function AgendaPage() {
                             <button
                               type="button"
                               disabled={closingId === t.id}
-                              onClick={() => setClosingTask(t)}
+                              onClick={e => { e.stopPropagation(); setClosingTask(t) }}
                               className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                             >
                               {closingId === t.id ? '…' : 'Cerrar ✓'}

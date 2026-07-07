@@ -5,9 +5,10 @@ import type { Notification } from '../types/tasks'
 export function useNotifications(userEmail: string | undefined) {
   const [items, setItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
-  // Solo notificaciones que llegaron por realtime DESPUÉS de montar (no el
-  // fetch inicial) — alimenta el popup bloqueante, sin re-mostrar las
-  // últimas 30 ya existentes al cargar la página.
+  // Cola del popup bloqueante: se alimenta tanto de lo que llega por realtime
+  // como de lo que ya estaba sin leer al cargar la página (ver reload) — así
+  // una notificación que llegó mientras el usuario no tenía la pestaña
+  // abierta también se muestra como popup al volver a entrar.
   const [incoming, setIncoming] = useState<Notification[]>([])
   // Sufijo único por instancia del hook — permite que NotificationBell y
   // NotificationPopup usen el hook simultáneamente sin colisionar canales.
@@ -23,7 +24,17 @@ export function useNotifications(userEmail: string | undefined) {
         .eq('user_email', userEmail)
         .order('created_at', { ascending: false })
         .limit(30)
-      if (!error && data) setItems(data as Notification[])
+      if (!error && data) {
+        setItems(data as Notification[])
+        // Notificaciones sin leer de antes de esta sesión también entran a la
+        // cola del popup, evitando duplicar lo que ya esté encolado.
+        const unread = (data as Notification[]).filter(n => !n.read_at)
+        setIncoming(prev => {
+          const existing = new Set(prev.map(p => p.id))
+          const toAdd = unread.filter(n => !existing.has(n.id))
+          return toAdd.length ? [...prev, ...toAdd] : prev
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -58,6 +69,9 @@ export function useNotifications(userEmail: string | undefined) {
     if (!userEmail) return
     const stamp = new Date().toISOString()
     setItems(prev => prev.map(n => n.read_at ? n : { ...n, read_at: stamp }))
+    // Si ya se marcaron todas como leídas desde la campanita, no debería
+    // seguir apareciendo un popup para esas mismas notificaciones.
+    setIncoming([])
     await supabase
       .from('notifications')
       .update({ read_at: stamp })

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus, CheckCircle2, CalendarDays, ListChecks } from 'lucide-react'
 import { Spinner } from '../ui/Spinner'
 import { QuickEventModal } from './QuickEventModal'
@@ -33,6 +34,7 @@ function toYMD(d: Date): string { return d.toISOString().slice(0, 10) }
  * (visible solo a almacén + admin).
  */
 export function WarehouseOperativoPanel() {
+  const navigate = useNavigate()
   const { tasks, loading, list } = useTasks()
   const { byEmail } = useTeamMembers()
   const toast = useToast()
@@ -277,7 +279,8 @@ export function WarehouseOperativoPanel() {
               return (
                 <div
                   key={t.id}
-                  className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity ${
+                  onClick={() => navigate(`/calendario/${t.id}`)}
+                  className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity cursor-pointer hover:border-gray-200 ${
                     done ? 'opacity-60' : ''
                   }`}
                   style={{ borderLeft: `5px solid ${done ? '#28a745' : TASK_STATUS_COLOR[t.status] ?? '#cbd5e1'}` }}
@@ -317,7 +320,7 @@ export function WarehouseOperativoPanel() {
                         <button
                           type="button"
                           disabled={closingId === t.id}
-                          onClick={() => setClosingTask(t)}
+                          onClick={e => { e.stopPropagation(); setClosingTask(t) }}
                           className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                         >
                           {closingId === t.id ? '…' : 'Cerrar ✓'}
