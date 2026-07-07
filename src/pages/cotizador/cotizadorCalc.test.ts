@@ -31,9 +31,6 @@ function makeInput(overrides: Partial<CotizadorInput> = {}): CotizadorInput {
     cliente: 'Test Cliente',
     contenedores: [],
     descripcionCarga: '',
-    maniobrasHoras: 0,
-    maniobrasMinutos: 0,
-    maniobraCosto: 0,
     incluyeBonos: false,
     bonoSueldo: 0,
     bonoKmCarga: 0,
@@ -191,15 +188,45 @@ describe('calcularFlete — bonos operador', () => {
   })
 })
 
-describe('calcularFlete — maniobra', () => {
-  it('maniobra = horas × costoPorHora', () => {
+describe('calcularFlete — maniobra (costo por persona × personas)', () => {
+  it('maniobra = costoPorPersona × número de personas', () => {
     const result = calcularFlete(makeInput({
-      maniobrasHoras: 2,
-      maniobrasMinutos: 30, // 2.5 horas total
-      maniobraCosto: 200,
+      maniobraExtra: 500,   // costo por persona
+      maniobraPersonas: 3,
     }))
-    expect(result.maniobra).toBe(500) // 2.5 × 200
-    expect(result.maniobraDetalle).toEqual({ horas: 2, minutos: 30, costoPorHora: 200 })
+    expect(result.maniobra).toBe(1500) // 500 × 3
+    expect(result.maniobraDetalle).toEqual({ personas: 3, costoPorPersona: 500 })
+  })
+
+  it('sin personas (undefined) cuenta como 1', () => {
+    const result = calcularFlete(makeInput({ maniobraExtra: 800 }))
+    expect(result.maniobra).toBe(800) // 800 × 1
+    expect(result.maniobraDetalle.personas).toBe(1)
+  })
+
+  it('personas se acota a mínimo 1 (0 o negativo → 1)', () => {
+    const cero = calcularFlete(makeInput({ maniobraExtra: 800, maniobraPersonas: 0 }))
+    const neg  = calcularFlete(makeInput({ maniobraExtra: 800, maniobraPersonas: -4 }))
+    expect(cero.maniobra).toBe(800)
+    expect(neg.maniobra).toBe(800)
+  })
+
+  it('costo por persona negativo se acota a 0 (sin efecto)', () => {
+    const base = calcularFlete(makeInput())
+    const neg  = calcularFlete(makeInput({ maniobraExtra: -1000, maniobraPersonas: 3 }))
+    expect(neg.maniobra).toBe(0)
+    expect(neg.costoTotal).toBe(base.costoTotal)
+  })
+
+  it('la maniobra se suma al costoTotal y gana markup en el precioFinal', () => {
+    const margen = MARGENES_CLIENTE.FINAL // 0.35
+    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
+    const conM = calcularFlete(makeInput({ tipoCliente: 'FINAL', maniobraExtra: 500, maniobraPersonas: 2 })) // $1000
+
+    expect(conM.maniobra).toBe(1000)
+    expect(conM.costoTotal).toBe(base.costoTotal + 1000)
+    expect(conM.ganancia).toBe(base.ganancia + Math.round(1000 * margen))            // +350
+    expect(conM.precioFinal).toBe(base.precioFinal + 1000 + Math.round(1000 * margen)) // +1350
   })
 
   it('maniobristas internos se propagan al result (string formateado)', () => {
@@ -401,43 +428,12 @@ describe('calcularFlete — dádiva (contingencia Guardia Nacional)', () => {
   })
 })
 
-describe('calcularFlete — maniobra personalizada (monto fijo adicional)', () => {
-  it('sin maniobraExtra (undefined) no altera costoTotal ni precioFinal y maniobraExtra = 0', () => {
+describe('calcularFlete — maniobra: costoTotal incluye la maniobra por viaje', () => {
+  it('sin maniobra (costo 0) no altera costoTotal ni precioFinal', () => {
     const base = calcularFlete(makeInput())
-    const sin  = calcularFlete(makeInput({ maniobraExtra: undefined }))
-    expect(sin.maniobraExtra).toBe(0)
+    const sin  = calcularFlete(makeInput({ maniobraExtra: 0, maniobraPersonas: 5 }))
+    expect(sin.maniobra).toBe(0)
     expect(sin.costoTotal).toBe(base.costoTotal)
     expect(sin.precioFinal).toBe(base.precioFinal)
-  })
-
-  it('la maniobra personalizada se suma al costoTotal y gana markup en el precioFinal', () => {
-    const margen = MARGENES_CLIENTE.FINAL // 0.35
-    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
-    const conM = calcularFlete(makeInput({ tipoCliente: 'FINAL', maniobraExtra: 1800 }))
-
-    expect(conM.maniobraExtra).toBe(1800)
-    expect(conM.costoTotal).toBe(base.costoTotal + 1800)
-    expect(conM.ganancia).toBe(base.ganancia + Math.round(1800 * margen))            // +630
-    expect(conM.precioFinal).toBe(base.precioFinal + 1800 + Math.round(1800 * margen)) // +2430
-  })
-
-  it('coexiste con la maniobra por horas: ambas suman al costoTotal', () => {
-    const base = calcularFlete(makeInput({ tipoCliente: 'FINAL' }))
-    const conAmbas = calcularFlete(makeInput({
-      tipoCliente: 'FINAL',
-      maniobrasHoras: 2, maniobrasMinutos: 0, maniobraCosto: 500, // $1000 por horas
-      maniobraExtra: 800,
-    }))
-    expect(conAmbas.maniobra).toBe(1000)
-    expect(conAmbas.maniobraExtra).toBe(800)
-    expect(conAmbas.costoTotal).toBe(base.costoTotal + 1000 + 800)
-  })
-
-  it('maniobra personalizada negativa se acota a 0 (sin efecto)', () => {
-    const base = calcularFlete(makeInput())
-    const neg  = calcularFlete(makeInput({ maniobraExtra: -5000 }))
-    expect(neg.maniobraExtra).toBe(0)
-    expect(neg.costoTotal).toBe(base.costoTotal)
-    expect(neg.precioFinal).toBe(base.precioFinal)
   })
 })

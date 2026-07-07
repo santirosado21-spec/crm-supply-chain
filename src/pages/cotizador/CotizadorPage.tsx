@@ -229,11 +229,10 @@ async function generarPDF(c: CotizadorResult) {
   }
   if (c.maniobra > 0) {
     const labelManiobra = c.maniobrista
-      ? `Maniobra · ${c.maniobrista} (${c.maniobraDetalle.horas}h ${c.maniobraDetalle.minutos}m)`
-      : `Maniobra (${c.maniobraDetalle.horas}h ${c.maniobraDetalle.minutos}m)`
+      ? `Maniobra · ${c.maniobrista} (${c.maniobraDetalle.personas} pers)`
+      : `Maniobra (${c.maniobraDetalle.personas} pers)`
     costos.push([labelManiobra, c.maniobra])
   }
-  if (c.maniobraExtra > 0) costos.push(['Maniobra adicional', c.maniobraExtra])
   if (c.horasExtra > 0) costos.push(['Días Especiales', c.horasExtra])
   if (c.dadiva > 0) costos.push(['Dádiva GN', c.dadiva])
   costos.push(['Depreciación de unidad', c.depreciacion])
@@ -446,14 +445,13 @@ function ResultPanel({ result, onAddToBitacora, onReset }: {
             <DR
               label={
                 result.maniobrista
-                  ? `🏗️ Maniobra · ${result.maniobrista} (${result.maniobraDetalle.horas}h ${result.maniobraDetalle.minutos}m)`
-                  : `🏗️ Maniobra (${result.maniobraDetalle.horas}h ${result.maniobraDetalle.minutos}m)`
+                  ? `🏗️ Maniobra · ${result.maniobrista} (${result.maniobraDetalle.personas} pers)`
+                  : `🏗️ Maniobra (${result.maniobraDetalle.personas} pers)`
               }
               value={mxn(result.maniobra)}
               highlight
             />
           )}
-          {result.maniobraExtra > 0 && <DR label="🏗️ Maniobra adicional" value={mxn(result.maniobraExtra)} highlight />}
           {result.horasExtra > 0 && <DR label="⏰ Días especiales" value={mxn(result.horasExtra)} highlight />}
           {result.dadiva > 0 && <DR label="🤝 Dádiva GN" value={mxn(result.dadiva)} highlight />}
           <DR label="📉 Depreciación" value={mxn(result.depreciacion)} sub />
@@ -594,12 +592,9 @@ function CotizadorPageInner() {
   const [contTipo, setContTipo] = useState(initialFs.contTipo)
   const [descripcionCarga, setDescripcionCarga] = useState(initialFs.descripcionCarga)
 
-  // Maniobra
-  const [mHoras, setMHoras] = useState<number>(initialFs.mHoras)
-  const [mMinutos, setMMinutos] = useState<number>(initialFs.mMinutos)
-  const [mCosto, setMCosto] = useState<number>(initialFs.mCosto)
-  // Maniobra personalizada: monto fijo adicional (se suma a horas×costo, gana markup).
-  const [mExtra, setMExtra] = useState<number>(initialFs.maniobraExtra)
+  // Maniobra — se cobra por persona: costo por persona × número de personas.
+  const [mExtra, setMExtra] = useState<number>(initialFs.maniobraExtra)      // costo por persona
+  const [mPersonas, setMPersonas] = useState<number>(initialFs.maniobraPersonas)
   // Lista de maniobristas asignados (mezcla interno/externo en el mismo viaje).
   const [maniobristasList, setManiobristasList] = useState<ManiobristaAsignado[]>(initialFs.maniobristas)
   // UI inline pickers (no persistidos a la tab — solo del estado del form):
@@ -687,8 +682,7 @@ function CotizadorPageInner() {
     setReferenciaExtensiv(fs.referenciaExtensiv); setReferenciaSAC(fs.referenciaSAC)
     setContenedores(fs.contenedores); setContCantidad(fs.contCantidad)
     setContTipo(fs.contTipo); setDescripcionCarga(fs.descripcionCarga)
-    setMHoras(fs.mHoras); setMMinutos(fs.mMinutos); setMCosto(fs.mCosto)
-    setMExtra(fs.maniobraExtra)
+    setMExtra(fs.maniobraExtra); setMPersonas(fs.maniobraPersonas)
     setManiobristasList(fs.maniobristas)
     setAddInternoSel(''); setAddExternoName('')
     setViaticosExtras(fs.viaticosExtras); setDadiva(fs.dadiva)
@@ -714,7 +708,7 @@ function CotizadorPageInner() {
       cliente, tipoCliente, unidadClave, operador,
       referenciaExtensiv, referenciaSAC,
       contenedores, contCantidad, contTipo, descripcionCarga,
-      mHoras, mMinutos, mCosto, maniobraExtra: mExtra, maniobristas: maniobristasList,
+      maniobraExtra: mExtra, maniobraPersonas: mPersonas, maniobristas: maniobristasList,
       viaticosExtras, dadiva,
       incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
       dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
@@ -727,7 +721,7 @@ function CotizadorPageInner() {
     cliente, tipoCliente, unidadClave, operador,
     referenciaExtensiv, referenciaSAC,
     contenedores, contCantidad, contTipo, descripcionCarga,
-    mHoras, mMinutos, mCosto, mExtra, maniobristasList,
+    mExtra, mPersonas, maniobristasList,
     viaticosExtras, dadiva,
     incluyeBonos, bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
     dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
@@ -811,8 +805,7 @@ function CotizadorPageInner() {
       unidad, tipoCliente, operador, cliente,
       referenciaExtensiv, referenciaSAC,
       contenedores, descripcionCarga,
-      maniobrasHoras: mHoras, maniobrasMinutos: mMinutos, maniobraCosto: mCosto,
-      maniobraExtra: mExtra,
+      maniobraExtra: mExtra, maniobraPersonas: mPersonas,
       maniobristas: maniobristasList,
       viaticosExtras,
       dadiva,
@@ -827,7 +820,7 @@ function CotizadorPageInner() {
     horasRegreso, minutosRegreso, unidadClave, tipoCliente, operador, cliente,
     referenciaExtensiv, referenciaSAC,
     contenedores, descripcionCarga, totalKm,
-    mHoras, mMinutos, mCosto, mExtra, maniobristasList, viaticosExtras, dadiva, incluyeBonos,
+    mExtra, mPersonas, maniobristasList, viaticosExtras, dadiva, incluyeBonos,
     bonoSueldo, bonoKmCarga, bonoKmVacio, bonoComida,
     dMatutino, dNocturno, dSabado, dDomingo, dFestivo,
   ])
@@ -845,7 +838,7 @@ function CotizadorPageInner() {
       `${result.dias} día(s)`,
       `${result.unidad.modelo} (${result.unidad.placa})`,
       result.descripcionCarga ? `Carga: ${result.descripcionCarga}` : null,
-      result.maniobraExtra > 0 ? `[MANIOBRA EXTRA: ${mxn(result.maniobraExtra)}]` : null,
+      result.maniobra > 0 ? `[MANIOBRA: ${mxn(result.maniobra)} · ${result.maniobraDetalle.personas} pers]` : null,
       result.dadiva > 0 ? `[DADIVA: ${mxn(result.dadiva)}]` : null,
       precioFinalOverride !== result.precioFinal ? `[PRECIO AJUSTADO: ${mxn(precioFinalOverride)}]` : null,
     ].filter(Boolean).join(' · ')
@@ -868,7 +861,7 @@ function CotizadorPageInner() {
       costo_casetas: result.casetas ?? 0,
       costo_viaticos: result.viaticos ?? 0,
       costo_proveedor: 0,
-      costo_total: (result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0) + (result.maniobraExtra ?? 0) + (result.dadiva ?? 0),
+      costo_total: (result.costoCombustible ?? 0) + (result.casetas ?? 0) + (result.viaticos ?? 0) + (result.maniobra ?? 0) + (result.dadiva ?? 0),
       ingreso_cliente: precioFinalOverride,
       margen: precioFinalOverride - result.costoTotal,
       motive_dispatch_id: null,
@@ -889,7 +882,7 @@ function CotizadorPageInner() {
     setCasetasRegresoMulti(0); setHorasRegreso(0); setMinutosRegreso(0)
     setContenedores([]); setContCantidad(0); setContTipo(''); setDescripcionCarga('')
     setReferenciaExtensiv(''); setReferenciaSAC('')
-    setMHoras(0); setMMinutos(0); setMExtra(0)
+    setMExtra(0); setMPersonas(1)
     setManiobristasList([]); setAddInternoSel(''); setAddExternoName('')
     setDMatutino(0); setDNocturno(0)
     setDSabado(0); setDDomingo(0); setDFestivo(0)
@@ -1307,30 +1300,21 @@ function CotizadorPageInner() {
               <Collapsible title="Maniobra (opcional)" icon="🏗️">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className={lbl}>Horas</label>
-                    <div className="flex gap-1 items-center">
-                      {numInp(mHoras, setMHoras, 'w-16 text-center')}
-                      <span className="text-gray-500 text-sm">hr</span>
-                      {numInp(mMinutos, setMMinutos, 'w-16 text-center')}
-                      <span className="text-gray-500 text-sm">min</span>
-                    </div>
+                    <label className={lbl}>Costo por persona ($)</label>
+                    {numInp(mExtra, setMExtra)}
                   </div>
                   <div>
-                    <label className={lbl}>Costo por hora ($)</label>
-                    {numInp(mCosto, setMCosto)}
+                    <label className={lbl}>Número de personas</label>
+                    {numInp(mPersonas, setMPersonas)}
                   </div>
                   <div>
                     <label className={lbl}>Total maniobra</label>
                     <p className="text-xl font-bold text-[#1e3a5f] pt-1.5">
-                      {mxn(Math.round((mHoras + mMinutos / 60) * mCosto) + mExtra)}
+                      {mxn(Math.round(mExtra * (mPersonas || 1)))}
                     </p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <label className={lbl}>Maniobra personalizada ($)</label>
-                  {numInp(mExtra, setMExtra)}
-                  <p className="text-[10px] text-gray-400 mt-1">Monto fijo adicional (p.ej. maniobrista externo a precio cerrado). Se suma a la maniobra por horas y se cobra al cliente con margen.</p>
-                </div>
+                <p className="text-[10px] text-gray-400 mt-1">La maniobra se cobra por persona: cuánto cobra cada persona × número de personas. Se cobra al cliente con margen.</p>
               </Collapsible>
 
               {/* 5. Bonos operador */}
