@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
+import { NotificationPopup } from '../notifications/NotificationPopup'
 import { TimerPill } from './TimerPill'
 import { LanguageToggle } from './LanguageToggle'
 import { useAuthContext } from '../../context/AuthContext'
@@ -94,6 +95,7 @@ export function Header() {
         <LanguageToggle />
         <TimerPill />
         <NotificationBell />
+        <NotificationPopup />
         <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 font-medium max-w-[260px]">
           {/* Avatar = recorte preciso del PNG /public/hd-logo.png centrado en la
                sección de flechas (parte superior central, omitiendo "SupplyChain

@@ -31,6 +31,8 @@ export interface WarehouseTask {
   // Planificación operativa CEDIS (migración 20260528000001):
   scheduled_start:          string | null   // ISO timestamp — cuándo el director planeó ejecutarla
   scheduled_end:            string | null
+  // Evidencia de cierre (migración 20260707100002): link de Google Drive obligatorio al completar.
+  completion_evidence_url:  string | null
   // joins opcionales
   task?:                    Task | null
   takers?:                  WarehouseTaskTaker[]   // multi-taker (mig 20260528000001)

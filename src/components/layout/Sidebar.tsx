@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, CalendarPlus, Tag, Target, List } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, PackageMinus, CalendarPlus, Tag, Target, List } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -36,6 +36,8 @@ const ALMACEN_LINKS: Link[] = [
   { to: '/almacen/estandares',       label: 'Estándares',          icon: Clock },
   { to: '/almacen/entradas',           label: 'Entradas (Wizard)',       icon: PackagePlus, section: 'Entradas' },
   { to: '/almacen/entradas/historial', label: 'Historial de entradas',   icon: History,     section: 'Entradas' },
+  { to: '/almacen/salidas',            label: 'Salidas',                 icon: PackageMinus, section: 'Salidas' },
+  { to: '/almacen/salidas/historial',  label: 'Historial de salidas',    icon: History,      section: 'Salidas' },
   { to: '/almacen/validador-codigos',  label: 'Validador de Códigos',    icon: ScanBarcode, section: 'Pasos sueltos' },
   { to: '/almacen/receipt-generator', label: 'Facilitador de entradas', icon: FileInput,   section: 'Pasos sueltos' },
   { to: '/almacen/validacion-entrada', label: 'Validación de Entrada',  icon: FileCheck,   section: 'Pasos sueltos' },

@@ -11,10 +11,10 @@ interface UseTaskTimerResult {
   entries:         TaskTimeEntry[]
   loading:         boolean
   error:           string | null
-  start:           () => Promise<void>
+  start:           (startedAt?: string) => Promise<void>
   pause:           () => Promise<void>
   resume:          () => Promise<void>
-  finalize:        () => Promise<void>
+  finalize:        (evidenceUrl: string) => Promise<void>
   reload:          () => Promise<void>
 }
 
@@ -88,10 +88,10 @@ export function useTaskTimer(taskId: string, userEmail: string): UseTaskTimerRes
     elapsedSeconds = Math.floor(elapsedSeconds)
   }
 
-  const callRpc = useCallback(async (fn: string) => {
+  const callRpc = useCallback(async (fn: string, extraParams?: Record<string, unknown>) => {
     setLoading(true); setError(null)
     try {
-      const { error } = await supabase.rpc(fn, { p_task_id: taskId, p_user_email: userEmail })
+      const { error } = await supabase.rpc(fn, { p_task_id: taskId, p_user_email: userEmail, ...extraParams })
       if (error) throw error
       await reload()
     } catch (e: unknown) {
@@ -108,10 +108,10 @@ export function useTaskTimer(taskId: string, userEmail: string): UseTaskTimerRes
     entries,
     loading,
     error,
-    start:    () => callRpc('task_start_timer'),
+    start:    (startedAt?: string) => callRpc('task_start_timer', startedAt ? { p_started_at: startedAt } : undefined),
     pause:    () => callRpc('task_pause_timer'),
     resume:   () => callRpc('task_resume_timer'),
-    finalize: () => callRpc('task_finalize_timer'),
+    finalize: (evidenceUrl: string) => callRpc('task_finalize_timer', { p_evidence_url: evidenceUrl }),
     reload,
   }
 }

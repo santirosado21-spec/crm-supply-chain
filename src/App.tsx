@@ -42,6 +42,8 @@ import { ValidadorCodigosAlmacenPage } from './pages/almacen/ValidadorCodigosAlm
 import { ValidacionNotaEntradaPage } from './pages/almacen/ValidacionNotaEntradaPage'
 import { EntradaWizardPage } from './pages/almacen/entradas/EntradaWizardPage'
 import { EntradasHistorialPage } from './pages/almacen/entradas/EntradasHistorialPage'
+import { SalidaPage } from './pages/almacen/salidas/SalidaPage'
+import { SalidasHistorialPage } from './pages/almacen/salidas/SalidasHistorialPage'
 import { TaskCreate } from './pages/tasks/TaskCreate'
 import { TaskDetail } from './pages/tasks/TaskDetail'
 import { TaskTemplates } from './pages/tasks/TaskTemplates'
@@ -147,6 +149,13 @@ function App() {
           } />
           <Route path="/almacen/entradas/:id" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><EntradaWizardPage /></ProtectedRoute>
+          } />
+          {/* Salidas — el historial debe ir ANTES que /:id si algún día se agrega, mismo patrón que entradas. */}
+          <Route path="/almacen/salidas" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><SalidaPage /></ProtectedRoute>
+          } />
+          <Route path="/almacen/salidas/historial" element={
+            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><SalidasHistorialPage /></ProtectedRoute>
           } />
           {/* Compat redirect viejo */}
           <Route path="/almacen-layout" element={<Navigate to="/almacen/cedis" replace />} />

@@ -6,6 +6,7 @@ import {
 import { useWarehouseTasks } from '../../hooks/useWarehouseTasks'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
+import { CloseTaskModal } from '../tasks/CloseTaskModal'
 import {
   AREA_COLOR, AREA_LABEL,
   type WarehouseTask, type WarehouseTaskTaker,
@@ -49,6 +50,8 @@ export function PizarronBoard({ kiosk = false }: Props) {
 
   const [claiming, setClaiming] = useState<WarehouseTask | null>(null)
   const [nameInput, setNameInput] = useState('')
+  const [durationInput, setDurationInput] = useState('')
+  const [completing, setCompleting] = useState<WarehouseTask | null>(null)
   const [busy, setBusy] = useState(false)
 
   // En multi-taker, "en proceso" = tiene al menos 1 taker activo.
@@ -73,6 +76,8 @@ export function PizarronBoard({ kiosk = false }: Props) {
     // Kiosk: NO recordar nombre — multi-usuario simultáneo.
     // No-kiosk: pre-rellenar con el usuario logueado.
     setNameInput(kiosk ? '' : (user?.name ?? ''))
+    // Precarga con la duración estándar/del director si ya existe; el taker la puede editar.
+    setDurationInput(t.estimated_duration_min ? String(t.estimated_duration_min) : '')
   }
 
   const confirmClaim = async () => {
@@ -82,13 +87,19 @@ export function PizarronBoard({ kiosk = false }: Props) {
       toast.error('Falta tu nombre', 'Escribe tu nombre para tomar la tarea.')
       return
     }
+    const duration = Number(durationInput)
+    if (!durationInput.trim() || !Number.isFinite(duration) || duration <= 0) {
+      toast.error('Falta la duración', '¿Cuánto vas a tardar en esta tarea? (minutos)')
+      return
+    }
     setBusy(true)
     try {
       const deviceId = kiosk ? getDeviceId() : null
-      await addTaker(claiming.id, name, kiosk ? null : (user?.email ?? null), deviceId)
-      toast.success('Turno iniciado', `${name} en "${claiming.task?.title ?? 'la tarea'}".`)
+      await addTaker(claiming.id, name, kiosk ? null : (user?.email ?? null), deviceId, duration)
+      toast.success('Turno iniciado', `${name} en "${claiming.task?.title ?? 'la tarea'}" · ${duration} min bloqueados en agenda.`)
       setClaiming(null)
       setNameInput('')
+      setDurationInput('')
     } catch (e) {
       toast.error('No se pudo iniciar', e instanceof Error ? e.message : String(e))
     } finally {
@@ -108,11 +119,13 @@ export function PizarronBoard({ kiosk = false }: Props) {
     }
   }
 
-  const handleComplete = async (t: WarehouseTask) => {
+  const confirmComplete = async (evidenceUrl: string) => {
+    if (!completing) return
     setBusy(true)
     try {
-      await completeTask(t.id)
+      await completeTask(completing.id, evidenceUrl)
       toast.success('Tarea completada', 'Se quitó del pizarrón.')
+      setCompleting(null)
     } catch (e) {
       toast.error('No se pudo completar', e instanceof Error ? e.message : String(e))
     } finally {
@@ -220,7 +233,7 @@ export function PizarronBoard({ kiosk = false }: Props) {
                 <UserPlus size={kiosk ? 18 : 14} /> Agregar persona
               </button>
               <button
-                onClick={() => handleComplete(t)}
+                onClick={() => setCompleting(t)}
                 disabled={busy}
                 className={`w-full rounded-lg font-bold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 ${kiosk ? 'h-14 text-lg' : 'h-10 text-sm'}`}
                 style={{ background: '#28a745' }}
@@ -304,6 +317,21 @@ export function PizarronBoard({ kiosk = false }: Props) {
               placeholder="Escribe tu nombre"
               className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
             />
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 mt-3 block">
+              ¿Cuánto vas a tardar? (minutos)
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={durationInput}
+              onChange={e => setDurationInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') confirmClaim() }}
+              placeholder={claiming.estimated_duration_min ? `Estándar: ${claiming.estimated_duration_min} min` : 'Ej: 45'}
+              className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+            />
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Este tiempo bloquea tu agenda desde ahora.
+            </p>
             <div className="flex gap-2 mt-5">
               <button
                 onClick={() => setClaiming(null)}
@@ -323,6 +351,15 @@ export function PizarronBoard({ kiosk = false }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {completing && (
+        <CloseTaskModal
+          taskTitle={completing.task?.title}
+          busy={busy}
+          onCancel={() => setCompleting(null)}
+          onConfirm={confirmComplete}
+        />
       )}
     </div>
   )

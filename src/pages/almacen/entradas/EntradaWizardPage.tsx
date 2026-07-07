@@ -1,16 +1,18 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, ArrowRight, AlertTriangle, Check, Loader2, Plus, History,
+  AlertTriangle, Check, Loader2, Plus, History,
 } from 'lucide-react'
 import { Header } from '../../../components/layout/Header'
 import { Sidebar } from '../../../components/layout/Sidebar'
 import { useToast } from '../../../hooks/useToast'
 import { EntradaWizardProvider, useEntradaWizard } from '../../../context/EntradaWizardContext'
-import { WizardStepper } from './components/WizardStepper'
 import { Step1Validador } from './steps/Step1Validador'
-import { Step2Facilitador } from './steps/Step2Facilitador'
-import { Step3Validacion } from './steps/Step3Validacion'
+import { CloseTaskModal } from '../../../components/tasks/CloseTaskModal'
+// Paso 2 (Generar receipt) y Paso 3 (Verificar inventario) se desactivaron
+// temporalmente — el wizard solo usa el Paso 1 por ahora. El código de esos
+// pasos (WizardStepper, Step2Facilitador, Step3Validacion) se conserva sin
+// usar por si se re-habilita el flujo completo más adelante.
 
 function WizardInner() {
   const navigate = useNavigate()
@@ -18,13 +20,15 @@ function WizardInner() {
   const { id } = useParams()
   const {
     state, error, saving, lastSavedAt,
-    goToStep, finishWizard, resetWizard, resumeFromEntry,
+    finishAfterStep1, resetWizard, resumeFromEntry,
   } = useEntradaWizard()
-  const { currentStep, step1Complete, exportGenerated, flowStatus, extensivTransactionId, originalItems } = state
+  const { step1Complete, flowStatus, originalItems } = state
+  const [finishing, setFinishing] = useState(false)
+  const [finishBusy, setFinishBusy] = useState(false)
 
-  // Override de PRUEBA: permite saltar el bloqueo del Paso 1 (SKUs sin dar de alta)
-  // cuando ya hay una nota cargada. Solo para pruebas; en producción se valida.
-  const showStep1Override = currentStep === 1 && !step1Complete && originalItems.length > 0
+  // Override de PRUEBA: permite finalizar sin que todos los SKUs estén dados
+  // de alta, cuando ya hay una nota cargada. Solo para pruebas; en producción se valida.
+  const showStep1Override = !step1Complete && originalItems.length > 0
 
   // Resume / clean — solo una vez al montar.
   const inited = useRef(false)
@@ -40,24 +44,16 @@ function WizardInner() {
     if (state.entryId && !id) navigate(`/almacen/entradas/${state.entryId}`, { replace: true })
   }, [state.entryId, id, navigate])
 
-  const nextEnabled =
-    currentStep === 1 ? step1Complete :
-    currentStep === 2 ? exportGenerated :
-    !!extensivTransactionId.trim()
-  const nextHint =
-    currentStep === 1 ? 'Todos los SKUs deben estar dados de alta para continuar.' :
-    currentStep === 2 ? 'Genera el Receipt_Import.xlsx para continuar.' :
-    'Captura el número de transacción de Extensiv para finalizar.'
-
-  const handleNext = () => {
-    if (currentStep === 1) goToStep(2)
-    else if (currentStep === 2) goToStep(3)
-    else {
-      // No finalizar sin número de transacción (alineado con el guard de finishWizard).
-      if (!extensivTransactionId.trim()) return
-      finishWizard()
+  const confirmFinish = async (evidenceUrl: string) => {
+    setFinishBusy(true)
+    try {
+      await finishAfterStep1(evidenceUrl)
       toast.success('Entrada completada', 'La entrada quedó registrada en el historial.')
       navigate('/almacen/entradas/historial')
+    } catch (e: unknown) {
+      toast.error('No se pudo finalizar', e instanceof Error ? e.message : 'Error desconocido')
+    } finally {
+      setFinishBusy(false)
     }
   }
 
@@ -75,9 +71,9 @@ function WizardInner() {
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-10 touch-pan-y">
           <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-[#1e3a5f]">Entradas — Wizard</h1>
+              <h1 className="text-xl font-bold text-[#1e3a5f]">Entradas — Validar alta</h1>
               <p className="text-xs text-gray-400 mt-0.5">
-                Un cliente, una nota, tres pasos: validar alta → generar receipt → verificar inventario.
+                Un cliente, una nota: valida que todos los SKUs estén dados de alta y que los totales cuadren.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -103,53 +99,49 @@ function WizardInner() {
             </div>
           </div>
 
-          <WizardStepper />
-
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-center gap-2">
               <AlertTriangle size={16} className="shrink-0" /> {error}
             </div>
           )}
 
-          {currentStep === 1 && <Step1Validador />}
-          {currentStep === 2 && <Step2Facilitador />}
-          {currentStep === 3 && <Step3Validacion />}
+          <Step1Validador />
 
-          {/* Footer navegación */}
-          <div className="flex items-center justify-between gap-3 mt-8 pt-4 border-t border-gray-100 flex-wrap">
-            <button
-              onClick={() => goToStep((currentStep - 1) as 1 | 2)}
-              disabled={currentStep === 1}
-              className="h-10 px-4 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 flex items-center gap-2 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ArrowLeft size={16} /> Atrás
-            </button>
-            <div className="flex items-center gap-3 flex-wrap justify-end">
-              {!nextEnabled && nextHint && (
-                <span className="text-xs text-amber-700 flex items-center gap-1.5">
-                  <AlertTriangle size={13} /> {nextHint}
-                </span>
-              )}
-              {showStep1Override && (
-                <button
-                  onClick={() => goToStep(2)}
-                  title="Solo para pruebas: avanza sin que todos los SKUs estén dados de alta"
-                  className="h-10 px-4 rounded-lg border border-dashed border-amber-400 bg-amber-50 text-sm font-medium text-amber-700 flex items-center gap-2 hover:bg-amber-100 transition-colors"
-                >
-                  Continuar sin validar (prueba) <ArrowRight size={16} />
-                </button>
-              )}
+          {/* Footer: solo Finalizar — Pasos 2 y 3 desactivados por ahora. */}
+          <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-gray-100 flex-wrap">
+            {!step1Complete && (
+              <span className="text-xs text-amber-700 flex items-center gap-1.5">
+                <AlertTriangle size={13} /> Todos los SKUs deben estar dados de alta para continuar.
+              </span>
+            )}
+            {showStep1Override && (
               <button
-                onClick={handleNext}
-                disabled={!nextEnabled || flowStatus === 'completada'}
-                className="h-10 px-6 rounded-lg bg-[#1e3a5f] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#16304d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => setFinishing(true)}
+                title="Solo para pruebas: finaliza sin que todos los SKUs estén dados de alta"
+                className="h-10 px-4 rounded-lg border border-dashed border-amber-400 bg-amber-50 text-sm font-medium text-amber-700 flex items-center gap-2 hover:bg-amber-100 transition-colors"
               >
-                {currentStep === 3 ? (<><Check size={16} /> Finalizar</>) : (<>Siguiente <ArrowRight size={16} /></>)}
+                Finalizar sin validar (prueba)
               </button>
-            </div>
+            )}
+            <button
+              onClick={() => setFinishing(true)}
+              disabled={!step1Complete || flowStatus === 'completada'}
+              className="h-10 px-6 rounded-lg bg-[#1e3a5f] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#16304d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Check size={16} /> Finalizar entrada
+            </button>
           </div>
         </main>
       </div>
+
+      {finishing && (
+        <CloseTaskModal
+          title="Finalizar entrada"
+          busy={finishBusy}
+          onCancel={() => setFinishing(false)}
+          onConfirm={confirmFinish}
+        />
+      )}
     </div>
   )
 }

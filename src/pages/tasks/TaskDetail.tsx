@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Check, X, Send, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Check, X, Send, MessageSquare, Loader2, Pencil } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { Spinner } from '../../components/ui/Spinner'
@@ -27,6 +27,12 @@ export function TaskDetail() {
   const [newNote, setNewNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [acceptingDuration, setAcceptingDuration] = useState(false)
+  const [durationInput, setDurationInput] = useState('')
+  const [editingSchedule, setEditingSchedule] = useState(false)
+  const [editStart, setEditStart] = useState('')
+  const [editEnd, setEditEnd] = useState('')
+  const [savingSchedule, setSavingSchedule] = useState(false)
 
   const reloadTask = async () => {
     try {
@@ -57,15 +63,63 @@ export function TaskDetail() {
   const isAssigner = task?.assigner_email === myEmail
   const canControl = isAssignee && task && ['aceptada', 'en_curso', 'pausada'].includes(task.status)
 
-  const accept = async () => {
+  const confirmAccept = async () => {
+    const duration = Number(durationInput)
+    if (!durationInput.trim() || !Number.isFinite(duration) || duration <= 0) {
+      toast.error('Falta la duración', '¿Cuánto vas a tardar en esta tarea? (minutos)')
+      return
+    }
     setActionLoading(true)
     try {
-      await updateStatus(id, 'aceptada')
+      await updateStatus(id, 'aceptada', undefined, duration)
       toast.success('Tarea aceptada')
+      setAcceptingDuration(false)
+      setDurationInput('')
       await reloadTask()
     } catch (e: unknown) {
       toast.error('No se pudo aceptar', e instanceof Error ? e.message : 'Error')
     } finally { setActionLoading(false) }
+  }
+
+  // yyyy-MM-ddTHH:mm en hora local, para precargar <input type="datetime-local">
+  const toLocalInputValue = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const openEditSchedule = () => {
+    if (!task) return
+    setEditStart(toLocalInputValue(new Date(task.scheduled_start)))
+    setEditEnd(toLocalInputValue(new Date(task.scheduled_end)))
+    setEditingSchedule(true)
+  }
+
+  const saveSchedule = async () => {
+    if (!editStart || !editEnd) return
+    const newStart = new Date(editStart)
+    const newEnd = new Date(editEnd)
+    if (newEnd <= newStart) {
+      toast.error('Horario inválido', 'La hora de fin debe ser posterior al inicio.')
+      return
+    }
+    setSavingSchedule(true)
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ scheduled_start: newStart.toISOString(), scheduled_end: newEnd.toISOString() })
+        .eq('id', id)
+      if (error) throw error
+      toast.success('Horario actualizado')
+      setEditingSchedule(false)
+      await reloadTask()
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido'
+      toast.error('No se pudo guardar', msg.includes('tasks_no_overlap')
+        ? 'Ese horario traslapa con otra tarea activa de esta persona.'
+        : msg)
+    } finally {
+      setSavingSchedule(false)
+    }
   }
   const reject = async () => {
     const reason = window.prompt('Motivo del rechazo (opcional)') ?? ''
@@ -180,11 +234,56 @@ export function TaskDetail() {
                     </div>
                     <div>
                       <p className="font-bold uppercase tracking-wider text-gray-400 mb-0.5">Programada</p>
-                      <p className="text-gray-700">
-                        {start.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
-                        {' → '}
-                        {end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                      {editingSchedule ? (
+                        <div className="flex flex-col gap-1.5 mt-1">
+                          <input
+                            type="datetime-local"
+                            value={editStart}
+                            onChange={e => setEditStart(e.target.value)}
+                            className="h-8 px-2 rounded border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                          />
+                          <input
+                            type="datetime-local"
+                            value={editEnd}
+                            onChange={e => setEditEnd(e.target.value)}
+                            className="h-8 px-2 rounded border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                          />
+                          <div className="flex gap-2 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingSchedule(false)}
+                              disabled={savingSchedule}
+                              className="text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={saveSchedule}
+                              disabled={savingSchedule}
+                              className="text-[11px] font-semibold text-[#1e3a5f] hover:underline inline-flex items-center gap-1"
+                            >
+                              {savingSchedule ? <Loader2 size={11} className="animate-spin" /> : null} Guardar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-700 inline-flex items-center gap-1.5">
+                          {start.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
+                          {' → '}
+                          {end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                          {(isAssigner || isAssignee) && (
+                            <button
+                              type="button"
+                              onClick={openEditSchedule}
+                              title="Editar horario"
+                              className="text-gray-300 hover:text-[#1e3a5f]"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                        </p>
+                      )}
                     </div>
                     {task.client?.name && (
                       <div>
@@ -212,7 +311,7 @@ export function TaskDetail() {
                       <button
                         type="button"
                         disabled={actionLoading}
-                        onClick={accept}
+                        onClick={() => setAcceptingDuration(true)}
                         className="flex-1 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-sm font-semibold text-white"
                         style={{ background: 'var(--brand-green, #28a745)' }}
                       >
@@ -240,6 +339,20 @@ export function TaskDetail() {
                   )}
                 </div>
               </div>
+
+              {/* Cronómetro (asignado): iniciar el timestamp cuando realmente empiece.
+                  Aceptar e iniciar son momentos distintos — por eso vive aquí, visible
+                  justo debajo de la tarjeta apenas se acepta (desktop y móvil). */}
+              {canControl && (
+                <div className="space-y-2">
+                  {task.status === 'aceptada' && (
+                    <p className="text-xs text-gray-600 bg-blue-50/60 border border-blue-100 rounded-lg px-3 py-2">
+                      Ya aceptaste esta tarea. Inicia el cronómetro cuando realmente empieces — se registra la hora en ese momento.
+                    </p>
+                  )}
+                  <TaskTimerWidget taskId={task.id} userEmail={myEmail} />
+                </div>
+              )}
 
               {/* Notas */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
@@ -285,21 +398,64 @@ export function TaskDetail() {
               </div>
             </div>
 
-            {/* Timer */}
+            {/* Panel lateral: vista del asignador (lectura) o ayuda */}
             <aside className="space-y-4">
-              {canControl ? (
-                <TaskTimerWidget taskId={task.id} userEmail={myEmail} />
-              ) : isAssigner && ['en_curso','pausada','finalizada'].includes(task.status) ? (
+              {isAssigner && !isAssignee && ['en_curso','pausada','finalizada'].includes(task.status) ? (
                 <TaskTimerWidget taskId={task.id} userEmail={task.assignee_email} readOnly />
-              ) : (
+              ) : !canControl ? (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-xs text-gray-400 text-center">
                   El timer estará disponible cuando la tarea esté aceptada o en curso.
                 </div>
-              )}
+              ) : null}
             </aside>
           </div>
         </main>
       </div>
+
+      {acceptingDuration && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => !actionLoading && setAcceptingDuration(false)}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[#1e3a5f] mb-1">Aceptar tarea</h2>
+            <p className="text-xs text-gray-500 mb-4">{task.title}</p>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+              ¿Cuánto vas a tardar? (minutos)
+            </label>
+            <input
+              type="number"
+              min={1}
+              autoFocus
+              value={durationInput}
+              onChange={e => setDurationInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') confirmAccept() }}
+              placeholder="Ej: 45"
+              className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+            />
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Esto ajusta la hora de fin en tu agenda.
+            </p>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setAcceptingDuration(false)}
+                disabled={actionLoading}
+                className="flex-1 h-10 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmAccept}
+                disabled={actionLoading}
+                className="flex-1 h-10 rounded-lg bg-[#28a745] text-white text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50"
+              >
+                {actionLoading ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

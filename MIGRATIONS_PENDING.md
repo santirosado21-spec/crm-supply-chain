@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR (#11, #12 y #13 ya aplicadas)
+## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR (#11-#20 ya aplicadas)
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -141,6 +141,74 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Respalda la clasificación obligatoria de tareas del **Calendario General** y
   los filtros por etiqueta. Sin esta migración el formulario de "Crear tarea para
   Calendario General" y los filtros de `/agenda` fallan al leer `task_tags`.
+
+### 14. `20260702000001_extensiv_item_log.sql` ✅ APLICADA (2026-07-02, vía MCP `apply_migration` en prod `uifrgmiqpkbgyvzbcldn`; tabla + 2 RPCs verificados)
+- Nueva tabla `extensiv_item_log` (log idempotente de alta de SKUs en Extensiv
+  desde el Paso 1 del wizard de Entradas) + RPCs SECURITY DEFINER
+  `extensiv_item_log_attempt` / `extensiv_item_log_finalize`. UNIQUE
+  `(customer_id, sku)` para no duplicar el alta. RLS abierta. Patrón espejo de
+  `extensiv_billing_log`.
+- Sin esta migración el botón "Dar de alta" del Paso 1 falla al llamar los RPCs.
+- Requiere además habilitar la escritura del proxy (`EXTENSIV_WRITE_ENABLED`) y el
+  flag de UI (`VITE_EXTENSIV_WRITE_ENABLED`) — ver `SECRETS_PENDING.md §5`.
+
+### 15. `20260707100000_task_start_timer_custom_ts.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; firma verificada con `p_started_at`)
+- `task_start_timer` gana parámetro opcional `p_started_at TIMESTAMPTZ` (si es
+  NULL usa `now()`, comportamiento idéntico a antes). Permite iniciar el timer
+  de una tarea con una hora real distinta a "ahora" (ej. el trabajador olvidó
+  dar inicio a tiempo), con guard server-side de que no sea futuro.
+- Sin esta migración, el botón "Elegir otra hora de inicio" en `TaskTimerWidget`
+  falla porque el RPC en prod todavía solo acepta 2 parámetros.
+
+### 16. `20260707100001_pizarron_taker_duration.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; RPC probado end-to-end contra un warehouse_task inexistente → error de negocio esperado, no error de sintaxis)
+- `pizarron_start_taker` gana parámetro opcional `p_duration_min INT`: cuando
+  el trabajador de almacén da clic en "TOMAR" e indica cuánto va a tardar, el
+  RPC actualiza `warehouse_tasks.estimated_duration_min` y calcula
+  `scheduled_start`/`scheduled_end` = `taken_at` + duración — eso es lo que
+  bloquea su bloque en la agenda operativa.
+- Sin esta migración, el modal de "Tomar tarea" pide la duración en la UI pero
+  el RPC en prod la ignora silenciosamente (parámetro desconocido → error).
+
+### 17. `20260707100002_task_close_evidence_link.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; columnas + función helper + 3 RPCs verificados end-to-end)
+- `tasks` y `warehouse_tasks` ganan columna `completion_evidence_url TEXT`.
+- Nueva función helper `is_google_drive_url(url)`.
+- Nuevo RPC `task_close_with_evidence(p_task_id, p_evidence_url)` — camino de
+  cierre para TaskTraceabilityPanel/WarehouseOperativoPanel/AgendaPage.
+- `task_finalize_timer` y `pizarron_complete_task` ganan parámetro
+  `p_evidence_url`, obligatorio y validado contra Drive/Docs antes de cerrar.
+- Nota de seguridad (advisors, no bloqueante): `task_start_timer`,
+  `task_finalize_timer`, `task_close_with_evidence` e `is_google_drive_url`
+  quedan con "role mutable search_path" (no tienen `SET search_path = public`,
+  a diferencia de los RPCs `pizarron_*` que sí lo tienen desde antes). Es un
+  patrón pre-existente en los RPCs `task_*` de Task Tracker (no introducido por
+  este fix) — pendiente de endurecer si se decide una limpieza de seguridad.
+
+### 18. `20260707200000_task_accept_duration.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; RPC probado contra ID inexistente → error de negocio esperado)
+- `task_change_status` gana parámetro `p_duration_min INT DEFAULT NULL`: al
+  aceptar una tarea del Calendario General (no solo Pizarrón), el asignado
+  ahora debe indicar cuánto va a tardar; el RPC recalcula
+  `scheduled_end = scheduled_start + duración` (mantiene `scheduled_start`
+  tal cual lo propuso el asignador). La EXCLUDE constraint `tasks_no_overlap`
+  protege contra traslapes, devolviendo un mensaje claro en vez de un error crudo.
+- Sin esta migración, el modal de "Aceptar tarea" en `TaskDetail` pide la
+  duración pero el RPC en prod la ignora (parámetro desconocido → error).
+
+### 19. `20260707200001_warehouse_entry_close_evidence.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`)
+- `warehouse_entries` gana columna `completion_evidence_url TEXT`.
+- Nuevo RPC `warehouse_entry_close(p_id, p_evidence_url)` — reutiliza
+  `is_google_drive_url()` (de la migración #17). Finalizar una entrada desde
+  el wizard (Paso 1 único) ahora exige un link de Google Drive válido.
+- Sin esta migración, el botón "Finalizar entrada" falla porque el RPC no existe en prod.
+
+### 20. `20260707200002_warehouse_exits.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; tabla + RPC verificados)
+- Nueva tabla `warehouse_exits` — contraparte simple de `warehouse_entries`
+  (registrar salida + cerrar con evidencia), sin integración con la API de
+  Extensiv (ver memoria `extensiv-shipout-blocked-on-api` — el ship-out vía
+  API sigue bloqueado). El cierre vive solo en el CRM.
+- Nuevo RPC `warehouse_exit_close(p_id, p_evidence_url)`, mismo patrón que
+  `warehouse_entry_close`. RLS abierta + realtime habilitado.
+- Nueva página `/almacen/salidas` + `/almacen/salidas/historial`.
+- Sin esta migración, la página de Salidas no puede leer/escribir nada — la tabla no existe.
 
 ## Cómo aplicar
 

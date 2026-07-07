@@ -5,6 +5,8 @@ import { EmptyState } from '../ui/EmptyState'
 import { useTasks } from '../../hooks/useTasks'
 import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { TaskRouteLabel } from './TaskRouteLabel'
+import { CloseTaskModal } from './CloseTaskModal'
+import { useToast } from '../../hooks/useToast'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, TASK_STATUS_LABEL, type Task } from '../../types/tasks'
 
@@ -35,9 +37,11 @@ interface Props {
 export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
   const { tasks, loading, list } = useTasks()
   const { byEmail } = useTeamMembers()
+  const toast = useToast()
   const [range, setRange] = useState<RangeKey>('30')
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId] = useState<string | null>(null)
+  const [closingTask, setClosingTask] = useState<Task | null>(null)
 
   const refetch = useCallback(() => setRefetchKey(k => k + 1), [])
 
@@ -74,12 +78,20 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
     [visible],
   )
 
-  async function handleClose(taskId: string) {
-    setClosingId(taskId)
+  async function confirmClose(evidenceUrl: string) {
+    if (!closingTask) return
+    setClosingId(closingTask.id)
     try {
-      await supabase.from('tasks').update({ status: 'finalizada' }).eq('id', taskId)
+      const { error } = await supabase.rpc('task_close_with_evidence', {
+        p_task_id: closingTask.id,
+        p_evidence_url: evidenceUrl,
+      })
+      if (error) throw error
+      setClosingTask(null)
       refetch()
       onChanged?.()
+    } catch (e: unknown) {
+      toast.error('No se pudo cerrar', e instanceof Error ? e.message : 'Error desconocido')
     } finally {
       setClosingId(null)
     }
@@ -136,7 +148,7 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
               <button
                 type="button"
                 disabled={closingId === t.id}
-                onClick={() => handleClose(t.id)}
+                onClick={() => setClosingTask(t)}
                 className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
               >
                 {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -216,6 +228,15 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
             )}
           </section>
         </div>
+      )}
+
+      {closingTask && (
+        <CloseTaskModal
+          taskTitle={closingTask.title}
+          busy={closingId === closingTask.id}
+          onCancel={() => setClosingTask(null)}
+          onConfirm={confirmClose}
+        />
       )}
     </div>
   )

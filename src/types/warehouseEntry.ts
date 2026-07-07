@@ -26,6 +26,21 @@ export interface ValidationRow {
   confirmedSku: string | null
   /** Efectivo: exacto, o parcial ya confirmado. Lo que cuenta como "dado de alta". */
   registered: boolean
+  /** Estado del alta en Extensiv para SKUs 'none' que se dan de alta desde el Paso 1. */
+  altaStatus?: 'idle' | 'pending' | 'created' | 'failed'
+  /** ID del item creado en Extensiv (tras un alta exitosa). */
+  extensivItemId?: string
+}
+
+/** Datos que captura el usuario para dar de alta un SKU nuevo en Extensiv. */
+export interface AltaSkuForm {
+  sku:           string
+  description:   string
+  unitOfMeasure: string
+  length:        number
+  width:         number
+  height:        number
+  weight:        number
 }
 
 /** Paso 2 — items editables del facilitador (copia de la nota original). */
@@ -78,6 +93,7 @@ export interface WarehouseEntry {
 
   created_by:       string | null
   completed_at:     string | null
+  completion_evidence_url: string | null
   notas:            string
   created_at:       string
   updated_at:       string

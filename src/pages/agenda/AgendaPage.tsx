@@ -9,10 +9,12 @@ import { TaskTraceabilityPanel } from '../../components/tasks/TaskTraceabilityPa
 import { TaskInboxPanel } from '../../components/tasks/TaskInboxPanel'
 import { WarehouseOperativoPanel } from '../../components/agenda/WarehouseOperativoPanel'
 import { TaskRouteLabel } from '../../components/tasks/TaskRouteLabel'
+import { CloseTaskModal } from '../../components/tasks/CloseTaskModal'
 import { useTasks } from '../../hooks/useTasks'
 import { useTaskTags } from '../../hooks/useTaskTags'
 import { useClients } from '../../hooks/useClients'
 import { useTeamMembers } from '../../hooks/useTeamMembers'
+import { useToast } from '../../hooks/useToast'
 import { useAuthContext } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, DAY_OF_WEEK_LABEL, TAG_DIMENSIONS, type TagDimension, type Task } from '../../types/tasks'
@@ -49,6 +51,7 @@ export function AgendaPage() {
   const email = user?.email ?? ''
   const { tasks, loading, list } = useTasks()
   const { byEmail } = useTeamMembers()
+  const toast = useToast()
 
   // Solo almacén y admin ven el calendario "Operativo" (el General acotado a almacén).
   const canSeeOperativo = user?.role === 'almacen' || user?.role === 'admin'
@@ -82,6 +85,7 @@ export function AgendaPage() {
 
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId]   = useState<string | null>(null)
+  const [closingTask, setClosingTask] = useState<Task | null>(null)
 
   // ── Filtros por etiqueta (Calendario General) ──
   const { byDimension } = useTaskTags()
@@ -165,11 +169,19 @@ export function AgendaPage() {
     [tasksByDay, activeDay],
   )
 
-  async function handleClose(taskId: string) {
-    setClosingId(taskId)
+  async function confirmClose(evidenceUrl: string) {
+    if (!closingTask) return
+    setClosingId(closingTask.id)
     try {
-      await supabase.from('tasks').update({ status: 'finalizada' }).eq('id', taskId)
+      const { error } = await supabase.rpc('task_close_with_evidence', {
+        p_task_id: closingTask.id,
+        p_evidence_url: evidenceUrl,
+      })
+      if (error) throw error
+      setClosingTask(null)
       refresh()
+    } catch (e: unknown) {
+      toast.error('No se pudo cerrar', e instanceof Error ? e.message : 'Error desconocido')
     } finally {
       setClosingId(null)
     }
@@ -463,7 +475,7 @@ export function AgendaPage() {
                               <button
                                 type="button"
                                 disabled={closingId === t.id}
-                                onClick={() => handleClose(t.id)}
+                                onClick={() => setClosingTask(t)}
                                 className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                               >
                                 {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -552,14 +564,7 @@ export function AgendaPage() {
 
               {!loading && dayTasks.length === 0 && (
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-12 text-center">
-                  <p className="text-sm text-gray-400 mb-2">Sin actividades para este día</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/calendario/nueva')}
-                    className="text-xs font-semibold text-[#1e3a5f] hover:underline"
-                  >
-                    + Nueva tarea
-                  </button>
+                  <p className="text-sm text-gray-400">Sin actividades para este día</p>
                 </div>
               )}
 
@@ -611,7 +616,7 @@ export function AgendaPage() {
                             <button
                               type="button"
                               disabled={closingId === t.id}
-                              onClick={() => handleClose(t.id)}
+                              onClick={() => setClosingTask(t)}
                               className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                             >
                               {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -630,6 +635,15 @@ export function AgendaPage() {
           )}
         </main>
       </div>
+
+      {closingTask && (
+        <CloseTaskModal
+          taskTitle={closingTask.title}
+          busy={closingId === closingTask.id}
+          onCancel={() => setClosingTask(null)}
+          onConfirm={confirmClose}
+        />
+      )}
     </div>
   )
 }

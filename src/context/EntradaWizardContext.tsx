@@ -13,9 +13,11 @@
 import {
   createContext, useCallback, useContext, useRef, useState, type ReactNode,
 } from 'react'
+import { supabase } from '../lib/supabase'
 import { useAuthContext } from './AuthContext'
 import { getExtensivInventoryByCustomer, getExtensivRegisteredSkus } from '../lib/extensiv'
-import { normalizeSKU, findPartialSkuCandidates, type PTLineItem } from '../lib/ptParser'
+import { createItemInExtensiv } from '../lib/extensivItemCreation'
+import { normalizeSKU, classifySku, type PTLineItem } from '../lib/ptParser'
 import { expandToUnits } from '../lib/sheetParser'
 import { extractItemsFromFile } from '../lib/entradaExtract'
 import { getClientImportHint } from '../lib/clientImportFormats'
@@ -25,6 +27,7 @@ import {
 } from '../hooks/useWarehouseEntries'
 import type {
   WizardState, WizardStep, ValidationRow, VerificationRow, VerificationStatus,
+  AltaSkuForm,
 } from '../types/warehouseEntry'
 
 const INITIAL_STATE: WizardState = {
@@ -70,6 +73,8 @@ interface EntradaWizardContextType {
   clearNota:          () => void
   runStep1Validation: () => void
   confirmSkuMatch:    (docSku: string, registeredSku: string) => void
+  updateStep1Sku:     (oldSku: string, newSku: string) => void
+  registerItemInExtensiv: (rowSku: string, form: AltaSkuForm) => Promise<boolean>
   goToStep:           (step: WizardStep) => void
   setRef:             (ref: string) => void
   updateStep2Item:    (idx: number, field: 'sku' | 'qty' | 'serialNumber', value: string | number | null) => void
@@ -80,6 +85,7 @@ interface EntradaWizardContextType {
   setAnomaly:         (sku: string, text: string) => void
   setTransactionId:   (id: string) => void
   finishWizard:       () => void
+  finishAfterStep1:   (evidenceUrl: string) => Promise<void>
   resetWizard:        () => void
   resumeFromEntry:    (id: string) => Promise<void>
   clearError:         () => void
@@ -275,14 +281,10 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     const results: ValidationRow[] = cur.originalItems.flatMap((item): ValidationRow[] => {
       const sku = normalizeSKU(item.sku)
       if (!sku) return []
-      if (set.has(sku)) {
-        return [{ sku, qty: item.qty, match: 'exact', candidates: [], confirmedSku: null, registered: true }]
-      }
-      // Sin match exacto → busca coincidencias parciales (NTL49926-1 ⊂ NTL49926-1000).
-      const candidates = findPartialSkuCandidates(sku, catalogArr)
-      const match = candidates.length > 0 ? 'partial' : 'none'
-      // 'partial' NO cuenta como registrado hasta que el usuario confirme (decisión del usuario).
-      return [{ sku, qty: item.qty, match, candidates, confirmedSku: null, registered: false }]
+      // 'exact' → registrado; 'partial' → candidatos (NTL49926-1 ⊂ NTL49926-1000),
+      // NO cuenta como registrado hasta que el usuario confirme; 'none' → por dar de alta.
+      const { match, candidates, registered } = classifySku(sku, catalogArr, set)
+      return [{ sku, qty: item.qty, match, candidates, confirmedSku: null, registered }]
     })
     // Orden: pendientes primero (none, luego partial), registrados al final.
     const rank = (r: ValidationRow) => r.registered ? 2 : r.match === 'partial' ? 1 : 0
@@ -303,6 +305,99 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
       schedulePersist({ step1_results: results, step1_complete: complete })
       return { ...prev, step1Results: results, step1Complete: complete }
     })
+  }, [schedulePersist])
+
+  // Corrige el SKU de una fila del Paso 1 (typo de OCR), re-evalúa su match contra
+  // el catálogo y propaga la corrección a originalItems (y por ende al recibo del
+  // Paso 2). Si el SKU corregido ya está registrado, deja de contar como faltante.
+  const updateStep1Sku = useCallback((oldSku: string, newSku: string) => {
+    const normalized = normalizeSKU(newSku)
+    setState(prev => {
+      if (!normalized || normalized === oldSku) return prev
+      const set = catalogSetRef.current
+      const catalogArr = set ? Array.from(set) : []
+      const { match, candidates, registered } = classifySku(normalized, catalogArr, set ?? undefined)
+      const step1Results = prev.step1Results.map(r =>
+        r.sku === oldSku
+          ? { ...r, sku: normalized, match, candidates, confirmedSku: null, registered, altaStatus: 'idle' as const, extensivItemId: undefined }
+          : r,
+      )
+      const complete = step1Results.length > 0 && step1Results.every(r => r.registered)
+      const originalItems = prev.originalItems.map(it =>
+        normalizeSKU(it.sku) === oldSku ? { ...it, sku: normalized } : it,
+      )
+      const step2Items = expandToUnits(originalItems)
+      schedulePersist({
+        step1_results: step1Results, step1_complete: complete,
+        original_items: originalItems, step2_items: step2Items,
+      })
+      return { ...prev, step1Results, step1Complete: complete, originalItems, step2Items }
+    })
+  }, [schedulePersist])
+
+  // Da de alta un SKU faltante en Extensiv (POST create-item vía proxy). Al éxito
+  // la fila pasa a "Registrado" y el SKU se agrega al catálogo local. Devuelve
+  // true si el alta fue exitosa (para que la UI cierre el modal).
+  const registerItemInExtensiv = useCallback(async (rowSku: string, form: AltaSkuForm): Promise<boolean> => {
+    const cur = stateRef.current
+    if (!cur.customerId) { setError('Selecciona un cliente antes de dar de alta.'); return false }
+    const finalSku = normalizeSKU(form.sku) ?? form.sku.trim().toUpperCase()
+
+    setError('')
+    setState(prev => ({
+      ...prev,
+      step1Results: prev.step1Results.map(r =>
+        r.sku === rowSku ? { ...r, altaStatus: 'pending' as const } : r),
+    }))
+
+    const result = await createItemInExtensiv({
+      customerId:    cur.customerId,
+      sku:           finalSku,
+      description:   form.description,
+      unitOfMeasure: form.unitOfMeasure,
+      length:        form.length,
+      width:         form.width,
+      height:        form.height,
+      weight:        form.weight,
+    })
+
+    if (!result.ok) {
+      setState(prev => ({
+        ...prev,
+        step1Results: prev.step1Results.map(r =>
+          r.sku === rowSku ? { ...r, altaStatus: 'failed' as const } : r),
+      }))
+      setError(`No se pudo dar de alta ${finalSku} en Extensiv: ${result.error ?? 'error desconocido'}`)
+      return false
+    }
+
+    // Éxito: agregar al catálogo local y marcar la fila como registrada.
+    const nextSet = new Set(catalogSetRef.current ?? [])
+    nextSet.add(finalSku)
+    setCatalogSet(nextSet)
+    setCatalogCount(nextSet.size)
+
+    setState(prev => {
+      const step1Results = prev.step1Results.map(r =>
+        r.sku === rowSku
+          ? {
+              ...r, sku: finalSku, match: 'exact' as const, candidates: [], confirmedSku: null,
+              registered: true, altaStatus: 'created' as const, extensivItemId: result.extensivItemId ?? undefined,
+            }
+          : r,
+      )
+      const complete = step1Results.length > 0 && step1Results.every(r => r.registered)
+      const originalItems = prev.originalItems.map(it =>
+        normalizeSKU(it.sku) === rowSku ? { ...it, sku: finalSku } : it,
+      )
+      const step2Items = expandToUnits(originalItems)
+      schedulePersist({
+        step1_results: step1Results, step1_complete: complete,
+        original_items: originalItems, step2_items: step2Items,
+      })
+      return { ...prev, step1Results, step1Complete: complete, originalItems, step2Items }
+    })
+    return true
   }, [schedulePersist])
 
   const goToStep = useCallback((step: WizardStep) => {
@@ -419,6 +514,22 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     })()
   }, [flushPending, persistNow])
 
+  // Cierre simplificado: por ahora el wizard solo usa el Paso 1 (validar alta +
+  // totales). El código de Paso 2 (receipt) y Paso 3 (verificar inventario) se
+  // conserva sin usar por si se re-habilita el flujo completo más adelante.
+  // Requiere un link de Google Drive como evidencia (warehouse_entry_close lo valida).
+  const finishAfterStep1 = useCallback(async (evidenceUrl: string) => {
+    const id = stateRef.current.entryId
+    if (!id) { setError('La entrada aún no se ha guardado — sube la nota antes de finalizar.'); return }
+    await flushPending()
+    const { error: err } = await supabase.rpc('warehouse_entry_close', {
+      p_id: id,
+      p_evidence_url: evidenceUrl,
+    })
+    if (err) throw err
+    setState(prev => ({ ...prev, flowStatus: 'completada' }))
+  }, [flushPending])
+
   const resetWizard = useCallback(() => {
     if (flushTimer.current) { clearTimeout(flushTimer.current); flushTimer.current = null }
     pendingPatch.current = {}
@@ -477,15 +588,17 @@ export function EntradaWizardProvider({ children }: { children: ReactNode }) {
     state,
     catalogCount, catalogLoading, extracting, verifyLoading, error, saving, lastSavedAt,
     unregisteredCount, pendingConfirmCount, extractedTotalQty, totalMismatch,
-    setCustomer, setNotaFile, clearNota, runStep1Validation, confirmSkuMatch, goToStep, setRef,
+    setCustomer, setNotaFile, clearNota, runStep1Validation, confirmSkuMatch,
+    updateStep1Sku, registerItemInExtensiv, goToStep, setRef,
     updateStep2Item, addStep2Item, deleteStep2Item, markExportGenerated,
-    runStep3Verification, setAnomaly, setTransactionId, finishWizard, resetWizard, resumeFromEntry,
+    runStep3Verification, setAnomaly, setTransactionId, finishWizard, finishAfterStep1, resetWizard, resumeFromEntry,
     clearError,
   }
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useEntradaWizard() {
   const c = useContext(Ctx)
   if (!c) throw new Error('useEntradaWizard must be used inside EntradaWizardProvider')

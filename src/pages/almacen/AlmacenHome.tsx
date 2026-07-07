@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, FileInput, ScanBarcode, FileCheck, PackagePlus } from 'lucide-react'
+import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, FileInput, ScanBarcode, FileCheck, PackagePlus, PackageMinus } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 
@@ -8,7 +8,7 @@ interface Tool {
   title: string
   description: string
   icon: typeof LayoutDashboard
-  category: 'calendario' | 'entradas' | 'mapa'
+  category: 'calendario' | 'entradas' | 'salidas' | 'mapa'
 }
 
 const tools: Tool[] = [
@@ -76,6 +76,13 @@ const tools: Tool[] = [
     category: 'entradas',
   },
   {
+    to: '/almacen/salidas',
+    title: 'Salidas',
+    description: 'Registra una salida y ciérrala con el link de Google Drive de la evidencia.',
+    icon: PackageMinus,
+    category: 'salidas',
+  },
+  {
     to: '/almacen/cedis',
     title: 'Mapa de almacén',
     description: 'Mapa visual del CEDIS Lerma — ubicaciones, racks y zonas de la operación.',
@@ -87,6 +94,7 @@ const tools: Tool[] = [
 const categories = [
   { key: 'calendario', label: 'Calendario de almacén',       color: '#1e3a5f' },
   { key: 'entradas',   label: 'Automatización para entradas', color: '#1e3a5f' },
+  { key: 'salidas',    label: 'Salidas',                     color: '#1e3a5f' },
   { key: 'mapa',       label: 'Mapa de almacén',             color: '#1e3a5f' },
 ] as const
 

@@ -57,13 +57,15 @@ export function useWarehouseTasks() {
     await refetch()
   }, [refetch])
 
-  const completeTask = useCallback(async (id: string, notes?: string | null) => {
+  const completeTask = useCallback(async (id: string, evidenceUrl: string, notes?: string | null) => {
     // El RPC ahora cierra todos los takers abiertos y calcula
     // actual_duration_min = SUM(duration_min) — horas-hombre acumuladas
     // (migración 20260528000001). El cálculo client-side anterior se eliminó.
+    // Requiere evidenceUrl (link de Google Drive) desde la migración 20260707100002.
     const { error: err } = await supabase.rpc('pizarron_complete_task', {
       p_warehouse_task_id: id,
       p_notes: notes ?? null,
+      p_evidence_url: evidenceUrl,
     })
     if (err) throw err
     await refetch()
@@ -92,17 +94,21 @@ export function useWarehouseTasks() {
   }, [refetch])
 
   // Multi-taker: agrega una persona a la tarea (no exclusivo, puede haber varios).
+  // Si envía durationMin, ese es el tiempo que el propio taker calcula que le
+  // va a tomar — el RPC lo usa para bloquear scheduled_start/scheduled_end.
   const addTaker = useCallback(async (
     taskId: string,
     name: string,
     email?: string | null,
     deviceId?: string | null,
+    durationMin?: number | null,
   ) => {
     const { data, error: err } = await supabase.rpc('pizarron_start_taker', {
       p_warehouse_task_id: taskId,
       p_name: name,
       p_email: email ?? null,
       p_device_id: deviceId ?? null,
+      p_duration_min: durationMin ?? null,
     })
     if (err) throw err
     await refetch()

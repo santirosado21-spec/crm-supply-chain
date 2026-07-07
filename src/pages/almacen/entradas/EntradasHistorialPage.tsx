@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Loader2, PackageOpen, ArrowRight, AlertTriangle,
+  ArrowLeft, Loader2, PackageOpen, ArrowRight, AlertTriangle, Link2,
 } from 'lucide-react'
 import { Header } from '../../../components/layout/Header'
 import { Sidebar } from '../../../components/layout/Sidebar'
@@ -72,6 +72,7 @@ export function EntradasHistorialPage() {
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Nota</th>
                     <th className="text-center px-4 py-3 font-semibold text-gray-600">Estado</th>
                     <th className="text-right px-4 py-3 font-semibold text-gray-600">Anomalías</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600">Evidencia</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -100,6 +101,19 @@ export function EntradasHistorialPage() {
                             <span className="inline-flex items-center gap-1 text-amber-700 text-xs font-semibold">
                               <AlertTriangle size={12} /> {anomalyCount}
                             </span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {e.completion_evidence_url ? (
+                            <a
+                              href={e.completion_evidence_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={ev => ev.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[#1e3a5f] text-xs font-semibold hover:underline"
+                            >
+                              <Link2 size={12} /> Ver
+                            </a>
                           ) : <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-4 py-3 text-right">
