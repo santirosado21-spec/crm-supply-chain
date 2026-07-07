@@ -7,7 +7,7 @@ import type { UserRole } from '../types'
 const TASK_SELECT = `
   id, ref, title, description, category_id, client_id, operation_id,
   assigner_email, assignee_email, scheduled_start, scheduled_end,
-  status, rejection_reason, template_id, created_at, completion_evidence_url,
+  status, rejection_reason, template_id, created_at, completion_evidence_url, responsables,
   category:task_categories ( id, code, name, color, is_billable ),
   client:clients ( id, name, codigo ),
   tag_links:task_tag_links ( tag:task_tags ( id, dimension, label, color ) )
@@ -117,12 +117,14 @@ export function useTasks() {
     status: TaskStatus,
     rejection_reason?: string,
     durationMin?: number,
+    responsables?: string[],
   ): Promise<void> => {
     const { error } = await supabase.rpc('task_change_status', {
       p_task_id:          id,
       p_new_status:       status,
       p_rejection_reason: rejection_reason ?? null,
       p_duration_min:     durationMin ?? null,
+      p_responsables:     responsables ?? null,
     })
     if (error) throw new Error(error.message)
   }, [])

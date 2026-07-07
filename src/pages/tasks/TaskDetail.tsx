@@ -7,6 +7,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { TaskTimerWidget } from '../../components/tasks/TaskTimerWidget'
 import { TaskStatusBadge } from '../../components/tasks/TaskStatusBadge'
 import { useTasks } from '../../hooks/useTasks'
+import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
 import { supabase } from '../../lib/supabase'
@@ -19,6 +20,8 @@ export function TaskDetail() {
   const myEmail = user?.email ?? ''
   const toast = useToast()
   const { get, updateStatus } = useTasks()
+  const { members, byEmail } = useTeamMembers()
+  const almacenMembers = members.filter(m => m.role === 'almacen')
 
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
@@ -28,7 +31,9 @@ export function TaskDetail() {
   const [savingNote, setSavingNote] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [acceptingDuration, setAcceptingDuration] = useState(false)
-  const [durationInput, setDurationInput] = useState('')
+  const [hoursInput, setHoursInput] = useState('')
+  const [minutesInput, setMinutesInput] = useState('')
+  const [selectedResponsables, setSelectedResponsables] = useState<string[]>([])
   const [editingSchedule, setEditingSchedule] = useState(false)
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
@@ -63,18 +68,31 @@ export function TaskDetail() {
   const isAssigner = task?.assigner_email === myEmail
   const canControl = isAssignee && task && ['aceptada', 'en_curso', 'pausada'].includes(task.status)
 
+  const toggleResponsable = (email: string) => {
+    setSelectedResponsables(prev =>
+      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email])
+  }
+
   const confirmAccept = async () => {
-    const duration = Number(durationInput)
-    if (!durationInput.trim() || !Number.isFinite(duration) || duration <= 0) {
-      toast.error('Falta la duración', '¿Cuánto vas a tardar en esta tarea? (minutos)')
+    const hours = Number(hoursInput) || 0
+    const minutes = Number(minutesInput) || 0
+    const duration = hours * 60 + minutes
+    if (duration <= 0) {
+      toast.error('Falta la duración', '¿Cuánto vas a tardar en esta tarea? (horas y minutos)')
+      return
+    }
+    if (selectedResponsables.length === 0) {
+      toast.error('Falta el responsable', 'Selecciona quién(es) van a ser los responsables de este movimiento.')
       return
     }
     setActionLoading(true)
     try {
-      await updateStatus(id, 'aceptada', undefined, duration)
+      await updateStatus(id, 'aceptada', undefined, duration, selectedResponsables)
       toast.success('Tarea aceptada')
       setAcceptingDuration(false)
-      setDurationInput('')
+      setHoursInput('')
+      setMinutesInput('')
+      setSelectedResponsables([])
       await reloadTask()
     } catch (e: unknown) {
       toast.error('No se pudo aceptar', e instanceof Error ? e.message : 'Error')
@@ -285,6 +303,14 @@ export function TaskDetail() {
                         </p>
                       )}
                     </div>
+                    {task.responsables?.length > 0 && (
+                      <div>
+                        <p className="font-bold uppercase tracking-wider text-gray-400 mb-0.5">Responsables</p>
+                        <p className="text-gray-700">
+                          {task.responsables.map(e => byEmail[e.toLowerCase()]?.name ?? e).join(', ')}
+                        </p>
+                      </div>
+                    )}
                     {task.client?.name && (
                       <div>
                         <p className="font-bold uppercase tracking-wider text-gray-400 mb-0.5">Cliente</p>
@@ -420,22 +446,66 @@ export function TaskDetail() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-[#1e3a5f] mb-1">Aceptar tarea</h2>
             <p className="text-xs text-gray-500 mb-4">{task.title}</p>
+
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
-              ¿Cuánto vas a tardar? (minutos)
+              ¿Cuánto vas a tardar?
             </label>
-            <input
-              type="number"
-              min={1}
-              autoFocus
-              value={durationInput}
-              onChange={e => setDurationInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') confirmAccept() }}
-              placeholder="Ej: 45"
-              className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <input
+                  type="number"
+                  min={0}
+                  autoFocus
+                  value={hoursInput}
+                  onChange={e => setHoursInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmAccept() }}
+                  placeholder="0"
+                  className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 text-center">Horas</p>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={minutesInput}
+                  onChange={e => setMinutesInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmAccept() }}
+                  placeholder="0"
+                  className="w-full h-11 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 text-center">Minutos</p>
+              </div>
+            </div>
             <p className="text-[10px] text-gray-400 mt-1.5">
               Esto ajusta la hora de fin en tu agenda.
             </p>
+
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 mt-4 block">
+              ¿Quiénes van a ser los responsables?
+            </label>
+            {almacenMembers.length === 0 ? (
+              <p className="text-xs text-gray-400">No hay personas de almacén activas registradas.</p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                {almacenMembers.map(m => (
+                  <label
+                    key={m.email}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedResponsables.includes(m.email)}
+                      onChange={() => toggleResponsable(m.email)}
+                      className="rounded border-gray-300"
+                    />
+                    {m.name ?? m.email}
+                  </label>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-2 mt-5">
               <button
                 onClick={() => setAcceptingDuration(false)}

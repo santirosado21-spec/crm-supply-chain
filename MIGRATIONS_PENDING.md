@@ -1,6 +1,6 @@
 # MIGRATIONS_PENDING — Sprint Almacén + Task Tracker + Pizarrón + Calendario Almacén
 
-## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR (#11-#20 ya aplicadas)
+## Estado: 10 MIGRACIONES PENDIENTES DE APLICAR (#11-#22 ya aplicadas)
 
 El sprint se ejecutó en un clon de trabajo (`~/crm-sprint-work`) no vinculado
 al proyecto Supabase, por lo que `supabase db push` no se ejecutó. Las
@@ -209,6 +209,22 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   `warehouse_entry_close`. RLS abierta + realtime habilitado.
 - Nueva página `/almacen/salidas` + `/almacen/salidas/historial`.
 - Sin esta migración, la página de Salidas no puede leer/escribir nada — la tabla no existe.
+
+### 21. `20260707200003_task_categories_cobranza_comercial.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; 7 categorías confirmadas)
+- Agrega categorías `cobranza` y `comercial` a `task_categories` — antes solo
+  existían almacen/sac/transporte/admin/interno, sin cubrir esos 2 roles del
+  mapeo automático `ROLE_TO_CATEGORY_CODE` (`src/types/tasks.ts`).
+- Sin esta migración, un usuario con rol `cobranza` o `comercial` crea una
+  tarea sin categoría asignada (el lookup no encuentra código coincidente).
+
+### 22. `20260707200004_task_accept_responsables.sql` ✅ APLICADA (2026-07-07, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; columna + RPC verificados)
+- `tasks` gana columna `responsables TEXT[] NOT NULL DEFAULT '{}'`.
+- `task_change_status` gana parámetro `p_responsables TEXT[]`: al aceptar una
+  tarea general, además de la duración (horas+minutos en el modal), el
+  asignado ahora debe marcar quiénes son los responsables físicos del
+  movimiento (checklist de personas con rol `almacen`).
+- Sin esta migración, el modal de "Aceptar tarea" pide responsables pero el
+  RPC en prod no reconoce el parámetro.
 
 ## Cómo aplicar
 

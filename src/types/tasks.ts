@@ -78,6 +78,7 @@ export interface Task {
   template_id:      string | null
   created_at:       string
   completion_evidence_url: string | null
+  responsables:     string[]
   // joins (opcionales según query)
   category?:        TaskCategory | null
   client?:          { id: string; name: string; codigo: string | null } | null
