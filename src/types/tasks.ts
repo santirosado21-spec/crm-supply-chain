@@ -1,5 +1,7 @@
 // Task Tracker — types
 
+import type { UserRole } from './index'
+
 export type TaskStatus =
   | 'propuesta'
   | 'aceptada'
@@ -9,7 +11,7 @@ export type TaskStatus =
   | 'finalizada'
   | 'cancelada'
 
-export type TaskCategoryCode = 'almacen' | 'sac' | 'transporte' | 'admin' | 'interno'
+export type TaskCategoryCode = 'almacen' | 'sac' | 'transporte' | 'admin' | 'interno' | 'cobranza' | 'comercial'
 
 export interface TaskCategory {
   id:           string
@@ -18,6 +20,16 @@ export interface TaskCategory {
   color:        string
   is_billable:  boolean
   created_at?:  string
+}
+
+/** Categoría que se asigna automáticamente a una tarea según el área/rol de quien la crea. */
+export const ROLE_TO_CATEGORY_CODE: Record<UserRole, TaskCategoryCode> = {
+  admin:            'admin',
+  almacen:          'almacen',
+  servicio_cliente: 'sac',
+  cobranza:         'cobranza',
+  transporte:       'transporte',
+  comercial:        'comercial',
 }
 
 // ── Etiquetas de clasificación (Calendario General) ──────────────────────────

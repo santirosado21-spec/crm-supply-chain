@@ -4,7 +4,7 @@ import { ArrowLeft, Send, Loader2 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { AvailabilityPicker } from '../../components/tasks/AvailabilityPicker'
-import { useTasks, getTaskCategories, linkTaskTags } from '../../hooks/useTasks'
+import { useTasks, getTaskCategories, getCategoryIdForRole, linkTaskTags } from '../../hooks/useTasks'
 import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { useTaskTags } from '../../hooks/useTaskTags'
 import { useClients } from '../../hooks/useClients'
@@ -41,7 +41,6 @@ export function TaskCreate() {
 
   const [title, setTitle]                 = useState('')
   const [description, setDescription]     = useState('')
-  const [categoryId, setCategoryId]       = useState<string>('')
   const [scheduledStart, setScheduledStart] = useState<Date | null>(null)
   const [scheduledEnd, setScheduledEnd]     = useState<Date | null>(null)
   const [extensivPick, setExtensivPick]     = useState<ExtensivPickResult | null>(null)
@@ -85,6 +84,10 @@ export function TaskCreate() {
 
   useEffect(() => { getTaskCategories().then(setCategories) }, [])
   useEffect(() => { getClients() }, [getClients])
+
+  // La categoría ya no se elige a mano: se asigna sola según el área/rol de
+  // quien crea la tarea (ver ROLE_TO_CATEGORY_CODE en types/tasks.ts).
+  const categoryId = getCategoryIdForRole(categories, user?.role)
 
   // Clasificación obligatoria: Destino (área) + cada dimensión required (movimiento/actividad/prioridad).
   const missingRequired =
@@ -308,18 +311,6 @@ export function TaskCreate() {
                     </select>
                   </div>
                 ))}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Categoría</label>
-                <select
-                  value={categoryId}
-                  onChange={e => setCategoryId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-base border border-gray-200 rounded-lg focus:border-[#1e3a5f] focus:outline-none bg-white"
-                >
-                  <option value="">— sin categoría —</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
               </div>
 
               {/* Cliente único + ligado opcional a transacción de Extensiv.

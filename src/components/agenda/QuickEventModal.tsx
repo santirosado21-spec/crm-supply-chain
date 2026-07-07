@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, CalendarPlus } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthContext } from '../../context/AuthContext'
+import { getTaskCategories, getCategoryIdForRole } from '../../hooks/useTasks'
+import type { TaskCategory } from '../../types/tasks'
 
 interface Props {
   open: boolean
@@ -17,6 +19,8 @@ function todayStr(): string {
 
 export function QuickEventModal({ open, onClose, onCreated, defaultDate, defaultAssignee }: Props) {
   const { user } = useAuthContext()
+  const [categories, setCategories] = useState<TaskCategory[]>([])
+  useEffect(() => { getTaskCategories().then(setCategories) }, [])
 
   const [title, setTitle]       = useState('')
   const [desc, setDesc]         = useState('')
@@ -43,7 +47,7 @@ export function QuickEventModal({ open, onClose, onCreated, defaultDate, default
         scheduled_start: `${date}T${startT}:00`,
         scheduled_end:   `${date}T${endT}:00`,
         status: 'aceptada',
-        category_id: null,
+        category_id: getCategoryIdForRole(categories, user?.role),
         client_id: null,
         operation_id: null,
       })

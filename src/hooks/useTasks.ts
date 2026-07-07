@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Task, TaskStatus, TaskCategory } from '../types/tasks'
+import { ROLE_TO_CATEGORY_CODE } from '../types/tasks'
+import type { UserRole } from '../types'
 
 const TASK_SELECT = `
   id, ref, title, description, category_id, client_id, operation_id,
@@ -154,4 +156,11 @@ export async function getTaskCategories(): Promise<TaskCategory[]> {
   const rows = (data ?? []) as TaskCategory[]
   _categoryCache = { data: rows, at: Date.now() }
   return rows
+}
+
+/** Categoría que le corresponde automáticamente a una tarea según el área/rol de quien la crea. */
+export function getCategoryIdForRole(categories: TaskCategory[], role: UserRole | undefined): string | null {
+  if (!role) return null
+  const code = ROLE_TO_CATEGORY_CODE[role]
+  return categories.find(c => c.code === code)?.id ?? null
 }
