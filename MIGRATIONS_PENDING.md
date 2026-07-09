@@ -226,6 +226,54 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Sin esta migración, el modal de "Aceptar tarea" pide responsables pero el
   RPC en prod no reconoce el parámetro.
 
+### 23. `20260709100000_viajes_cliente_referencia.sql` ✅ APLICADA (2026-07-09, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; 7 columnas verificadas)
+- Regreso del módulo de facturación (Proforma consolidada), con otro enfoque:
+  en vez de empujar cargos a Extensiv, se importa el CSV del Billing Manager
+  (ya configurado) y se consolida con flete propio + paquetería del CRM.
+- `viajes` gana `cliente_id` (FK real a `clients`), `cliente_codigo`,
+  `referencia_origen` ('extensiv'|'manual'), `extensiv_transaction_type/id/customer_id`,
+  `referencia_manual` — mismo patrón que ya usa `guias_paqueteria`. Antes el
+  cliente vivía como texto libre dentro de `notas` y no había forma de
+  emparejar un viaje con una transacción/referencia real.
+- OJO: `viajes.origen` ya existía (ciudad de origen) — la columna nueva se
+  llama `referencia_origen` para no chocar con ella.
+- Sin esta migración, `ViajeForm.tsx` (ya actualizado en el frontend para usar
+  `ExtensivOperationPicker`) falla al guardar.
+
+### 24. `20260709100001_proformas_periodo.sql` ✅ APLICADA (2026-07-09, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; tablas + RLS verificadas)
+- Tablas nuevas `proformas_periodo` (header: cliente, periodo, moneda, tipo de
+  cambio, subtotales por sección WMS/flete/paquetería, IVA, total, estado) y
+  `proforma_periodo_lineas` (detalle por fuente: `csv_extensiv`/`viaje`/`guia_paqueteria`).
+  RLS `TO authenticated` (la tabla `proformas` residual vieja, 1-a-1 con una
+  sola operación, no se toca — no sirve para consolidar multi-fuente/periodo).
+
+### 25. `20260709100002_viajes_guias_facturado_marker.sql` ✅ APLICADA (2026-07-09, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; columnas verificadas en ambas tablas)
+- `viajes.facturado_en_proforma_id` y `guias_paqueteria.facturado_en_proforma_id`
+  (FK a `proformas_periodo`) — evitan que el mismo viaje/guía se facture dos
+  veces en proformas distintas del mismo cliente.
+
+### 26. `20260709100003_proforma_periodo_rpc.sql` ✅ APLICADA (2026-07-09, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; probada end-to-end: `save_proforma_periodo` generó folio `PRFWD0001` con subtotal/IVA/total correctos, `cancel_proforma_periodo` liberó el registro — datos de prueba borrados después)
+- `next_proforma_periodo_reference` (folio `PRF<codigo><seq>`, mismo patrón que
+  `next_operation_reference`).
+- `save_proforma_periodo` — SECURITY DEFINER, atómica: inserta header + líneas
+  (solo `incluida=true` cuenta en subtotales) y marca `viajes`/`guias_paqueteria`
+  incluidos como facturados. Evita condición de carrera si dos personas generan
+  proformas del mismo cliente a la vez.
+- `cancel_proforma_periodo` — marca cancelada y libera los viajes/guías
+  asociados (`facturado_en_proforma_id = NULL`) para re-facturarlos.
+- Desbloquea `/proforma` (generar) y `/proforma/historial` (consultar/cancelar).
+
+### 27. `20260709100004_task_close_no_evidence_assignee_only.sql` ✅ APLICADA (2026-07-09, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; firmas verificadas con `pg_proc`, probada contra ID inexistente — error de negocio, no de sintaxis)
+- `task_close_with_evidence(p_task_id, p_evidence_url DEFAULT NULL)` — ya no
+  exige ni valida el link de Google Drive (evidencia opcional); ya no permite
+  cerrar al `assigner_email`, solo al `assignee_email` (+ admin).
+- `task_finalize_timer(p_task_id, p_user_email, p_evidence_url)` — mismo
+  cambio, solo se quitó la validación de link de Drive (el permiso ya era
+  solo-asignado, no cambió).
+- **No aplica** a `pizarron_complete_task`, `warehouse_entry_close` ni
+  `warehouse_exit_close` (incluye el cierre de "Evidencia de flete propio",
+  antes Salidas) — esos tres siguen exigiendo evidencia sin cambios.
+
 ## Cómo aplicar
 
 Desde el repo vinculado a Supabase:

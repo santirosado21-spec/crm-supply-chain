@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, FileInput, ScanBarcode, FileCheck, PackagePlus, PackageMinus } from 'lucide-react'
+import { ArrowLeft, ArrowRight, LayoutDashboard, BarChart3, UserCheck, Calendar, Clock, Warehouse, PackagePlus } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 
@@ -8,7 +8,7 @@ interface Tool {
   title: string
   description: string
   icon: typeof LayoutDashboard
-  category: 'calendario' | 'entradas' | 'salidas' | 'mapa'
+  category: 'calendario' | 'entradas' | 'mapa'
 }
 
 const tools: Tool[] = [
@@ -49,38 +49,10 @@ const tools: Tool[] = [
   },
   {
     to: '/almacen/entradas',
-    title: 'Entradas guiadas (Wizard)',
-    description: 'Flujo unificado en 3 pasos — 1 cliente, 1 nota: validar alta → generar receipt → verificar inventario.',
+    title: 'Verificación de SKU',
+    description: 'Verifica que todos los SKUs de la nota de entrada ya estén dados de alta en Extensiv.',
     icon: PackagePlus,
     category: 'entradas',
-  },
-  {
-    to: '/almacen/validador-codigos',
-    title: 'Validador de Códigos',
-    description: 'Paso 1 (suelto) — Verifica que todos los SKUs de la nota de entrada ya estén dados de alta en Extensiv.',
-    icon: ScanBarcode,
-    category: 'entradas',
-  },
-  {
-    to: '/almacen/receipt-generator',
-    title: 'Facilitador de entradas',
-    description: 'Paso 2 — Genera el Excel Receipt_Import para Extensiv desde un PT (PDF o Excel).',
-    icon: FileInput,
-    category: 'entradas',
-  },
-  {
-    to: '/almacen/validacion-entrada',
-    title: 'Validación de Entrada',
-    description: 'Paso 3 — Confirma que todo lo que entró según el documento está en el inventario actual de Extensiv.',
-    icon: FileCheck,
-    category: 'entradas',
-  },
-  {
-    to: '/almacen/salidas',
-    title: 'Salidas',
-    description: 'Registra una salida y ciérrala con el link de Google Drive de la evidencia.',
-    icon: PackageMinus,
-    category: 'salidas',
   },
   {
     to: '/almacen/cedis',
@@ -94,7 +66,6 @@ const tools: Tool[] = [
 const categories = [
   { key: 'calendario', label: 'Calendario de almacén',       color: '#1e3a5f' },
   { key: 'entradas',   label: 'Automatización para entradas', color: '#1e3a5f' },
-  { key: 'salidas',    label: 'Salidas',                     color: '#1e3a5f' },
   { key: 'mapa',       label: 'Mapa de almacén',             color: '#1e3a5f' },
 ] as const
 

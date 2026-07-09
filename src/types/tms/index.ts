@@ -72,6 +72,17 @@ export interface Viaje {
   creado_por: string
   created_at: string
   updated_at: string
+  // Cliente real (reemplaza el texto libre "Cliente: X" en notas) + referencia
+  // para matching con el CSV de Extensiv / proforma. `referencia_origen`
+  // (extensiv|manual) — NO confundir con `origen` (ciudad de origen del viaje).
+  cliente_id: string | null
+  cliente_codigo: string | null
+  referencia_origen: 'extensiv' | 'manual' | null
+  extensiv_transaction_type: 'order' | 'receipt' | null
+  extensiv_transaction_id: string | null
+  extensiv_customer_id: number | null
+  referencia_manual: string | null
+  facturado_en_proforma_id: string | null
   // Joined fields (from queries)
   vehiculo_placa?: string
   vehiculo_modelo?: string

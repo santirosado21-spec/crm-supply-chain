@@ -5,8 +5,8 @@ import { EmptyState } from '../ui/EmptyState'
 import { useTasks } from '../../hooks/useTasks'
 import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { TaskRouteLabel } from './TaskRouteLabel'
-import { CloseTaskModal } from './CloseTaskModal'
 import { useToast } from '../../hooks/useToast'
+import { useAuthContext } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, TASK_STATUS_LABEL, type Task } from '../../types/tasks'
 
@@ -38,10 +38,11 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
   const { tasks, loading, list } = useTasks()
   const { byEmail } = useTeamMembers()
   const toast = useToast()
+  const { user } = useAuthContext()
+  const email = user?.email ?? ''
   const [range, setRange] = useState<RangeKey>('30')
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId] = useState<string | null>(null)
-  const [closingTask, setClosingTask] = useState<Task | null>(null)
 
   const refetch = useCallback(() => setRefetchKey(k => k + 1), [])
 
@@ -78,16 +79,14 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
     [visible],
   )
 
-  async function confirmClose(evidenceUrl: string) {
-    if (!closingTask) return
-    setClosingId(closingTask.id)
+  async function closeTask(t: Task) {
+    if (!window.confirm('¿Cerrar esta tarea?')) return
+    setClosingId(t.id)
     try {
       const { error } = await supabase.rpc('task_close_with_evidence', {
-        p_task_id: closingTask.id,
-        p_evidence_url: evidenceUrl,
+        p_task_id: t.id,
       })
       if (error) throw error
-      setClosingTask(null)
       refetch()
       onChanged?.()
     } catch (e: unknown) {
@@ -106,7 +105,7 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
 
   function TaskRow({ t }: { t: Task }) {
     const done = t.status === 'finalizada'
-    const canClose = !done
+    const canClose = !done && t.assignee_email === email
     return (
       <div
         className={`bg-white rounded-xl shadow-sm p-3 sm:p-4 border border-gray-100 transition-opacity ${
@@ -148,7 +147,7 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
               <button
                 type="button"
                 disabled={closingId === t.id}
-                onClick={() => setClosingTask(t)}
+                onClick={() => closeTask(t)}
                 className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
               >
                 {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -228,15 +227,6 @@ export function TaskTraceabilityPanel({ assignee, onChanged }: Props) {
             )}
           </section>
         </div>
-      )}
-
-      {closingTask && (
-        <CloseTaskModal
-          taskTitle={closingTask.title}
-          busy={closingId === closingTask.id}
-          onCancel={() => setClosingTask(null)}
-          onConfirm={confirmClose}
-        />
       )}
     </div>
   )

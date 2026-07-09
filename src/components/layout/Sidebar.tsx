@@ -1,4 +1,4 @@
-import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, FileInput, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, PackageMinus, CalendarPlus, Tag, Target, List } from 'lucide-react'
+import { Home, Users, FileCheck, ScanBarcode, Truck, Warehouse, LayoutDashboard, UserCheck, Route, PieChart, Calculator, CalendarClock, Calendar, CalendarDays, Repeat, UserCog, BarChart3, X, History, FileSpreadsheet, Menu, Clock, FileText, PackagePlus, PackageMinus, CalendarPlus, Tag, Target, List, Package } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../../context/AuthContext'
@@ -21,7 +21,10 @@ interface Link {
 const WMS_LINKS: Link[] = [
   { to: '/wms',                   label: 'Herramientas de WMS', icon: Warehouse },
   { to: '/sac/validador',         label: 'Validador SKU',       icon: ScanBarcode },
+  { to: '/sac/guias-paqueteria',  label: 'Guías Paquetería',    icon: Package },
   { to: '/rc',                    label: 'Rendición RC',        icon: FileCheck },
+  { to: '/proforma',              label: 'Generar Proforma',    icon: FileText },
+  { to: '/proforma/historial',    label: 'Historial Proformas', icon: History },
   { to: '/clients',               label: 'Clientes',            icon: Users },
 ]
 
@@ -34,13 +37,8 @@ const ALMACEN_LINKS: Link[] = [
   { to: '/almacen/pizarron',         label: 'Pizarrón',            icon: LayoutDashboard },
   { to: '/almacen/pizarron-admin',   label: 'Pizarrón Admin',      icon: BarChart3 },
   { to: '/almacen/estandares',       label: 'Estándares',          icon: Clock },
-  { to: '/almacen/entradas',           label: 'Entradas (Wizard)',       icon: PackagePlus, section: 'Entradas' },
+  { to: '/almacen/entradas',           label: 'Verificación de SKU',     icon: PackagePlus, section: 'Entradas' },
   { to: '/almacen/entradas/historial', label: 'Historial de entradas',   icon: History,     section: 'Entradas' },
-  { to: '/almacen/salidas',            label: 'Salidas',                 icon: PackageMinus, section: 'Salidas' },
-  { to: '/almacen/salidas/historial',  label: 'Historial de salidas',    icon: History,      section: 'Salidas' },
-  { to: '/almacen/validador-codigos',  label: 'Validador de Códigos',    icon: ScanBarcode, section: 'Pasos sueltos' },
-  { to: '/almacen/receipt-generator', label: 'Facilitador de entradas', icon: FileInput,   section: 'Pasos sueltos' },
-  { to: '/almacen/validacion-entrada', label: 'Validación de Entrada',  icon: FileCheck,   section: 'Pasos sueltos' },
   { to: '/almacen/cedis',             label: 'Mapa de almacén',         icon: Warehouse },
 ]
 
@@ -54,6 +52,8 @@ const TMS_LINKS: Link[] = [
   { to: '/cotizador',      label: 'Cotizador',            icon: Calculator },
   { to: '/tms/carta-porte',label: 'Carta Porte',          icon: FileText },
   { to: '/tramites',       label: 'Trámites',             icon: CalendarClock },
+  { to: '/tms/evidencia-flete',            label: 'Evidencia de flete propio', icon: PackageMinus, section: 'Evidencia' },
+  { to: '/tms/evidencia-flete/historial',  label: 'Historial de evidencias',   icon: History,      section: 'Evidencia' },
 ]
 
 

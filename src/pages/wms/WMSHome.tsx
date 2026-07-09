@@ -21,10 +21,31 @@ const tools: Tool[] = [
     category: 'sac',
   },
   {
+    to: '/sac/guias-paqueteria',
+    title: 'Guías de paquetería',
+    description: 'Captura costo y precio de cada guía (Estafeta/UPS/FedEx/DHL/Castores) para la proforma.',
+    icon: Package,
+    category: 'sac',
+  },
+  {
     to: '/rc',
     title: 'Generador de RC',
     description: 'Genera Relaciones de Cobro mensuales por cliente con servicios y operaciones.',
     icon: FileCheck,
+    category: 'facturacion',
+  },
+  {
+    to: '/proforma',
+    title: 'Generar Proforma',
+    description: 'Consolida cargos WMS (CSV Extensiv), flete propio y paquetería por cliente y periodo.',
+    icon: FileText,
+    category: 'facturacion',
+  },
+  {
+    to: '/proforma/historial',
+    title: 'Historial de Proformas',
+    description: 'Consulta, cancela y re-exporta proformas generadas anteriormente.',
+    icon: FileText,
     category: 'facturacion',
   },
   {

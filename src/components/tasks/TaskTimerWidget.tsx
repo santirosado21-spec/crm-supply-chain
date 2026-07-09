@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Play, Pause, Square, Loader2, Clock } from 'lucide-react'
 import { useTaskTimer, formatHMS } from '../../hooks/useTaskTimer'
 import { useToast } from '../../hooks/useToast'
-import { CloseTaskModal } from './CloseTaskModal'
 
 interface Props {
   taskId:     string
@@ -22,8 +21,6 @@ export function TaskTimerWidget({ taskId, userEmail, readOnly = false }: Props) 
   const toast = useToast()
   const [pickingStart, setPickingStart] = useState(false)
   const [customStart, setCustomStart] = useState(() => toLocalInputValue(new Date()))
-  const [finalizing, setFinalizing] = useState(false)
-  const [closingBusy, setClosingBusy] = useState(false)
 
   const wrap = (fn: () => Promise<void>, ok: string) => async () => {
     try { await fn(); toast.success(ok) }
@@ -33,16 +30,13 @@ export function TaskTimerWidget({ taskId, userEmail, readOnly = false }: Props) 
   const onPause = wrap(pause, 'Timer pausado')
   const onResume = wrap(resume, 'Timer reanudado')
 
-  const onConfirmFinalize = async (evidenceUrl: string) => {
-    setClosingBusy(true)
+  const onFinalize = async () => {
+    if (!window.confirm('¿Finalizar esta tarea?')) return
     try {
-      await finalize(evidenceUrl)
+      await finalize()
       toast.success('Tarea finalizada')
-      setFinalizing(false)
     } catch (e: unknown) {
       toast.error('Error de timer', e instanceof Error ? e.message : 'No se pudo procesar')
-    } finally {
-      setClosingBusy(false)
     }
   }
 
@@ -146,7 +140,7 @@ export function TaskTimerWidget({ taskId, userEmail, readOnly = false }: Props) 
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => setFinalizing(true)}
+                onClick={onFinalize}
                 className="inline-flex items-center justify-center gap-2 min-h-[56px] rounded-xl text-base font-semibold text-white shadow-sm transition-all hover:opacity-95 disabled:opacity-50"
                 style={{ background: 'var(--brand-navy)' }}
               >
@@ -170,7 +164,7 @@ export function TaskTimerWidget({ taskId, userEmail, readOnly = false }: Props) 
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => setFinalizing(true)}
+                onClick={onFinalize}
                 className="inline-flex items-center justify-center gap-2 min-h-[56px] rounded-xl text-base font-semibold text-white shadow-sm transition-all hover:opacity-95 disabled:opacity-50"
                 style={{ background: 'var(--brand-navy)' }}
               >
@@ -191,14 +185,6 @@ export function TaskTimerWidget({ taskId, userEmail, readOnly = false }: Props) 
         <div className="px-5 py-2 border-t border-rose-100 bg-rose-50 text-xs text-rose-700">
           {error}
         </div>
-      )}
-
-      {finalizing && (
-        <CloseTaskModal
-          busy={closingBusy}
-          onCancel={() => setFinalizing(false)}
-          onConfirm={onConfirmFinalize}
-        />
       )}
     </div>
   )

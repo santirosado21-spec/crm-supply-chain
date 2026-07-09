@@ -868,6 +868,17 @@ function CotizadorPageInner() {
       motive_status: '',
       notas,
       creado_por: user?.name ?? user?.email ?? 'Cotizador',
+      // El Cotizador sigue capturando el cliente como texto libre en `notas`
+      // (ver arriba) — no liga cliente_id/referencia real todavía. Ver
+      // src/pages/tms/components/ViajeForm.tsx para el flujo que sí lo hace.
+      cliente_id: null,
+      cliente_codigo: null,
+      referencia_origen: null,
+      extensiv_transaction_type: null,
+      extensiv_transaction_id: null,
+      extensiv_customer_id: null,
+      referencia_manual: null,
+      facturado_en_proforma_id: null,
     })
     // Multi-tab: marca esta pestaña como guardada (badge ✓ + banner solo-lectura).
     if (viaje?.id) markActiveSaved(viaje.id)

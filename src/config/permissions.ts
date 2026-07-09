@@ -130,6 +130,7 @@ export function moduleFromPath(path: string): AppModule | null {
     path.startsWith('/wms') ||
     path.startsWith('/sac') ||
     path === '/rc' ||
+    path.startsWith('/proforma') ||
     path === '/tarifarios' ||
     path === '/servicios' ||
     path.startsWith('/clients')

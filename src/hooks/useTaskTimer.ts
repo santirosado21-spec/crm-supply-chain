@@ -14,7 +14,7 @@ interface UseTaskTimerResult {
   start:           (startedAt?: string) => Promise<void>
   pause:           () => Promise<void>
   resume:          () => Promise<void>
-  finalize:        (evidenceUrl: string) => Promise<void>
+  finalize:        (evidenceUrl?: string) => Promise<void>
   reload:          () => Promise<void>
 }
 
@@ -111,7 +111,7 @@ export function useTaskTimer(taskId: string, userEmail: string): UseTaskTimerRes
     start:    (startedAt?: string) => callRpc('task_start_timer', startedAt ? { p_started_at: startedAt } : undefined),
     pause:    () => callRpc('task_pause_timer'),
     resume:   () => callRpc('task_resume_timer'),
-    finalize: (evidenceUrl: string) => callRpc('task_finalize_timer', { p_evidence_url: evidenceUrl }),
+    finalize: (evidenceUrl?: string) => callRpc('task_finalize_timer', { p_evidence_url: evidenceUrl ?? null }),
     reload,
   }
 }

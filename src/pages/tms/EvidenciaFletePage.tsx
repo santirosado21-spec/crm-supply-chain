@@ -3,19 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import {
   Plus, XCircle, History, PackageMinus, Loader2, AlertTriangle, CheckCircle2,
 } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { Sidebar } from '../../../components/layout/Sidebar'
-import { CloseTaskModal } from '../../../components/tasks/CloseTaskModal'
-import { useToast } from '../../../hooks/useToast'
-import { useAuthContext } from '../../../context/AuthContext'
-import { useWarehouseExits } from '../../../hooks/useWarehouseExits'
-import type { ExitItem, WarehouseExit } from '../../../types/warehouseExit'
+import { Header } from '../../components/layout/Header'
+import { Sidebar } from '../../components/layout/Sidebar'
+import { CloseTaskModal } from '../../components/tasks/CloseTaskModal'
+import { useToast } from '../../hooks/useToast'
+import { useAuthContext } from '../../context/AuthContext'
+import { useWarehouseExits } from '../../hooks/useWarehouseExits'
+import type { ExitItem, WarehouseExit } from '../../types/warehouseExit'
 
 function emptyItem(): ExitItem {
   return { sku: '', qty: 1, description: '' }
 }
 
-export function SalidaPage() {
+export function EvidenciaFletePage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { user } = useAuthContext()
@@ -51,7 +51,7 @@ export function SalidaPage() {
         items: cleaned,
         created_by: user?.email ?? null,
       })
-      toast.success('Salida registrada')
+      toast.success('Evidencia registrada')
       setRef('')
       setCustomerName('')
       setItems([emptyItem()])
@@ -67,7 +67,7 @@ export function SalidaPage() {
     setCloseBusy(true)
     try {
       await closeExit(closingExit.id, evidenceUrl)
-      toast.success('Salida cerrada')
+      toast.success('Evidencia cerrada')
       setClosingExit(null)
     } catch (e: unknown) {
       toast.error('No se pudo cerrar', e instanceof Error ? e.message : 'Error desconocido')
@@ -84,13 +84,13 @@ export function SalidaPage() {
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-10 touch-pan-y">
           <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-[#1e3a5f]">Salidas</h1>
+              <h1 className="text-xl font-bold text-[#1e3a5f]">Evidencia de flete propio</h1>
               <p className="text-xs text-gray-400 mt-0.5">
-                Registra una salida y ciérrala con el link de Google Drive de la evidencia.
+                Registra un embarque de flete propio y ciérralo con el link de Google Drive de la evidencia.
               </p>
             </div>
             <button
-              onClick={() => navigate('/almacen/salidas/historial')}
+              onClick={() => navigate('/tms/evidencia-flete/historial')}
               className="h-9 px-3 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 transition-colors"
             >
               <History size={14} /> Historial
@@ -103,9 +103,9 @@ export function SalidaPage() {
             </div>
           )}
 
-          {/* Registrar nueva salida */}
+          {/* Registrar nueva evidencia */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
-            <h2 className="text-sm font-bold text-[#1e3a5f] mb-3">Nueva salida</h2>
+            <h2 className="text-sm font-bold text-[#1e3a5f] mb-3">Nueva evidencia</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Cliente</label>
@@ -190,11 +190,11 @@ export function SalidaPage() {
               className="h-10 px-6 rounded-lg bg-[#1e3a5f] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#16304d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {creating ? <Loader2 size={16} className="animate-spin" /> : <PackageMinus size={16} />}
-              Registrar salida
+              Registrar evidencia
             </button>
           </div>
 
-          {/* Salidas abiertas */}
+          {/* Evidencias abiertas */}
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
               Abiertas ({abiertas.length})
@@ -204,7 +204,7 @@ export function SalidaPage() {
                 <Loader2 size={16} className="animate-spin" /> Cargando…
               </div>
             ) : abiertas.length === 0 ? (
-              <p className="text-sm text-gray-400 py-6 text-center">No hay salidas abiertas.</p>
+              <p className="text-sm text-gray-400 py-6 text-center">No hay evidencias abiertas.</p>
             ) : (
               <div className="space-y-2">
                 {abiertas.map(ex => (
@@ -221,7 +221,7 @@ export function SalidaPage() {
                       onClick={() => setClosingExit(ex)}
                       className="h-9 px-4 rounded-lg bg-[#28a745] text-white text-xs font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity"
                     >
-                      <CheckCircle2 size={14} /> Cerrar salida
+                      <CheckCircle2 size={14} /> Cerrar evidencia
                     </button>
                   </div>
                 ))}
@@ -233,7 +233,7 @@ export function SalidaPage() {
 
       {closingExit && (
         <CloseTaskModal
-          title="Cerrar salida"
+          title="Cerrar evidencia"
           taskTitle={closingExit.customer_name}
           busy={closeBusy}
           onCancel={() => setClosingExit(null)}

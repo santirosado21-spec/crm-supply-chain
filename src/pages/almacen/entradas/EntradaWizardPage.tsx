@@ -71,7 +71,7 @@ function WizardInner() {
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-10 touch-pan-y">
           <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-[#1e3a5f]">Entradas — Validar alta</h1>
+              <h1 className="text-xl font-bold text-[#1e3a5f]">Verificación de SKU</h1>
               <p className="text-xs text-gray-400 mt-0.5">
                 Un cliente, una nota: valida que todos los SKUs estén dados de alta y que los totales cuadren.
               </p>

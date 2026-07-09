@@ -9,7 +9,6 @@ import { TaskTraceabilityPanel } from '../../components/tasks/TaskTraceabilityPa
 import { TaskInboxPanel } from '../../components/tasks/TaskInboxPanel'
 import { WarehouseOperativoPanel } from '../../components/agenda/WarehouseOperativoPanel'
 import { TaskRouteLabel } from '../../components/tasks/TaskRouteLabel'
-import { CloseTaskModal } from '../../components/tasks/CloseTaskModal'
 import { useTasks } from '../../hooks/useTasks'
 import { useTaskTags } from '../../hooks/useTaskTags'
 import { useClients } from '../../hooks/useClients'
@@ -85,7 +84,6 @@ export function AgendaPage() {
 
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId]   = useState<string | null>(null)
-  const [closingTask, setClosingTask] = useState<Task | null>(null)
 
   // ── Filtros por etiqueta (Calendario General) ──
   const { byDimension } = useTaskTags()
@@ -169,16 +167,14 @@ export function AgendaPage() {
     [tasksByDay, activeDay],
   )
 
-  async function confirmClose(evidenceUrl: string) {
-    if (!closingTask) return
-    setClosingId(closingTask.id)
+  async function closeTask(t: Task) {
+    if (!window.confirm('¿Cerrar esta tarea?')) return
+    setClosingId(t.id)
     try {
       const { error } = await supabase.rpc('task_close_with_evidence', {
-        p_task_id: closingTask.id,
-        p_evidence_url: evidenceUrl,
+        p_task_id: t.id,
       })
       if (error) throw error
-      setClosingTask(null)
       refresh()
     } catch (e: unknown) {
       toast.error('No se pudo cerrar', e instanceof Error ? e.message : 'Error desconocido')
@@ -439,7 +435,7 @@ export function AgendaPage() {
                     const end      = new Date(t.scheduled_end)
                     const mine     = isMine(t)
                     const done     = t.status === 'finalizada'
-                    const canClose = !done && t.status !== 'cancelada'
+                    const canClose = !done && t.status !== 'cancelada' && t.assignee_email === email
                     return (
                       <div
                         key={t.id}
@@ -476,7 +472,7 @@ export function AgendaPage() {
                               <button
                                 type="button"
                                 disabled={closingId === t.id}
-                                onClick={e => { e.stopPropagation(); setClosingTask(t) }}
+                                onClick={e => { e.stopPropagation(); closeTask(t) }}
                                 className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                               >
                                 {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -575,7 +571,7 @@ export function AgendaPage() {
                   const end      = new Date(t.scheduled_end)
                   const mine     = isMine(t)
                   const done     = t.status === 'finalizada'
-                  const canClose = !done && t.status !== 'cancelada'
+                  const canClose = !done && t.status !== 'cancelada' && t.assignee_email === email
                   return (
                     <div
                       key={t.id}
@@ -618,7 +614,7 @@ export function AgendaPage() {
                             <button
                               type="button"
                               disabled={closingId === t.id}
-                              onClick={e => { e.stopPropagation(); setClosingTask(t) }}
+                              onClick={e => { e.stopPropagation(); closeTask(t) }}
                               className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                             >
                               {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -637,15 +633,6 @@ export function AgendaPage() {
           )}
         </main>
       </div>
-
-      {closingTask && (
-        <CloseTaskModal
-          taskTitle={closingTask.title}
-          busy={closingId === closingTask.id}
-          onCancel={() => setClosingTask(null)}
-          onConfirm={confirmClose}
-        />
-      )}
     </div>
   )
 }

@@ -2,10 +2,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Loader2, PackageOpen, AlertTriangle, Link2,
 } from 'lucide-react'
-import { Header } from '../../../components/layout/Header'
-import { Sidebar } from '../../../components/layout/Sidebar'
-import { useWarehouseExits } from '../../../hooks/useWarehouseExits'
-import type { ExitStatus } from '../../../types/warehouseExit'
+import { Header } from '../../components/layout/Header'
+import { Sidebar } from '../../components/layout/Sidebar'
+import { useWarehouseExits } from '../../hooks/useWarehouseExits'
+import type { ExitStatus } from '../../types/warehouseExit'
 
 const STATUS_META: Record<ExitStatus, { label: string; cls: string }> = {
   abierta:   { label: 'Abierta',   cls: 'bg-amber-50 text-amber-700' },
@@ -13,7 +13,7 @@ const STATUS_META: Record<ExitStatus, { label: string; cls: string }> = {
   cancelada: { label: 'Cancelada', cls: 'bg-gray-100 text-gray-500' },
 }
 
-export function SalidasHistorialPage() {
+export function HistorialEvidenciasPage() {
   const navigate = useNavigate()
   const { exits, loading, error } = useWarehouseExits()
 
@@ -24,15 +24,15 @@ export function SalidasHistorialPage() {
         <Sidebar />
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-10 touch-pan-y">
           <button
-            onClick={() => navigate('/almacen/salidas')}
+            onClick={() => navigate('/tms/evidencia-flete')}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#1e3a5f] mb-4 transition-colors"
           >
-            <ArrowLeft size={16} /> Volver a Salidas
+            <ArrowLeft size={16} /> Volver a Evidencia de flete propio
           </button>
 
           <div className="mb-6">
-            <h1 className="text-xl font-bold text-[#1e3a5f]">Historial de salidas</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Todas las salidas registradas.</p>
+            <h1 className="text-xl font-bold text-[#1e3a5f]">Historial de evidencias</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Todas las evidencias de flete propio registradas.</p>
           </div>
 
           {error && (
@@ -43,17 +43,17 @@ export function SalidasHistorialPage() {
 
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
-              <Loader2 size={16} className="animate-spin" /> Cargando salidas…
+              <Loader2 size={16} className="animate-spin" /> Cargando evidencias…
             </div>
           ) : exits.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <PackageOpen size={40} className="text-gray-300" />
-              <p className="text-sm text-gray-500">Aún no hay salidas registradas.</p>
+              <p className="text-sm text-gray-500">Aún no hay evidencias registradas.</p>
               <button
-                onClick={() => navigate('/almacen/salidas')}
+                onClick={() => navigate('/tms/evidencia-flete')}
                 className="h-10 px-5 rounded-lg bg-[#1e3a5f] text-white text-sm font-medium hover:bg-[#16304d] transition-colors"
               >
-                Registrar primera salida
+                Registrar primera evidencia
               </button>
             </div>
           ) : (

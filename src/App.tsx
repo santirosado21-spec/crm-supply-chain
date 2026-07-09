@@ -34,16 +34,19 @@ import { LeadsPipelinePage } from './pages/comercial/LeadsPipelinePage'
 import { LeadDetail } from './pages/comercial/LeadDetail'
 import { LeadsDashboardPage } from './pages/comercial/LeadsDashboardPage'
 import { RCPage } from './pages/billing/RCPage'
+import { ProformaGeneratorPage } from './pages/billing/ProformaGeneratorPage'
+import { ProformaHistorialPage } from './pages/billing/ProformaHistorialPage'
 import { TarifariosPage } from './pages/tarifarios/TarifariosPage'
 import { ServiciosPage } from './pages/servicios/ServiciosPage'
 import { ValidadorSKUPage } from './pages/sac/ValidadorSKUPage'
+import { GuiasPaqueteriaPage } from './pages/sac/GuiasPaqueteriaPage'
 import { ReceiptGeneratorPage } from './pages/almacen/ReceiptGeneratorPage'
 import { ValidadorCodigosAlmacenPage } from './pages/almacen/ValidadorCodigosAlmacenPage'
 import { ValidacionNotaEntradaPage } from './pages/almacen/ValidacionNotaEntradaPage'
 import { EntradaWizardPage } from './pages/almacen/entradas/EntradaWizardPage'
 import { EntradasHistorialPage } from './pages/almacen/entradas/EntradasHistorialPage'
-import { SalidaPage } from './pages/almacen/salidas/SalidaPage'
-import { SalidasHistorialPage } from './pages/almacen/salidas/SalidasHistorialPage'
+import { EvidenciaFletePage } from './pages/tms/EvidenciaFletePage'
+import { HistorialEvidenciasPage } from './pages/tms/HistorialEvidenciasPage'
 import { TaskCreate } from './pages/tasks/TaskCreate'
 import { TaskDetail } from './pages/tasks/TaskDetail'
 import { TaskTemplates } from './pages/tasks/TaskTemplates'
@@ -150,13 +153,6 @@ function App() {
           <Route path="/almacen/entradas/:id" element={
             <ProtectedRoute allowedRoles={ALMACEN_ROLES}><EntradaWizardPage /></ProtectedRoute>
           } />
-          {/* Salidas — el historial debe ir ANTES que /:id si algún día se agrega, mismo patrón que entradas. */}
-          <Route path="/almacen/salidas" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><SalidaPage /></ProtectedRoute>
-          } />
-          <Route path="/almacen/salidas/historial" element={
-            <ProtectedRoute allowedRoles={ALMACEN_ROLES}><SalidasHistorialPage /></ProtectedRoute>
-          } />
           {/* Compat redirect viejo */}
           <Route path="/almacen-layout" element={<Navigate to="/almacen/cedis" replace />} />
 
@@ -188,6 +184,17 @@ function App() {
           <Route path="/tms/carta-porte" element={
             <ProtectedRoute allowedRoles={TMS_ROLES}><CartaPortePage /></ProtectedRoute>
           } />
+          {/* Evidencia de flete propio (antes "Salidas" en Almacén) — el historial
+              debe ir ANTES que /:id si algún día se agrega, mismo patrón que entradas. */}
+          <Route path="/tms/evidencia-flete" element={
+            <ProtectedRoute allowedRoles={TMS_ROLES}><EvidenciaFletePage /></ProtectedRoute>
+          } />
+          <Route path="/tms/evidencia-flete/historial" element={
+            <ProtectedRoute allowedRoles={TMS_ROLES}><HistorialEvidenciasPage /></ProtectedRoute>
+          } />
+          {/* Compat: bookmarks viejos de Salidas en Almacén */}
+          <Route path="/almacen/salidas" element={<Navigate to="/tms/evidencia-flete" replace />} />
+          <Route path="/almacen/salidas/historial" element={<Navigate to="/tms/evidencia-flete/historial" replace />} />
 
           {/* Clientes */}
           <Route path="/clients" element={
@@ -218,6 +225,12 @@ function App() {
           <Route path="/rc" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><RCPage /></ProtectedRoute>
           } />
+          <Route path="/proforma" element={
+            <ProtectedRoute allowedRoles={WMS_ROLES}><ProformaGeneratorPage /></ProtectedRoute>
+          } />
+          <Route path="/proforma/historial" element={
+            <ProtectedRoute allowedRoles={WMS_ROLES}><ProformaHistorialPage /></ProtectedRoute>
+          } />
           <Route path="/tarifarios" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><TarifariosPage /></ProtectedRoute>
           } />
@@ -226,6 +239,9 @@ function App() {
           } />
           <Route path="/sac/validador" element={
             <ProtectedRoute allowedRoles={WMS_ROLES}><ValidadorSKUPage /></ProtectedRoute>
+          } />
+          <Route path="/sac/guias-paqueteria" element={
+            <ProtectedRoute allowedRoles={WMS_ROLES}><GuiasPaqueteriaPage /></ProtectedRoute>
           } />
           {/* Compat redirect: ruta vieja /sac/receipt-generator → módulo Almacén */}
           <Route path="/sac/receipt-generator" element={<Navigate to="/almacen/receipt-generator" replace />} />

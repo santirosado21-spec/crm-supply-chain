@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Save } from 'lucide-react'
 import { useVehiculos } from '../../../hooks/useVehiculos'
 import { useOperadores } from '../../../hooks/useOperadores'
-import { useClientCatalog } from '../../../hooks/useClientCatalog'
+import { useClients } from '../../../hooks/useClients'
+import { ExtensivOperationPicker } from '../../../components/features/ExtensivOperationPicker'
+import type { ExtensivPickResult } from '../../../lib/extensiv'
 import type { Viaje } from '../../../types/tms'
 import { isBaseManiobrista, isCatalogOperador } from '../../../lib/tmsCatalog'
 
@@ -24,6 +26,38 @@ export interface ViajeFormData {
   ingreso_cliente: number
   notas: string
   creado_por: string
+  cliente_id: string | null
+  cliente_codigo: string | null
+  referencia_origen: 'extensiv' | 'manual' | null
+  extensiv_transaction_type: 'order' | 'receipt' | null
+  extensiv_transaction_id: string | null
+  extensiv_customer_id: number | null
+  referencia_manual: string | null
+}
+
+/** Reconstruye el ExtensivPickResult inicial del picker a partir de un viaje ya guardado (modo editar). */
+function initialPickResult(editData: Viaje | null | undefined): ExtensivPickResult | null {
+  if (!editData?.referencia_origen) return null
+  if (editData.referencia_origen === 'extensiv') {
+    return {
+      type: editData.extensiv_transaction_type ?? 'order',
+      customerId: editData.extensiv_customer_id,
+      customerName: null,
+      transactionId: editData.extensiv_transaction_id,
+      reference: null,
+      poNum: null,
+      creationDate: null,
+    }
+  }
+  return {
+    type: 'manual',
+    customerId: null,
+    customerName: null,
+    transactionId: null,
+    reference: editData.referencia_manual,
+    poNum: null,
+    creationDate: null,
+  }
 }
 
 interface Props {
@@ -50,12 +84,14 @@ const withNota = (notas: string, label: string, value: string) => {
 export function ViajeForm({ onSave, onClose, editData }: Props) {
   const { vehiculos } = useVehiculos()
   const { operadores } = useOperadores()
-  const { clientes, loading: loadingClientes } = useClientCatalog()
+  const { clients, getClients } = useClients()
+  useEffect(() => { getClients() }, [getClients])
 
   const [operacionId] = useState(editData?.operacion_id ?? '')
   const [vehiculoId, setVehiculoId] = useState(editData?.vehiculo_id ?? '')
   const [operadorId, setOperadorId] = useState(editData?.operador_id ?? '')
-  const [cliente, setCliente] = useState(notaValue(editData?.notas, 'Cliente'))
+  const [clienteId, setClienteId] = useState(editData?.cliente_id ?? '')
+  const [pickResult, setPickResult] = useState<ExtensivPickResult | null>(() => initialPickResult(editData))
   const [maniobrista, setManiobrista] = useState(notaValue(editData?.notas, 'Maniobrista'))
   const [proveedorNombre, setProveedorNombre] = useState(editData?.proveedor_nombre ?? '')
   const [usaExterno, setUsaExterno] = useState(!!editData?.proveedor_nombre)
@@ -76,18 +112,24 @@ export function ViajeForm({ onSave, onClose, editData }: Props) {
   const maniobristas = operadores.filter(o => o.es_propio && isBaseManiobrista(o.nombre, o.notas))
   const operadorSeleccionado = operadoresPropios.find(o => o.id === operadorId)
 
-  const canSave = origen.trim().length > 0 && destino.trim().length > 0
+  const canSave =
+    origen.trim().length > 0
+    && destino.trim().length > 0
+    && !!clienteId
+    && pickResult !== null
+    && (pickResult.type !== 'manual' || !!pickResult.reference?.trim())
   const hasAssignment = vehiculoId || proveedorNombre
 
   const handleSubmit = () => {
-    if (!canSave) return
+    if (!canSave || !pickResult) return
+    const cliente = clients.find(c => c.id === clienteId)
     const operadorNombre = operadorSeleccionado?.nombre ?? ''
     const operadorIdReal = operadorSeleccionado && !isCatalogOperador(operadorSeleccionado.id) ? operadorSeleccionado.id : null
     const notasFinales = [
-      ['Cliente', cliente],
       ['Operador', operadorNombre],
       ['Maniobrista', maniobrista],
     ].reduce((acc, [label, value]) => withNota(acc, label, value), notas)
+    const isExt = pickResult.type === 'order' || pickResult.type === 'receipt'
 
     onSave({
       operacion_id: operacionId || null,
@@ -107,6 +149,13 @@ export function ViajeForm({ onSave, onClose, editData }: Props) {
       ingreso_cliente: parseFloat(ingresoCliente) || 0,
       notas: notasFinales,
       creado_por: 'Admin',
+      cliente_id: clienteId,
+      cliente_codigo: cliente?.codigo ?? null,
+      referencia_origen: isExt ? 'extensiv' : 'manual',
+      extensiv_transaction_type: isExt ? (pickResult.type as 'order' | 'receipt') : null,
+      extensiv_transaction_id: isExt ? (pickResult.transactionId ?? null) : null,
+      extensiv_customer_id: isExt ? (pickResult.customerId ?? null) : null,
+      referencia_manual: isExt ? null : (pickResult.reference ?? null),
     })
   }
 
@@ -121,15 +170,17 @@ export function ViajeForm({ onSave, onClose, editData }: Props) {
         </div>
 
         <div className="space-y-4">
-          {/* Origen / Destino */}
+          {/* Cliente + vínculo (transacción Extensiv o referencia manual) — un único selector */}
           <div>
-            <label className={labelCls}>Cliente</label>
-            <select value={cliente} onChange={e => setCliente(e.target.value)} className={inputCls}>
-              <option value="">{loadingClientes ? 'Cargando clientes...' : 'Seleccionar cliente...'}</option>
-              {clientes.map(c => (
-                <option key={`${c.codigo}-${c.nombre}`} value={c.nombre}>{c.codigo} — {c.nombre}</option>
-              ))}
-            </select>
+            <label className={labelCls}>Cliente y referencia *</label>
+            <ExtensivOperationPicker
+              value={pickResult}
+              onChange={setPickResult}
+              clients={clients}
+              clientId={clienteId}
+              onClientChange={id => { setClienteId(id); setPickResult(null) }}
+              fromDays={7}
+            />
           </div>
 
           {/* Origen / Destino */}

@@ -5,10 +5,10 @@ import { Spinner } from '../ui/Spinner'
 import { QuickEventModal } from './QuickEventModal'
 import { TaskTraceabilityPanel } from '../tasks/TaskTraceabilityPanel'
 import { TaskRouteLabel } from '../tasks/TaskRouteLabel'
-import { CloseTaskModal } from '../tasks/CloseTaskModal'
 import { useTasks } from '../../hooks/useTasks'
 import { useTeamMembers } from '../../hooks/useTeamMembers'
 import { useToast } from '../../hooks/useToast'
+import { useAuthContext } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { TASK_STATUS_COLOR, DAY_OF_WEEK_LABEL, type Task } from '../../types/tasks'
 import { ALMACEN_RECEPTOR_EMAIL } from '../../config/almacen'
@@ -38,6 +38,8 @@ export function WarehouseOperativoPanel() {
   const { tasks, loading, list } = useTasks()
   const { byEmail } = useTeamMembers()
   const toast = useToast()
+  const { user } = useAuthContext()
+  const email = user?.email ?? ''
 
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
@@ -47,7 +49,6 @@ export function WarehouseOperativoPanel() {
   const [modalOpen, setModalOpen]   = useState(false)
   const [refetchKey, setRefetchKey] = useState(0)
   const [closingId, setClosingId]   = useState<string | null>(null)
-  const [closingTask, setClosingTask] = useState<Task | null>(null)
 
   const refresh = useCallback(() => setRefetchKey(k => k + 1), [])
 
@@ -92,16 +93,14 @@ export function WarehouseOperativoPanel() {
     [tasksByDay, activeDay],
   )
 
-  async function confirmClose(evidenceUrl: string) {
-    if (!closingTask) return
-    setClosingId(closingTask.id)
+  async function closeTask(t: Task) {
+    if (!window.confirm('¿Cerrar esta actividad?')) return
+    setClosingId(t.id)
     try {
       const { error } = await supabase.rpc('task_close_with_evidence', {
-        p_task_id: closingTask.id,
-        p_evidence_url: evidenceUrl,
+        p_task_id: t.id,
       })
       if (error) throw error
-      setClosingTask(null)
       refresh()
     } catch (e: unknown) {
       toast.error('No se pudo cerrar', e instanceof Error ? e.message : 'Error desconocido')
@@ -275,7 +274,7 @@ export function WarehouseOperativoPanel() {
               const start    = new Date(t.scheduled_start)
               const end      = new Date(t.scheduled_end)
               const done     = t.status === 'finalizada'
-              const canClose = !done && t.status !== 'cancelada' && t.status !== 'rechazada'
+              const canClose = !done && t.status !== 'cancelada' && t.status !== 'rechazada' && t.assignee_email === email
               return (
                 <div
                   key={t.id}
@@ -320,7 +319,7 @@ export function WarehouseOperativoPanel() {
                         <button
                           type="button"
                           disabled={closingId === t.id}
-                          onClick={e => { e.stopPropagation(); setClosingTask(t) }}
+                          onClick={e => { e.stopPropagation(); closeTask(t) }}
                           className="text-[10px] font-semibold px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                         >
                           {closingId === t.id ? '…' : 'Cerrar ✓'}
@@ -342,15 +341,6 @@ export function WarehouseOperativoPanel() {
         defaultDate={toYMD(activeDay)}
         defaultAssignee={ALMACEN_RECEPTOR_EMAIL}
       />
-
-      {closingTask && (
-        <CloseTaskModal
-          taskTitle={closingTask.title}
-          busy={closingId === closingTask.id}
-          onCancel={() => setClosingTask(null)}
-          onConfirm={confirmClose}
-        />
-      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { Sidebar } from '../../components/layout/Sidebar'
 import { useViajes } from '../../hooks/useViajes'
 import { useVehiculos } from '../../hooks/useVehiculos'
 import { useOperadores } from '../../hooks/useOperadores'
+import { useClients } from '../../hooks/useClients'
 import { useAuthContext } from '../../context/AuthContext'
 import { useToast } from '../../hooks/useToast'
 import { supabase } from '../../lib/supabase'
@@ -36,6 +37,11 @@ export function ViajesPage() {
   const { viajes, loading, stats, createViaje, updateViaje, deleteViaje } = useViajes({ estado: estadoF || undefined })
   const { vehiculos } = useVehiculos()
   const { operadores } = useOperadores()
+  const { clients, getClients } = useClients()
+  useEffect(() => { getClients() }, [getClients])
+  const clienteMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients])
+  // Fallback a la nota "Cliente: X" para viajes legacy sin cliente_id real (creados antes de este fix).
+  const clienteNombre = (v: Viaje) => (v.cliente_id ? clienteMap[v.cliente_id]?.name : undefined) ?? notaValue(v.notas, 'Cliente')
 
   // Sprint C · estado de charges Extensiv por viaje
   const [chargeStatus, setChargeStatus] = useState<Map<string, ChargeStatus[]>>(new Map())
@@ -88,7 +94,7 @@ export function ViajesPage() {
     ? viajes.filter(v => {
         const q = busqueda.toLowerCase()
         const ref = v.operacion_id ? (opRefMap[v.operacion_id] || '') : ''
-        const cliente = notaValue(v.notas, 'Cliente')
+        const cliente = clienteNombre(v)
         const operador = notaValue(v.notas, 'Operador')
         return v.origen.toLowerCase().includes(q) ||
           v.destino.toLowerCase().includes(q) ||
@@ -273,7 +279,7 @@ export function ViajesPage() {
                   const op = v.operador_id ? operadorMap[v.operador_id] : null
                   const prov = v.proveedor_nombre
                   const ref = v.operacion_id ? opRefMap[v.operacion_id] : null
-                  const cliente = notaValue(v.notas, 'Cliente')
+                  const cliente = clienteNombre(v)
                   const operadorNota = notaValue(v.notas, 'Operador')
                   const maniobristaNota = notaValue(v.notas, 'Maniobrista')
 
