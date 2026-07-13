@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Search, Edit3, Trash2, Route, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Plus, Search, Edit3, Trash2, Route, Send, CheckCircle2, AlertCircle, Loader2, Lock } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { useViajes } from '../../hooks/useViajes'
@@ -319,6 +319,14 @@ export function ViajesPage() {
                       <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(v.fecha_programada)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          {v.facturado_en_proforma_id && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-semibold"
+                              title="Este viaje ya fue incluido en una proforma guardada"
+                            >
+                              <Lock size={10} /> Facturado
+                            </span>
+                          )}
                           {/* Sprint C · Extensiv Billing — solo si viaje completado y user puede facturar */}
                           {canBill && v.estado === 'completado' && (() => {
                             const charges = chargeStatus.get(v.id) ?? []

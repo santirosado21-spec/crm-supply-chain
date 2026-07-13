@@ -274,6 +274,17 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   `warehouse_exit_close` (incluye el cierre de "Evidencia de flete propio",
   antes Salidas) — esos tres siguen exigiendo evidencia sin cambios.
 
+### 27. `20260713100000_proforma_retencion.sql` ✅ APLICADA (2026-07-13, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; verificada end-to-end con el CSV real de Toughbuilt — retención −$320 sobre $8,000 de flete, total consistente UI/Excel/PDF/BD)
+- `proformas_periodo` gana `retencion_pct` y `retencion_monto`: retención de IVA
+  del 4% por autotransporte de carga, calculada SOLO sobre el subtotal de flete
+  propio. Total = subtotal + IVA − retención.
+- `save_proforma_periodo` recalculada para persistir lo mismo que muestra el
+  frontend (`computeProformaTotals`). Las proformas guardadas antes de esta
+  migración tienen retención 0 (motor viejo).
+- Parte del export profesional de Proforma (formato de la plantilla real):
+  portada agregada + hojas Servicios Transporte / Paqueterías / Desglose
+  Almacén, en Excel (exceljs) y PDF.
+
 ## Cómo aplicar
 
 Desde el repo vinculado a Supabase:

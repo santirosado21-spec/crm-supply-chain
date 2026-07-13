@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildProformaPreview, type ViajeParaProforma, type GuiaParaProforma } from './proformaBuilder'
+import { buildProformaPreview, VIAJE_ESTADOS_FACTURABLES, type ViajeParaProforma, type GuiaParaProforma } from './proformaBuilder'
 import { dedupeKey, type ExtensivBillingRow } from './extensivBillingParser'
 
 function csvRow(overrides: Partial<ExtensivBillingRow> = {}): ExtensivBillingRow {
@@ -33,7 +33,7 @@ function guia(overrides: Partial<GuiaParaProforma> = {}): GuiaParaProforma {
 }
 
 describe('buildProformaPreview', () => {
-  it('arma las 3 secciones y calcula subtotales + IVA + total', () => {
+  it('arma las 3 secciones y calcula subtotales + IVA + retención + total', () => {
     const preview = buildProformaPreview({
       clienteNombre: 'Toughbuilt',
       csvRows: [csvRow()],
@@ -48,9 +48,42 @@ describe('buildProformaPreview', () => {
     expect(preview.subtotal).toBe(5610)
     expect(preview.ivaPct).toBe(16)
     expect(preview.ivaMonto).toBeCloseTo(5610 * 0.16, 2)
-    expect(preview.total).toBeCloseTo(5610 * 1.16, 2)
+    // Retención 4% de IVA por autotransporte de carga — solo sobre el flete propio.
+    expect(preview.retencionPct).toBe(4)
+    expect(preview.retencionMonto).toBeCloseTo(5000 * 0.04, 2)
+    expect(preview.total).toBeCloseTo(5610 * 1.16 - 200, 2)
     expect(preview.lineas).toHaveLength(3)
     expect(preview.lineas.every(l => l.incluida)).toBe(true)
+  })
+
+  it('sin flete propio no hay retención (retencionPct 0, total = subtotal + IVA)', () => {
+    const preview = buildProformaPreview({
+      clienteNombre: 'Toughbuilt',
+      csvRows: [csvRow()],
+      viajes: [],
+      guias: [guia()],
+      csvDedupeKeysYaFacturados: new Set(),
+    })
+    expect(preview.retencionPct).toBe(0)
+    expect(preview.retencionMonto).toBe(0)
+    expect(preview.total).toBeCloseTo(preview.subtotal + preview.ivaMonto, 2)
+  })
+
+  it('las líneas de flete y paquetería exponen los campos estructurados para los exports', () => {
+    const preview = buildProformaPreview({
+      clienteNombre: 'Toughbuilt',
+      csvRows: [],
+      viajes: [viaje()],
+      guias: [guia()],
+      csvDedupeKeysYaFacturados: new Set(),
+    })
+    const lineaFlete = preview.lineas.find(l => l.fuente === 'viaje')!
+    expect(lineaFlete.viajeOrigen).toBe('CDMX')
+    expect(lineaFlete.viajeDestino).toBe('Monterrey')
+    expect(lineaFlete.fecha).toBe('2026-07-05')
+    const lineaGuia = preview.lineas.find(l => l.fuente === 'guia_paqueteria')!
+    expect(lineaGuia.paqueteria).toBe('fedex')
+    expect(lineaGuia.fecha).toBe('2026-07-05')
   })
 
   it('filtra el CSV solo al cliente elegido (trae de TODOS los clientes)', () => {
@@ -150,5 +183,9 @@ describe('buildProformaPreview', () => {
     expect(preview.lineas[0].moneda).toBe('USD')
     expect(preview.ivaMonto).toBe(0)
     expect(preview.total).toBe(preview.subtotal)
+  })
+
+  it('VIAJE_ESTADOS_FACTURABLES solo incluye completado y entregado (protege el filtro de assembleProformaData)', () => {
+    expect(VIAJE_ESTADOS_FACTURABLES).toEqual(['completado', 'entregado'])
   })
 })

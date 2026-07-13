@@ -13,10 +13,18 @@ import { supabase } from './supabase'
 import {
   type ExtensivBillingRow, filterByCustomerName, dedupeKey, normalizeReference, matchesTrackingNumber,
 } from './extensivBillingParser'
+import type { ViajeEstado } from '../types/tms'
 
 export type ProformaSeccion = 'wms' | 'flete' | 'paqueteria'
 export type ProformaFuente  = 'csv_extensiv' | 'viaje' | 'guia_paqueteria'
 export type Moneda          = 'MXN' | 'USD'
+
+/**
+ * Un viaje solo es facturable si ya está "confirmado" — evita que un viaje
+ * pendiente/en_transito/cancelado entre a una proforma por error. Coincide
+ * con lo que ya usa CostosTransportePage.tsx para calcular márgenes.
+ */
+export const VIAJE_ESTADOS_FACTURABLES: ViajeEstado[] = ['completado', 'entregado']
 
 export interface ProformaLineaPreview {
   seccion:                 ProformaSeccion
@@ -34,7 +42,22 @@ export interface ProformaLineaPreview {
   extensivTransactionId:    string | null
   extensivChargeLabel:      string | null
   rawCsvRow:                ExtensivBillingRow | null
+  // Campos estructurados para los exports (hoja "Servicios Transporte" /
+  // "Paqueterías") — evitan parsear el concepto. Solo presentes al generar
+  // desde datos frescos; en re-export desde historial se parsean del concepto.
+  fecha?:                   string | null
+  viajeOrigen?:             string
+  viajeDestino?:            string
+  paqueteria?:              string
 }
+
+/**
+ * Retención de IVA del 4% sobre servicios de autotransporte terrestre de carga
+ * (regla mexicana) — aplica solo al subtotal de flete propio, nunca a WMS ni
+ * paquetería. Se muestra desglosada en preview/exports para que quien apruebe
+ * la proforma sepa exactamente de dónde sale. Total = subtotal + IVA − retención.
+ */
+export const RETENCION_FLETE_PCT = 4
 
 export interface ProformaPreview {
   lineas:              ProformaLineaPreview[]
@@ -44,6 +67,10 @@ export interface ProformaPreview {
   subtotal:            number
   ivaPct:              number
   ivaMonto:            number
+  /** 4 si hay flete propio en la proforma, 0 si no. */
+  retencionPct:        number
+  /** RETENCION_FLETE_PCT % del subtotal de flete propio. */
+  retencionMonto:      number
   total:               number
   moneda:              Moneda
 }
@@ -99,9 +126,11 @@ export function computeProformaTotals(lineas: ProformaLineaPreview[], ivaPct: nu
   const subtotalPaqueteria = sumaIncluida('paqueteria')
   const subtotal           = round2(subtotalWms + subtotalFlete + subtotalPaqueteria)
   const ivaMonto           = round2(subtotal * ivaPct / 100)
-  const total              = round2(subtotal + ivaMonto)
+  const retencionMonto     = round2(subtotalFlete * RETENCION_FLETE_PCT / 100)
+  const retencionPct       = subtotalFlete > 0 ? RETENCION_FLETE_PCT : 0
+  const total              = round2(subtotal + ivaMonto - retencionMonto)
 
-  return { lineas, subtotalWms, subtotalFlete, subtotalPaqueteria, subtotal, ivaPct, ivaMonto, total, moneda }
+  return { lineas, subtotalWms, subtotalFlete, subtotalPaqueteria, subtotal, ivaPct, ivaMonto, retencionPct, retencionMonto, total, moneda }
 }
 
 export function buildProformaPreview(params: BuildProformaPreviewParams): ProformaPreview {
@@ -161,6 +190,9 @@ export function buildProformaPreview(params: BuildProformaPreviewParams): Profor
       extensivTransactionId: v.extensivTransactionId,
       extensivChargeLabel:   null,
       rawCsvRow:             null,
+      fecha:                 v.fechaProgramada,
+      viajeOrigen:           v.origen,
+      viajeDestino:          v.destino,
     }
   })
 
@@ -185,6 +217,8 @@ export function buildProformaPreview(params: BuildProformaPreviewParams): Profor
       extensivTransactionId: g.extensivTransactionId,
       extensivChargeLabel:   null,
       rawCsvRow:             null,
+      fecha:                 g.fecha,
+      paqueteria:            g.paqueteria,
     }
   })
 
@@ -211,6 +245,7 @@ export async function assembleProformaData(params: AssembleProformaDataParams): 
       .from('viajes')
       .select('id, origen, destino, fecha_programada, ingreso_cliente, referencia_origen, extensiv_transaction_id, referencia_manual')
       .eq('cliente_id', clienteId)
+      .in('estado', VIAJE_ESTADOS_FACTURABLES)
       .is('facturado_en_proforma_id', null)
       .gte('fecha_programada', periodoDesde)
       .lte('fecha_programada', periodoHasta),

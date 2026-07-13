@@ -13,7 +13,7 @@
 //   ya está seteado (la guía quedó incluida en una proforma guardada).
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Package, Plus, Search, X, Download, Trash2, AlertCircle, DollarSign, TrendingUp, Lock,
+  Package, Plus, Search, X, Download, Trash2, AlertCircle, DollarSign, TrendingUp, Lock, FileText,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { Header } from '../../components/layout/Header'
@@ -26,6 +26,8 @@ import { useGuiasPaqueteria } from '../../hooks/useGuiasPaqueteria'
 import { ExtensivOperationPicker } from '../../components/features/ExtensivOperationPicker'
 import type { ExtensivPickResult } from '../../lib/extensiv'
 import type { Client } from '../../types'
+import { NotaDropzone } from '../almacen/entradas/components/NotaDropzone'
+import { extractGuiaDataFromPDF, type GuiaPdfExtraction } from '../../lib/guiaPdfParser'
 import {
   PAQUETERIA_LABEL, PAQUETERIA_COLOR,
   type Paqueteria, type GuiaOrigen, type GuiaFilters, type GuiaPaqueteria, type CreateGuiaData,
@@ -382,6 +384,7 @@ interface GuiaFormProps {
 }
 
 function GuiaForm({ onClose, onSubmit, clients, creadoPor }: GuiaFormProps) {
+  const toast = useToast()
   const [paqueteria, setPaqueteria] = useState<Paqueteria>('estafeta')
   const [trackingNumber, setTrackingNumber] = useState('')
   const [clienteId, setClienteId] = useState('')
@@ -392,7 +395,53 @@ function GuiaForm({ onClose, onSubmit, clients, creadoPor }: GuiaFormProps) {
   const [notas, setNotas] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // Autocompletado best-effort desde el PDF de la guía — ver src/lib/guiaPdfParser.ts.
+  // Costo/precio/cliente NUNCA se autocompletan (no vienen impresos en la guía).
+  const [pdfFileName, setPdfFileName] = useState('')
+  const [pdfExtraction, setPdfExtraction] = useState<GuiaPdfExtraction | null>(null)
+  const [pdfParsing, setPdfParsing] = useState(false)
+  const [autoFilled, setAutoFilled] = useState<Set<'paqueteria' | 'trackingNumber' | 'fecha'>>(new Set())
+  // "Tocado a mano" — paqueteria y fecha ya arrancan con un valor por default,
+  // así que no basta con checar "vacío" para saber si el PDF puede autocompletarlos.
+  const [paqueteriaTouched, setPaqueteriaTouched] = useState(false)
+  const [fechaTouched, setFechaTouched] = useState(false)
+
   const cliente = clients.find(c => c.id === clienteId)
+
+  async function handlePdfFile(file: File) {
+    setPdfFileName(file.name)
+    setPdfParsing(true)
+    try {
+      const extraction = await extractGuiaDataFromPDF(file)
+      setPdfExtraction(extraction)
+      const filled = new Set<'paqueteria' | 'trackingNumber' | 'fecha'>()
+      if (extraction.paqueteria && !paqueteriaTouched) { setPaqueteria(extraction.paqueteria); filled.add('paqueteria') }
+      if (extraction.trackingNumber && !trackingNumber.trim()) { setTrackingNumber(extraction.trackingNumber); filled.add('trackingNumber') }
+      if (extraction.fecha && !fechaTouched) { setFecha(extraction.fecha); filled.add('fecha') }
+      setAutoFilled(filled)
+      if (filled.size === 0) {
+        toast.error('No se detectaron datos en el PDF', 'Captura los campos manualmente — el lector es best-effort.')
+      }
+    } finally {
+      setPdfParsing(false)
+    }
+  }
+
+  function handlePdfClear() {
+    setPdfFileName('')
+    setPdfExtraction(null)
+    setAutoFilled(new Set())
+  }
+
+  /** Si el usuario edita a mano un campo autocompletado por el PDF, deja de marcarse como "del PDF". */
+  function clearAutoFilled(key: 'paqueteria' | 'trackingNumber' | 'fecha') {
+    setAutoFilled(prev => {
+      if (!prev.has(key)) return prev
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+  }
 
   const margen = (Number(precio) || 0) - (Number(costo) || 0)
 
@@ -444,15 +493,51 @@ function GuiaForm({ onClose, onSubmit, clients, creadoPor }: GuiaFormProps) {
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Subir PDF de la guía (opcional) — autocompleta lo que se pueda leer del PDF */}
+          <div>
+            <NotaDropzone
+              fileName={pdfFileName}
+              onFile={handlePdfFile}
+              onClear={handlePdfClear}
+              accept=".pdf"
+              acceptLabel="PDF"
+              label="Guía en PDF (opcional) — Tecship o cualquier paquetería"
+              hint="Arrastra o haz clic para subir el PDF de la guía"
+              disabled={pdfParsing}
+            />
+            {pdfParsing && (
+              <p className="text-xs text-gray-400 mt-1.5 inline-flex items-center gap-1.5"><Spinner size={12} /> Leyendo PDF…</p>
+            )}
+            {pdfExtraction && !pdfParsing && (
+              <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50/60 p-2 text-[11px] text-gray-500">
+                <p className="font-semibold text-gray-600 mb-1 inline-flex items-center gap-1"><FileText size={11} /> Extraído con lector local:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  <span>Paquetería: <b>{pdfExtraction.paqueteria ? PAQUETERIA_LABEL[pdfExtraction.paqueteria] : '—'}</b></span>
+                  <span>Tracking: <b>{pdfExtraction.trackingNumber ?? '—'}</b></span>
+                  <span>Fecha: <b>{pdfExtraction.fechaRaw ?? '—'}</b></span>
+                  <span>Peso: <b>{pdfExtraction.peso ?? '—'}</b></span>
+                  <span>Destino: <b>{pdfExtraction.destino ?? '—'}</b></span>
+                </div>
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-gray-400">Ver texto crudo (debug)</summary>
+                  <pre className="whitespace-pre-wrap text-[10px] text-gray-400 mt-1 max-h-32 overflow-y-auto">{pdfExtraction.rawText || '(sin texto)'}</pre>
+                </details>
+              </div>
+            )}
+          </div>
+
           {/* Paquetería */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Paquetería</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">
+              Paquetería
+              {autoFilled.has('paqueteria') && <span className="text-[10px] text-blue-600 ml-1 normal-case font-normal">· del PDF, verifica</span>}
+            </label>
             <div className="flex gap-2 flex-wrap">
               {PAQUETERIAS.map(p => (
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setPaqueteria(p)}
+                  onClick={() => { setPaqueteria(p); setPaqueteriaTouched(true); clearAutoFilled('paqueteria') }}
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                     paqueteria === p
                       ? 'text-white shadow-sm'
@@ -469,21 +554,27 @@ function GuiaForm({ onClose, onSubmit, clients, creadoPor }: GuiaFormProps) {
           {/* Tracking + Fecha */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Tracking #</label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">
+                Tracking #
+                {autoFilled.has('trackingNumber') && <span className="text-[10px] text-blue-600 ml-1 normal-case font-normal">· del PDF, verifica</span>}
+              </label>
               <input
                 type="text"
                 value={trackingNumber}
-                onChange={e => setTrackingNumber(e.target.value)}
+                onChange={e => { setTrackingNumber(e.target.value); clearAutoFilled('trackingNumber') }}
                 placeholder="Número de guía"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#1e3a5f] outline-none"
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Fecha</label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">
+                Fecha
+                {autoFilled.has('fecha') && <span className="text-[10px] text-blue-600 ml-1 normal-case font-normal">· del PDF, verifica</span>}
+              </label>
               <input
                 type="date"
                 value={fecha}
-                onChange={e => setFecha(e.target.value)}
+                onChange={e => { setFecha(e.target.value); setFechaTouched(true); clearAutoFilled('fecha') }}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none"
               />
             </div>

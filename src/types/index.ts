@@ -130,6 +130,8 @@ export interface Client {
   contact_phone:         string | null
   is_active:             boolean
   extensiv_customer_id?: number | null
+  /** Razón social fiscal (CFDI) — usada en el encabezado de la Proforma. */
+  razon_social?:         string | null
 }
 
 // ── TMS Types ──────────────────────────────────────────────────────────────

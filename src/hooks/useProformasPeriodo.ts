@@ -18,6 +18,8 @@ export interface ProformaPeriodoHeader {
   subtotal:              number
   iva_pct:               number
   iva_monto:             number
+  retencion_pct:         number
+  retencion_monto:       number
   total:                 number
   estado:                'generada' | 'cancelada'
   csv_filename:          string | null
@@ -135,8 +137,21 @@ export function useProformasPeriodo(filters?: ProformaPeriodoFilters) {
       })),
     })
     if (err) throw new Error(err.message)
+
+    // save_proforma_periodo regresa el UUID interno (v_proforma_id), no el
+    // folio legible — hay que resolverlo con un SELECT para que la UI (toast,
+    // botón "Guardada", nombre del PDF exportado) muestre PRF<codigo><seq> y
+    // no el UUID.
+    const proformaId = data as string
+    const { data: row, error: refErr } = await supabase
+      .from('proformas_periodo')
+      .select('referencia')
+      .eq('id', proformaId)
+      .single()
+    if (refErr) throw new Error(refErr.message)
+
     await fetchProformas()
-    return data as string
+    return row.referencia as string
   }, [fetchProformas])
 
   const cancel = useCallback(async (proformaId: string, motivo: string, canceladoPor: string | null) => {

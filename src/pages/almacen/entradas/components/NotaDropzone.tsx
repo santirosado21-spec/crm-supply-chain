@@ -2,16 +2,20 @@ import { useRef } from 'react'
 import { Upload, FileSpreadsheet, XCircle } from 'lucide-react'
 
 interface Props {
-  fileName:  string
-  onFile:    (file: File) => void
-  onClear:   () => void
-  label?:    string
-  hint?:     string
-  disabled?: boolean
+  fileName:    string
+  onFile:      (file: File) => void
+  onClear:     () => void
+  label?:      string
+  hint?:       string
+  disabled?:   boolean
+  /** Restringe los tipos aceptados (default: PDF/Excel/CSV, uso original de este dropzone). */
+  accept?:     string
+  /** Texto corto mostrado bajo el hint (default acorde al `accept` original). */
+  acceptLabel?: string
 }
 
-/** Dropzone drag&drop para la nota de entrada (PDF / Excel / CSV). */
-export function NotaDropzone({ fileName, onFile, onClear, label, hint, disabled }: Props) {
+/** Dropzone drag&drop genérico — usado para la nota de entrada (PDF/Excel/CSV) y para otros archivos (CSV de Extensiv, PDF de guías). */
+export function NotaDropzone({ fileName, onFile, onClear, label, hint, disabled, accept, acceptLabel }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -37,7 +41,7 @@ export function NotaDropzone({ fileName, onFile, onClear, label, hint, disabled 
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.xlsx,.xls,.csv"
+          accept={accept ?? '.pdf,.xlsx,.xls,.csv'}
           className="hidden"
           disabled={disabled}
           onChange={e => { if (e.target.files?.[0]) onFile(e.target.files[0]) }}
@@ -58,7 +62,7 @@ export function NotaDropzone({ fileName, onFile, onClear, label, hint, disabled 
           <>
             <Upload size={28} className="text-gray-300 mx-auto mb-2" />
             <p className="text-xs text-gray-400">{hint ?? 'Arrastra o haz clic para subir el documento'}</p>
-            <p className="text-[10px] text-gray-300 mt-1">PDF, XLS, XLSX, CSV</p>
+            <p className="text-[10px] text-gray-300 mt-1">{acceptLabel ?? 'PDF, XLS, XLSX, CSV'}</p>
           </>
         )}
       </div>

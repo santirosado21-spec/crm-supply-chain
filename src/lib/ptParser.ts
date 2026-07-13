@@ -25,8 +25,8 @@ export type { PTLineItem, PTExtraction }
 // (cdnjs doesn't always mirror the exact pdfjs-dist version we have installed).
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-interface PDFItem { text: string; x: number; y: number; page: number }
-type PDFRow = PDFItem[]
+export interface PDFItem { text: string; x: number; y: number; page: number }
+export type PDFRow = PDFItem[]
 
 /* ─── Patterns (PDF Strategy B; SKU/QTY/SERIAL vienen de sheetParser) ──── */
 const DESC_HEADER_RE      = /descripci[oó]n/i

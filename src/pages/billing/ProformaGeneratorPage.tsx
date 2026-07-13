@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, Sparkles, Download, Save, History } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { Spinner } from '../../components/ui/Spinner'
@@ -18,6 +17,7 @@ import {
   type ProformaPreview, type ProformaLineaPreview, type Moneda,
 } from '../../lib/proformaBuilder'
 import { generarProformaPDF } from '../../lib/proformaPdf'
+import { generarProformaExcel, proformaFileName, type ProformaDocHeader } from '../../lib/proformaExcel'
 import { ProformaLineasTable } from './components/ProformaLineasTable'
 
 function defaultMonthRange() {
@@ -126,34 +126,36 @@ export function ProformaGeneratorPage() {
     }
   }
 
-  const handleExportPDF = async () => {
-    if (!preview || !cliente) return
-    const blob = await generarProformaPDF({
-      referencia:    savedReferencia ?? 'BORRADOR',
-      clienteNombre: cliente.name,
-      periodoDesde:  periodo.desde,
-      periodoHasta:  periodo.hasta,
-      creadoPor:     user?.name ?? user?.email ?? null,
-    }, preview)
+  const docHeader = (): ProformaDocHeader => ({
+    referencia:         savedReferencia ?? 'BORRADOR',
+    clienteNombre:      cliente?.name ?? '',
+    clienteRazonSocial: cliente?.razon_social ?? null,
+    periodoDesde:       periodo.desde,
+    periodoHasta:       periodo.hasta,
+    creadoPor:          user?.name ?? user?.email ?? null,
+  })
+
+  const descargarBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `proforma_${savedReferencia ?? 'borrador'}.pdf`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const handleExportExcel = () => {
-    if (!preview) return
-    const header = ['Sección', 'Fuente', 'Concepto', 'Referencia', 'Cantidad', 'Precio unitario', 'Monto', 'Moneda', 'Incluida']
-    const rows = preview.lineas.map(l => [
-      l.seccion, l.fuente, l.concepto, l.referencia ?? '', l.cantidad, l.precioUnitario ?? '', l.monto, l.moneda, l.incluida ? 'Sí' : 'No',
-    ])
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
-    ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 32 }, { wch: 18 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 10 }]
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Proforma')
-    XLSX.writeFile(wb, `proforma_${savedReferencia ?? 'borrador'}.xlsx`)
+  const handleExportPDF = async () => {
+    if (!preview || !cliente) return
+    const header = docHeader()
+    const blob = await generarProformaPDF(header, preview)
+    descargarBlob(blob, proformaFileName(header, 'pdf'))
+  }
+
+  const handleExportExcel = async () => {
+    if (!preview || !cliente) return
+    const header = docHeader()
+    const blob = await generarProformaExcel(header, preview)
+    descargarBlob(blob, proformaFileName(header, 'xlsx'))
   }
 
   return (
@@ -253,6 +255,12 @@ export function ProformaGeneratorPage() {
                 <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-6 gap-y-1 text-sm">
                   <div><span className="text-gray-400">Subtotal:</span> <span className="font-semibold">{`$${preview.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${preview.moneda}`}</span></div>
                   <div><span className="text-gray-400">IVA ({preview.ivaPct}%):</span> <span className="font-semibold">{`$${preview.ivaMonto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${preview.moneda}`}</span></div>
+                  {preview.retencionMonto > 0 && (
+                    <div title={`Retención de IVA del 4% por autotransporte de carga — aplica solo sobre el subtotal de flete propio ($${preview.subtotalFlete.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${preview.moneda})`}>
+                      <span className="text-gray-400">Retención 4% flete:</span>{' '}
+                      <span className="font-semibold text-amber-700">{`−$${preview.retencionMonto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${preview.moneda}`}</span>
+                    </div>
+                  )}
                   <div><span className="text-gray-400">Total:</span> <span className="font-bold text-[#c8373c]">{`$${preview.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${preview.moneda}`}</span></div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">

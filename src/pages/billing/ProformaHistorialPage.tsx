@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { History, Eye, Download, Ban, X } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
 import { Spinner } from '../../components/ui/Spinner'
@@ -9,8 +8,9 @@ import { useToast } from '../../hooks/useToast'
 import { useAuthContext } from '../../context/AuthContext'
 import { useClients } from '../../hooks/useClients'
 import { useProformasPeriodo, type ProformaPeriodoHeader } from '../../hooks/useProformasPeriodo'
-import type { ProformaLineaPreview } from '../../lib/proformaBuilder'
+import type { ProformaLineaPreview, ProformaPreview } from '../../lib/proformaBuilder'
 import { generarProformaPDF } from '../../lib/proformaPdf'
+import { generarProformaExcel, proformaFileName, type ProformaDocHeader } from '../../lib/proformaExcel'
 import { ProformaLineasTable } from './components/ProformaLineasTable'
 
 const fmt = (n: number, moneda: string) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${moneda}`
@@ -72,41 +72,56 @@ export function ProformaHistorialPage() {
     }
   }
 
-  const handleExportPDF = async () => {
-    if (!detalle) return
-    const blob = await generarProformaPDF({
-      referencia:    detalle.header.referencia,
-      clienteNombre: detalle.header.cliente_nombre,
-      periodoDesde:  detalle.header.periodo_desde,
-      periodoHasta:  detalle.header.periodo_hasta,
-      creadoPor:     detalle.header.creado_por,
-    }, {
-      lineas:             detalle.lineas,
-      subtotalWms:        detalle.header.subtotal_wms,
-      subtotalFlete:      detalle.header.subtotal_flete,
-      subtotalPaqueteria: detalle.header.subtotal_paqueteria,
-      subtotal:           detalle.header.subtotal,
-      ivaPct:             detalle.header.iva_pct,
-      ivaMonto:           detalle.header.iva_monto,
-      total:              detalle.header.total,
-      moneda:             detalle.header.moneda,
-    })
+  /** Reconstruye header + preview del documento a partir de lo guardado en el historial. */
+  const detalleParaDoc = (): { header: ProformaDocHeader; preview: ProformaPreview } | null => {
+    if (!detalle) return null
+    const clienteRow = clients.find(c => c.id === detalle.header.cliente_id)
+    return {
+      header: {
+        referencia:         detalle.header.referencia,
+        clienteNombre:      detalle.header.cliente_nombre,
+        clienteRazonSocial: clienteRow?.razon_social ?? null,
+        periodoDesde:       detalle.header.periodo_desde,
+        periodoHasta:       detalle.header.periodo_hasta,
+        creadoPor:          detalle.header.creado_por,
+      },
+      preview: {
+        lineas:             detalle.lineas,
+        subtotalWms:        detalle.header.subtotal_wms,
+        subtotalFlete:      detalle.header.subtotal_flete,
+        subtotalPaqueteria: detalle.header.subtotal_paqueteria,
+        subtotal:           detalle.header.subtotal,
+        ivaPct:             detalle.header.iva_pct,
+        ivaMonto:           detalle.header.iva_monto,
+        retencionPct:       detalle.header.retencion_pct ?? 0,
+        retencionMonto:     detalle.header.retencion_monto ?? 0,
+        total:              detalle.header.total,
+        moneda:             detalle.header.moneda,
+      },
+    }
+  }
+
+  const descargarBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `proforma_${detalle.header.referencia}.pdf`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const handleExportExcel = () => {
-    if (!detalle) return
-    const header = ['Sección', 'Fuente', 'Concepto', 'Referencia', 'Cantidad', 'Monto', 'Moneda', 'Incluida']
-    const rows = detalle.lineas.map(l => [l.seccion, l.fuente, l.concepto, l.referencia ?? '', l.cantidad, l.monto, l.moneda, l.incluida ? 'Sí' : 'No'])
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Proforma')
-    XLSX.writeFile(wb, `proforma_${detalle.header.referencia}.xlsx`)
+  const handleExportPDF = async () => {
+    const doc = detalleParaDoc()
+    if (!doc) return
+    const blob = await generarProformaPDF(doc.header, doc.preview)
+    descargarBlob(blob, proformaFileName(doc.header, 'pdf'))
+  }
+
+  const handleExportExcel = async () => {
+    const doc = detalleParaDoc()
+    if (!doc) return
+    const blob = await generarProformaExcel(doc.header, doc.preview)
+    descargarBlob(blob, proformaFileName(doc.header, 'xlsx'))
   }
 
   return (
@@ -215,6 +230,11 @@ export function ProformaHistorialPage() {
                     <div className="space-x-4">
                       <span>Subtotal: <b>{fmt(detalle.header.subtotal, detalle.header.moneda)}</b></span>
                       <span>IVA ({detalle.header.iva_pct}%): <b>{fmt(detalle.header.iva_monto, detalle.header.moneda)}</b></span>
+                      {(detalle.header.retencion_monto ?? 0) > 0 && (
+                        <span title={`Retención de IVA del 4% por autotransporte de carga — sobre el subtotal de flete propio (${fmt(detalle.header.subtotal_flete, detalle.header.moneda)})`}>
+                          Retención 4% flete: <b className="text-amber-700">−{fmt(detalle.header.retencion_monto, detalle.header.moneda)}</b>
+                        </span>
+                      )}
                       <span>Total: <b className="text-[#c8373c]">{fmt(detalle.header.total, detalle.header.moneda)}</b></span>
                     </div>
                     <div className="flex gap-2">
