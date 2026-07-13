@@ -33,7 +33,11 @@ const MONEY_FMT = '"$"#,##0.00'
 
 /** Longitud del texto tal como se ve en la celda (dinero formateado, números, texto). */
 function displayLen(cell: { value: unknown; numFmt?: string }): number {
-  const v = cell.value
+  let v = cell.value
+  // Celda con fórmula: exceljs guarda { formula, result } — se mide el resultado.
+  if (v != null && typeof v === 'object' && 'result' in (v as Record<string, unknown>)) {
+    v = (v as { result: unknown }).result
+  }
   if (v == null || v === '') return 0
   if (typeof v === 'number') {
     // Aproxima el ancho del número formateado como moneda ($#,##0.00).
@@ -98,6 +102,19 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
 
   const moneda = preview.moneda
 
+  // Detalle de cada sección (se calcula una vez; la portada referencia estas
+  // hojas con fórmulas vivas). Los nombres de hoja con espacio/acento se citan
+  // entre comillas simples en las fórmulas.
+  const viajes = viajesExportRows(preview.lineas)
+  const guias = guiasExportRows(preview.lineas)
+  const wmsLineas = preview.lineas.filter(l => l.seccion === 'wms' && l.incluida)
+  const hasDesglose = wmsLineas.length > 0
+  const transTotalRow = 3 + viajes.length      // fila TOTAL de "Servicios Transporte"
+  const paqTotalRow = 3 + guias.length         // fila TOTAL de "Paqueterías"
+  const SH_TRANS = "'Servicios Transporte'"
+  const SH_PAQ = "'Paqueterías'"
+  const SH_DESG = "'Desglose Almacén'"
+
   /* ── Hoja 1: ProForma (portada) ──────────────────────────────────────── */
   const ws = wb.addWorksheet('ProForma', { views: [{ showGridLines: false }] })
   ws.columns = [
@@ -155,17 +172,42 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
   ws.getRow(headerRowIdx).height = 20
 
   const conceptos = aggregateConceptos(preview.lineas)
-  let r = headerRowIdx + 1
+  const firstConceptRow = headerRowIdx + 1
+  let r = firstConceptRow
+  let transporteConceptRow = 0
   for (const con of conceptos) {
-    ws.getCell(r, 1).value = con.cantidad
-    ws.getCell(r, 1).alignment = { horizontal: 'center' }
+    const esTransporte = con.descripcion === 'Servicios de transporte'
+    const esPaqueteria = con.descripcion === 'Envíos por paquetería'
+
     ws.getCell(r, 2).value = con.descripcion
-    if (con.costoUnitario != null) {
-      ws.getCell(r, 3).value = con.costoUnitario
-      ws.getCell(r, 3).numFmt = MONEY_FMT
+
+    if (esTransporte) {
+      transporteConceptRow = r
+      ws.getCell(r, 1).value = con.cantidad
+      // Costo Total = total de la hoja "Servicios Transporte" (fórmula viva).
+      ws.getCell(r, 4).value = { formula: `${SH_TRANS}!G${transTotalRow}`, result: con.costoTotal }
+    } else if (esPaqueteria) {
+      ws.getCell(r, 1).value = con.cantidad
+      ws.getCell(r, 4).value = { formula: `${SH_PAQ}!E${paqTotalRow}`, result: con.costoTotal }
+    } else {
+      // Concepto WMS: cantidad y costo total = suma de sus renglones en el
+      // Desglose de Almacén, filtrados por concepto (col A) y precio unitario
+      // (col D). Costo Unitario es el precio (llave del agrupado).
+      if (hasDesglose) {
+        ws.getCell(r, 1).value = { formula: `SUMIFS(${SH_DESG}!$C:$C,${SH_DESG}!$A:$A,B${r},${SH_DESG}!$D:$D,C${r})`, result: con.cantidad }
+        ws.getCell(r, 4).value = { formula: `SUMIFS(${SH_DESG}!$E:$E,${SH_DESG}!$A:$A,B${r},${SH_DESG}!$D:$D,C${r})`, result: con.costoTotal }
+      } else {
+        ws.getCell(r, 1).value = con.cantidad
+        ws.getCell(r, 4).value = con.costoTotal
+      }
+      if (con.costoUnitario != null) {
+        ws.getCell(r, 3).value = con.costoUnitario
+        ws.getCell(r, 3).numFmt = MONEY_FMT
+      }
     }
-    ws.getCell(r, 4).value = con.costoTotal
+    ws.getCell(r, 1).alignment = { horizontal: 'center' }
     ws.getCell(r, 4).numFmt = MONEY_FMT
+
     for (let cIdx = 1; cIdx <= 4; cIdx++) {
       ws.getCell(r, cIdx).font = { name: 'Arial', size: 10 }
       ws.getCell(r, cIdx).border = { bottom: { style: 'hair', color: { argb: 'FFDDDDDD' } } }
@@ -182,18 +224,36 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
     minWidths: [10, 22, 15, 15], maxWidth: 46,
   })
 
-  // Pie: Subtotal / IVA / Retención / Total — etiqueta fusionada A:C (ancha)
-  // para que el texto largo de la retención se lea completo.
+  // Pie: Subtotal / IVA / Retención / Total — todo con fórmulas vivas.
+  // Etiqueta fusionada A:C (ancha) para que la retención se lea completa.
   r++
   const wLabel = (ws.getColumn(1).width ?? 10) + (ws.getColumn(2).width ?? 22) + (ws.getColumn(3).width ?? 15)
-  const pie: Array<{ label: string; value: number; bold?: boolean; negativo?: boolean }> = [
-    { label: 'Subtotal', value: preview.subtotal },
-    { label: `IVA (${preview.ivaPct}%)`, value: preview.ivaMonto },
+
+  const hayRetencion = preview.retencionMonto > 0
+  const subtotalRow = r
+  const ivaRow = r + 1
+  const retRow = hayRetencion ? r + 2 : 0
+
+  type PieFila = { label: string; formula: string; result: number; bold?: boolean; negativo?: boolean }
+  const pie: PieFila[] = [
+    { label: 'Subtotal', formula: `SUM(D${firstConceptRow}:D${lastConceptRow})`, result: preview.subtotal },
+    { label: `IVA (${preview.ivaPct}%)`, formula: `ROUND(D${subtotalRow}*${preview.ivaPct}/100,2)`, result: preview.ivaMonto },
   ]
-  if (preview.retencionMonto > 0) {
-    pie.push({ label: retencionLabel(preview.subtotalFlete, moneda), value: -preview.retencionMonto, negativo: true })
+  if (hayRetencion) {
+    // Retención = 4% del flete (que en la portada es la fila "Servicios de transporte").
+    pie.push({
+      label: retencionLabel(preview.subtotalFlete, moneda),
+      formula: `-ROUND(D${transporteConceptRow}*4/100,2)`,
+      result: -preview.retencionMonto,
+      negativo: true,
+    })
   }
-  pie.push({ label: 'Total', value: preview.total, bold: true })
+  pie.push({
+    label: 'Total',
+    formula: hayRetencion ? `D${subtotalRow}+D${ivaRow}+D${retRow}` : `D${subtotalRow}+D${ivaRow}`,
+    result: preview.total,
+    bold: true,
+  })
 
   for (const fila of pie) {
     ws.mergeCells(r, 1, r, 3)
@@ -202,7 +262,7 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
     lc.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true }
     lc.font = { name: 'Arial', size: fila.bold ? 12 : 10, bold: !!fila.bold, color: { argb: fila.negativo ? RED : 'FF444444' } }
     const vc = ws.getCell(r, 4)
-    vc.value = fila.value
+    vc.value = { formula: fila.formula, result: fila.result }
     vc.numFmt = MONEY_FMT
     vc.font = { name: 'Arial', size: fila.bold ? 12 : 10, bold: !!fila.bold, color: { argb: fila.negativo ? RED : (fila.bold ? WHITE : 'FF444444') } }
     if (fila.bold) {
@@ -216,7 +276,6 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
   }
 
   /* ── Hoja 2: Servicios Transporte ────────────────────────────────────── */
-  const viajes = viajesExportRows(preview.lineas)
   if (viajes.length > 0) {
     const wt = wb.addWorksheet('Servicios Transporte', { views: [{ showGridLines: false }] })
     wt.columns = [{ width: 22 }, { width: 12 }, { width: 24 }, { width: 34 }, { width: 16 }, { width: 16 }, { width: 14 }]
@@ -259,7 +318,7 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
     totCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: NAVY } }
     totCell.alignment = { horizontal: 'right' }
     const totVal = wt.getCell(tr, 7)
-    totVal.value = preview.subtotalFlete
+    totVal.value = { formula: `SUM(G3:G${tr - 1})`, result: preview.subtotalFlete }
     totVal.numFmt = MONEY_FMT
     totVal.font = { name: 'Arial', size: 10, bold: true, color: { argb: NAVY } }
 
@@ -270,7 +329,6 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
   }
 
   /* ── Hoja 3: Paqueterías ─────────────────────────────────────────────── */
-  const guias = guiasExportRows(preview.lineas)
   if (guias.length > 0) {
     const wp = wb.addWorksheet('Paqueterías', { views: [{ showGridLines: false }] })
     wp.columns = [{ width: 14 }, { width: 30 }, { width: 12 }, { width: 24 }, { width: 14 }]
@@ -309,7 +367,7 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
     ptCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: NAVY } }
     ptCell.alignment = { horizontal: 'right' }
     const ptVal = wp.getCell(pr, 5)
-    ptVal.value = preview.subtotalPaqueteria
+    ptVal.value = { formula: `SUM(E3:E${pr - 1})`, result: preview.subtotalPaqueteria }
     ptVal.numFmt = MONEY_FMT
     ptVal.font = { name: 'Arial', size: 10, bold: true, color: { argb: NAVY } }
 
@@ -320,7 +378,6 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
   }
 
   /* ── Hoja 4: Desglose Almacén ────────────────────────────────────────── */
-  const wmsLineas = preview.lineas.filter(l => l.seccion === 'wms' && l.incluida)
   if (wmsLineas.length > 0) {
     const wd = wb.addWorksheet('Desglose Almacén', { views: [{ showGridLines: false }] })
     wd.columns = [{ width: 36 }, { width: 18 }, { width: 12 }, { width: 16 }, { width: 14 }]
@@ -350,8 +407,12 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
       if (l.precioUnitario != null) {
         wd.getCell(dr, 4).value = l.precioUnitario
         wd.getCell(dr, 4).numFmt = MONEY_FMT
+        // Total del renglón = cantidad × precio unitario (redondeado a 2 dec.
+        // para cuadrar exacto con el CSV de Extensiv). Fórmula viva.
+        wd.getCell(dr, 5).value = { formula: `ROUND(C${dr}*D${dr},2)`, result: l.monto }
+      } else {
+        wd.getCell(dr, 5).value = l.monto
       }
-      wd.getCell(dr, 5).value = l.monto
       wd.getCell(dr, 5).numFmt = MONEY_FMT
       for (let cIdx = 1; cIdx <= 5; cIdx++) {
         wd.getCell(dr, cIdx).font = { name: 'Arial', size: 9 }
@@ -364,7 +425,7 @@ export async function generarProformaExcel(header: ProformaDocHeader, preview: P
     dtCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: NAVY } }
     dtCell.alignment = { horizontal: 'right' }
     const dtVal = wd.getCell(dr, 5)
-    dtVal.value = preview.subtotalWms
+    dtVal.value = { formula: `SUM(E3:E${dr - 1})`, result: preview.subtotalWms }
     dtVal.numFmt = MONEY_FMT
     dtVal.font = { name: 'Arial', size: 10, bold: true, color: { argb: NAVY } }
 
