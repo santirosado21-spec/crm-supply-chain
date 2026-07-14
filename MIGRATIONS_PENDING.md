@@ -297,6 +297,19 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   EXISTS + ADD (el `DO $$` que buscaba por `IN` no matcheó porque Postgres lo
   normaliza a `= ANY(ARRAY[...])`).
 
+### 29. `20260714120000_viaje_evidencia.sql` ✅ APLICADA (2026-07-14, vía MCP `apply_migration` en prod `uifrgmiqpkbgyvzbcldn`; 3 columnas + RPC `viaje_attach_evidencia(uuid,text)` verificados)
+- `viajes` gana `evidencia_url TEXT`, `evidencia_fecha TIMESTAMPTZ`, `evidencia_por TEXT`.
+- Nuevo RPC `viaje_attach_evidencia(p_viaje_id, p_evidence_url)` SECURITY DEFINER —
+  reutiliza `is_google_drive_url()` (migración #17); valida el link server-side y
+  sella `evidencia_fecha = now()` + `evidencia_por = current_user_email()`.
+- Rehace "Evidencia de flete propio" (`/tms/evidencia-flete`): en vez de
+  recapturar cliente + SKUs a mano (viejo flujo sobre `warehouse_exits`, que
+  queda huérfano pero intacto), Transportes **selecciona un viaje confirmado** ya
+  existente y le adjunta el link de Drive. La evidencia vive en el propio viaje.
+  La proforma NO cambia (la evidencia no se muestra ni se exige para facturar).
+- Sin esta migración, el botón "Adjuntar evidencia" falla porque el RPC/columnas
+  no existen en prod.
+
 ## Cómo aplicar
 
 Desde el repo vinculado a Supabase:

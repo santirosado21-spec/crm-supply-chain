@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Viaje, ViajeEstado } from '../types/tms'
 
-export type CreateViajeData = Omit<Viaje, 'id' | 'created_at' | 'updated_at' | 'vehiculo_placa' | 'vehiculo_modelo' | 'operador_nombre' | 'operacion_referencia'>
+// La evidencia (evidencia_url/fecha/por) se excluye: se escribe SOLO vía la RPC
+// viaje_attach_evidencia, nunca por el insert/update genérico.
+export type CreateViajeData = Omit<Viaje, 'id' | 'created_at' | 'updated_at' | 'evidencia_url' | 'evidencia_fecha' | 'evidencia_por' | 'vehiculo_placa' | 'vehiculo_modelo' | 'operador_nombre' | 'operacion_referencia'>
 export type UpdateViajeData = Partial<CreateViajeData>
 
 export interface ViajeFilters {
@@ -111,6 +113,23 @@ export function useViajes(filters?: ViajeFilters) {
     setViajes(prev => prev.filter(x => x.id !== id))
   }, [])
 
+  // Adjunta el link de Google Drive de la evidencia a un viaje. El link se
+  // valida server-side (is_google_drive_url) dentro de la RPC; luego se
+  // re-lee la fila para reflejar evidencia_url/fecha/por en el estado local.
+  const attachEvidencia = useCallback(async (id: string, evidenceUrl: string) => {
+    const { error: err } = await supabase.rpc('viaje_attach_evidencia', {
+      p_viaje_id: id,
+      p_evidence_url: evidenceUrl,
+    })
+    if (err) throw new Error(err.message)
+    const { data: fresh } = await supabase.from('viajes').select('*').eq('id', id).single()
+    if (fresh) {
+      const v = fresh as Viaje
+      setViajes(prev => prev.map(x => x.id === id ? v : x))
+      return v
+    }
+  }, [])
+
   // Workflow transitions
   const assignTrip = useCallback(async (id: string, vehiculoId: string, operadorId: string) => {
     return updateViaje(id, { vehiculo_id: vehiculoId, operador_id: operadorId, estado: 'asignado' })
@@ -144,7 +163,7 @@ export function useViajes(filters?: ViajeFilters) {
   return {
     viajes, loading, error, stats,
     fetchViajes, getByOperacion,
-    createViaje, updateViaje, deleteViaje,
+    createViaje, updateViaje, deleteViaje, attachEvidencia,
     assignTrip, startTrip, completeTrip,
   }
 }

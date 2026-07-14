@@ -4,18 +4,27 @@ import {
 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { Sidebar } from '../../components/layout/Sidebar'
-import { useWarehouseExits } from '../../hooks/useWarehouseExits'
-import type { ExitStatus } from '../../types/warehouseExit'
+import { useViajes } from '../../hooks/useViajes'
+import { useClientCatalog } from '../../hooks/useClientCatalog'
+import type { Viaje } from '../../types/tms'
 
-const STATUS_META: Record<ExitStatus, { label: string; cls: string }> = {
-  abierta:   { label: 'Abierta',   cls: 'bg-amber-50 text-amber-700' },
-  cerrada:   { label: 'Cerrada',   cls: 'bg-green-50 text-green-700' },
-  cancelada: { label: 'Cancelada', cls: 'bg-gray-100 text-gray-500' },
+function fmtFecha(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export function HistorialEvidenciasPage() {
   const navigate = useNavigate()
-  const { exits, loading, error } = useWarehouseExits()
+  const { viajes, loading, error } = useViajes()
+  const { findByCodigo } = useClientCatalog()
+
+  const clienteLabel = (v: Viaje) =>
+    (v.cliente_codigo && findByCodigo(v.cliente_codigo)?.nombre) || v.cliente_codigo || v.referencia_manual || '—'
+
+  const conEvidencia = viajes
+    .filter(v => v.evidencia_url)
+    .sort((a, b) => (b.evidencia_fecha ?? '').localeCompare(a.evidencia_fecha ?? ''))
 
   return (
     <div className="flex h-dvh min-h-dvh flex-col overflow-hidden" style={{ background: 'var(--page-bg)' }}>
@@ -32,7 +41,7 @@ export function HistorialEvidenciasPage() {
 
           <div className="mb-6">
             <h1 className="text-xl font-bold text-[#1e3a5f]">Historial de evidencias</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Todas las evidencias de flete propio registradas.</p>
+            <p className="text-xs text-gray-400 mt-0.5">Viajes de flete propio con evidencia de Google Drive adjuntada.</p>
           </div>
 
           {error && (
@@ -45,59 +54,52 @@ export function HistorialEvidenciasPage() {
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
               <Loader2 size={16} className="animate-spin" /> Cargando evidencias…
             </div>
-          ) : exits.length === 0 ? (
+          ) : conEvidencia.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <PackageOpen size={40} className="text-gray-300" />
-              <p className="text-sm text-gray-500">Aún no hay evidencias registradas.</p>
+              <p className="text-sm text-gray-500">Aún no hay viajes con evidencia adjuntada.</p>
               <button
                 onClick={() => navigate('/tms/evidencia-flete')}
                 className="h-10 px-5 rounded-lg bg-[#1e3a5f] text-white text-sm font-medium hover:bg-[#16304d] transition-colors"
               >
-                Registrar primera evidencia
+                Adjuntar primera evidencia
               </button>
             </div>
           ) : (
             <div className="max-w-full overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-              <table className="min-w-[720px] w-full text-sm">
+              <table className="min-w-[820px] w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/60">
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Fecha</th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Cliente</th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-600">Ref #</th>
-                    <th className="text-right px-4 py-3 font-semibold text-gray-600">Items</th>
-                    <th className="text-center px-4 py-3 font-semibold text-gray-600">Estado</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Ruta</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Fecha evidencia</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Por</th>
                     <th className="text-center px-4 py-3 font-semibold text-gray-600">Evidencia</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {exits.map(ex => {
-                    const meta = STATUS_META[ex.status]
-                    return (
-                      <tr key={ex.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                        <td className="px-4 py-3 text-gray-600">{ex.fecha}</td>
-                        <td className="px-4 py-3 font-medium text-gray-800">{ex.customer_name || '—'}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-600">{ex.ref || '—'}</td>
-                        <td className="px-4 py-3 text-right text-gray-600">{ex.items.length}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${meta.cls}`}>
-                            {meta.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {ex.completion_evidence_url ? (
-                            <a
-                              href={ex.completion_evidence_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[#1e3a5f] text-xs font-semibold hover:underline"
-                            >
-                              <Link2 size={12} /> Ver
-                            </a>
-                          ) : <span className="text-gray-300">—</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {conEvidencia.map(v => (
+                    <tr key={v.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-gray-800">{clienteLabel(v)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600">{v.referencia_manual || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{v.origen} → {v.destino}</td>
+                      <td className="px-4 py-3 text-gray-600">{fmtFecha(v.evidencia_fecha)}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{v.evidencia_por || '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        {v.evidencia_url ? (
+                          <a
+                            href={v.evidencia_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[#1e3a5f] text-xs font-semibold hover:underline"
+                          >
+                            <Link2 size={12} /> Ver
+                          </a>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

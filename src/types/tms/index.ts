@@ -86,6 +86,12 @@ export interface Viaje {
   extensiv_customer_id: number | null
   referencia_manual: string | null
   facturado_en_proforma_id: string | null
+  // Evidencia de flete propio: link de Google Drive adjuntado a un viaje
+  // confirmado desde /tms/evidencia-flete. Se escribe SOLO vía la RPC
+  // viaje_attach_evidencia (por eso se excluye de CreateViajeData en useViajes).
+  evidencia_url: string | null
+  evidencia_fecha: string | null
+  evidencia_por: string | null
   // Joined fields (from queries)
   vehiculo_placa?: string
   vehiculo_modelo?: string
