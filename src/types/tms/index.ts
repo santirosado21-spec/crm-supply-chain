@@ -1,6 +1,9 @@
 // ── TMS Types ─────────────────────────────────────────────────────────────
 
-export type ViajeEstado = 'pendiente' | 'asignado' | 'en_transito' | 'entregado' | 'completado' | 'cancelado'
+// 'confirmado' = viaje registrado al confirmar una cotización en el Cotizador
+// (ya con cliente + referencia). Ya es facturable (entra directo a la proforma)
+// — ver VIAJE_ESTADOS_FACTURABLES en src/lib/proformaBuilder.ts.
+export type ViajeEstado = 'pendiente' | 'confirmado' | 'asignado' | 'en_transito' | 'entregado' | 'completado' | 'cancelado'
 
 export type CombustibleTipo = 'Diesel' | 'Gasolina'
 

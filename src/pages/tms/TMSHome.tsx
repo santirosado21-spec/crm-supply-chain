@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, LayoutDashboard, Truck, UserCheck, Route, PieChart, Calculator, CalendarClock, ArrowRight, Clock, DollarSign, TrendingUp, Calendar, FileText, PackageMinus } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Truck, UserCheck, Route, PieChart, Calculator, CalendarClock, ArrowRight, Clock, DollarSign, TrendingUp, Calendar, FileText, PackageMinus, CheckCircle2 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { useViajes } from '../../hooks/useViajes'
 import { useVehiculos } from '../../hooks/useVehiculos'
@@ -41,6 +41,7 @@ export function TMSHome() {
   const { vehiculos } = useVehiculos()
   const { operadores } = useOperadores()
 
+  const confirmados = viajes.filter(v => v.estado === 'confirmado').length
   const pendientes = viajes.filter(v => v.estado === 'pendiente' || v.estado === 'asignado').length
   const enRuta = viajes.filter(v => v.estado === 'en_transito').length
   const ingreso = viajes.reduce((sum, v) => sum + (v.ingreso_cliente || 0), 0)
@@ -49,6 +50,7 @@ export function TMSHome() {
   const maniobristas = operadores.filter(o => isBaseManiobrista(o.nombre, o.notas)).length
 
   const indicadores = [
+    { label: 'Confirmados', value: confirmados, icon: CheckCircle2, color: '#0d9488', bg: '#f0fdfa' },
     { label: 'Pendientes', value: pendientes, icon: Clock, color: '#b45309', bg: '#fffbeb' },
     { label: 'En ruta', value: enRuta, icon: Route, color: '#1d4ed8', bg: '#eff6ff' },
     { label: 'Ingreso', value: `$${ingreso.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`, icon: DollarSign, color: '#0e7490', bg: '#ecfeff' },

@@ -21,6 +21,7 @@ const fmtMoney = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionD
 
 const estadoLabels: Record<ViajeEstado, string> = {
   pendiente: 'Pendiente',
+  confirmado: 'Confirmado',
   asignado: 'Asignado',
   en_transito: 'En tránsito',
   entregado: 'Entregado',
@@ -30,6 +31,7 @@ const estadoLabels: Record<ViajeEstado, string> = {
 
 const estadoColors: Record<ViajeEstado, string> = {
   pendiente: '#b45309',
+  confirmado: '#0d9488',
   asignado: '#1d4ed8',
   en_transito: '#7c3aed',
   entregado: '#0e7490',
@@ -56,6 +58,7 @@ export function TMSDashboard() {
 
   const total = viajes.length
   const activos = viajes.filter(v => v.estado === 'en_transito').length
+  const confirmados = viajes.filter(v => v.estado === 'confirmado').length
   const pendientes = viajes.filter(v => v.estado === 'pendiente' || v.estado === 'asignado').length
   const entregados = viajes.filter(v => v.estado === 'entregado').length
   const completados = viajes.filter(v => v.estado === 'completado').length
@@ -76,6 +79,7 @@ export function TMSDashboard() {
   }))
 
   const kpis = [
+    { label: 'Confirmados',       value: confirmados,          icon: CheckCircle2, color: '#0d9488', bg: '#f0fdfa' },
     { label: 'Viajes activos',    value: activos,              icon: Route,        color: '#1d4ed8', bg: '#eff6ff' },
     { label: 'Pendientes',        value: pendientes,           icon: Clock,        color: '#b45309', bg: '#fffbeb' },
     { label: 'Entregados',        value: entregados,           icon: CheckCircle2, color: '#0e7490', bg: '#ecfeff' },

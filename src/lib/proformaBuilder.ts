@@ -20,11 +20,12 @@ export type ProformaFuente  = 'csv_extensiv' | 'viaje' | 'guia_paqueteria'
 export type Moneda          = 'MXN' | 'USD'
 
 /**
- * Un viaje solo es facturable si ya está "confirmado" — evita que un viaje
- * pendiente/en_transito/cancelado entre a una proforma por error. Coincide
- * con lo que ya usa CostosTransportePage.tsx para calcular márgenes.
+ * Estados de viaje que entran a la proforma. Incluye 'confirmado': un viaje
+ * confirmado desde el Cotizador (con cliente + referencia) ya se toma en cuenta
+ * en la proforma del cliente de inmediato, sin esperar a marcarlo Completado.
+ * Se excluyen pendiente/asignado/en_transito/cancelado para no facturar por error.
  */
-export const VIAJE_ESTADOS_FACTURABLES: ViajeEstado[] = ['completado', 'entregado']
+export const VIAJE_ESTADOS_FACTURABLES: ViajeEstado[] = ['confirmado', 'completado', 'entregado']
 
 export interface ProformaLineaPreview {
   seccion:                 ProformaSeccion

@@ -233,6 +233,7 @@ export function ViajesPage() {
               <select value={estadoF} onChange={e => setEstadoF(e.target.value as ViajeEstado | '')}
                 className="h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20">
                 <option value="">Todos</option>
+                <option value="confirmado">Confirmado</option>
                 <option value="pendiente">Pendiente</option>
                 <option value="asignado">Asignado</option>
                 <option value="en_transito">En Tránsito</option>

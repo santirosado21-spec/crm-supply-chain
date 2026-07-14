@@ -285,6 +285,18 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
   portada agregada + hojas Servicios Transporte / Paqueterías / Desglose
   Almacén, en Excel (exceljs) y PDF.
 
+### 28. `20260714100000_viaje_estado_confirmado.sql` ✅ APLICADA (2026-07-14, vía MCP en prod `uifrgmiqpkbgyvzbcldn`; CHECK re-creado, `'confirmado'` permitido — verificado)
+- Agrega `'confirmado'` al CHECK de `viajes.estado`. Al confirmar una cotización
+  en el Cotizador, el viaje se registra directo como `confirmado` (ya con
+  `cliente_id`/`cliente_codigo` y `referencia_manual`), para que Transportes lo
+  vea en su sección de confirmados sin recapturarlo.
+- `confirmado` YA es facturable: entra directo a la proforma del cliente
+  (`VIAJE_ESTADOS_FACTURABLES = ['confirmado','completado','entregado']`).
+  Transportes puede seguir moviéndolo a Completado/Entregado cuando se realice.
+- Nota: el CHECK existente se llamaba `viajes_estado_check`; se hizo DROP IF
+  EXISTS + ADD (el `DO $$` que buscaba por `IN` no matcheó porque Postgres lo
+  normaliza a `= ANY(ARRAY[...])`).
+
 ## Cómo aplicar
 
 Desde el repo vinculado a Supabase:

@@ -2,6 +2,7 @@ import type { ViajeEstado } from '../../../types/tms'
 
 const ESTADO_CONFIG: Record<ViajeEstado, { label: string; bg: string; text: string }> = {
   pendiente:   { label: 'Pendiente',   bg: 'bg-gray-100',   text: 'text-gray-600' },
+  confirmado:  { label: 'Confirmado',  bg: 'bg-teal-50',    text: 'text-teal-700' },
   asignado:    { label: 'Asignado',    bg: 'bg-blue-50',    text: 'text-blue-700' },
   en_transito: { label: 'En Tránsito', bg: 'bg-amber-50',   text: 'text-amber-700' },
   entregado:   { label: 'Entregado',   bg: 'bg-purple-50',  text: 'text-purple-700' },
@@ -10,7 +11,10 @@ const ESTADO_CONFIG: Record<ViajeEstado, { label: string; bg: string; text: stri
 }
 
 const TRANSITIONS: Record<ViajeEstado, ViajeEstado[]> = {
-  pendiente:   ['asignado', 'cancelado'],
+  pendiente:   ['confirmado', 'asignado', 'cancelado'],
+  // Un viaje confirmado (del Cotizador) ya entra a la proforma; puede además
+  // asignarse para el flujo completo o marcarse Completado cuando se realice.
+  confirmado:  ['asignado', 'completado', 'cancelado'],
   asignado:    ['en_transito', 'cancelado'],
   en_transito: ['entregado', 'cancelado'],
   entregado:   ['completado'],

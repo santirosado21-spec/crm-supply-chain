@@ -843,6 +843,12 @@ function CotizadorPageInner() {
       precioFinalOverride !== result.precioFinal ? `[PRECIO AJUSTADO: ${mxn(precioFinalOverride)}]` : null,
     ].filter(Boolean).join(' · ')
 
+    // Ligar el cliente real (el <select> del Cotizador guarda el NOMBRE) para
+    // que el viaje nazca completo y Transportes NO tenga que recapturarlo.
+    const cli = clientesCatalogo.find(c => c.nombre === result.cliente)
+    const referenciaManual =
+      result.referenciaSAC?.trim() || result.referenciaExtensiv?.trim() || `Cotización #${result.id}`
+
     const viaje = await createViaje({
       operacion_id: null,
       vehiculo_id: null,
@@ -852,7 +858,10 @@ function CotizadorPageInner() {
       destino: result.destino,
       km_estimados: result.kmTotal,
       km_reales: 0,
-      estado: 'pendiente',
+      // Confirmar la cotización deja el viaje como 'confirmado' — visible de
+      // inmediato en la sección de viajes confirmados de Transportes. No es
+      // facturable hasta que Transportes lo marque Completado/Entregado.
+      estado: 'confirmado',
       fecha_programada: new Date().toISOString().split('T')[0],
       fecha_salida: null,
       fecha_llegada: null,
@@ -868,21 +877,20 @@ function CotizadorPageInner() {
       motive_status: '',
       notas,
       creado_por: user?.name ?? user?.email ?? 'Cotizador',
-      // El Cotizador sigue capturando el cliente como texto libre en `notas`
-      // (ver arriba) — no liga cliente_id/referencia real todavía. Ver
-      // src/pages/tms/components/ViajeForm.tsx para el flujo que sí lo hace.
-      cliente_id: null,
-      cliente_codigo: null,
-      referencia_origen: null,
+      // Cliente ligado desde el catálogo (nombre → id/código). La referencia
+      // queda como manual (Ref SAC / Txn Extensiv / folio de cotización).
+      cliente_id: cli?.id ?? null,
+      cliente_codigo: cli?.codigo ?? null,
+      referencia_origen: cli ? 'manual' : null,
       extensiv_transaction_type: null,
       extensiv_transaction_id: null,
       extensiv_customer_id: null,
-      referencia_manual: null,
+      referencia_manual: cli ? referenciaManual : null,
       facturado_en_proforma_id: null,
     })
     // Multi-tab: marca esta pestaña como guardada (badge ✓ + banner solo-lectura).
     if (viaje?.id) markActiveSaved(viaje.id)
-  }, [result, user, createViaje, markActiveSaved])
+  }, [result, user, createViaje, markActiveSaved, clientesCatalogo])
 
   // ── Reset ───────────────────────────────────────────────────────────────────
   const handleReset = () => {

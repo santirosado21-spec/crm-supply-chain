@@ -185,7 +185,10 @@ describe('buildProformaPreview', () => {
     expect(preview.total).toBe(preview.subtotal)
   })
 
-  it('VIAJE_ESTADOS_FACTURABLES solo incluye completado y entregado (protege el filtro de assembleProformaData)', () => {
-    expect(VIAJE_ESTADOS_FACTURABLES).toEqual(['completado', 'entregado'])
+  it('VIAJE_ESTADOS_FACTURABLES incluye confirmado/completado/entregado y NO pendiente/en_transito/cancelado (protege el filtro de assembleProformaData)', () => {
+    expect(VIAJE_ESTADOS_FACTURABLES).toEqual(['confirmado', 'completado', 'entregado'])
+    for (const noFacturable of ['pendiente', 'asignado', 'en_transito', 'cancelado']) {
+      expect(VIAJE_ESTADOS_FACTURABLES).not.toContain(noFacturable)
+    }
   })
 })
