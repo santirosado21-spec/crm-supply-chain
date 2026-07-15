@@ -237,26 +237,45 @@ export interface AssembleProformaDataParams {
   ivaPct?:        number
 }
 
+/**
+ * ⚠️ TEMPORAL — PRUEBAS: permite facturar lo mismo dos veces. Con `true`, la
+ * proforma deja de excluir viajes/guías ya facturados y líneas del CSV ya
+ * facturadas en proformas anteriores, para poder re-generar la misma proforma
+ * durante pruebas. `save_proforma_periodo` no bloquea el doble cobro (solo
+ * re-apunta `facturado_en_proforma_id` a la última proforma), así que este flag
+ * es la ÚNICA compuerta anti-duplicados. **REVERTIR A `false` ANTES DE
+ * PRODUCCIÓN** — el usuario avisará cuando termine de probar.
+ */
+export const ALLOW_DUPLICATE_BILLING: boolean = true
+
 /** Capa con Supabase: trae viajes/guías pendientes + dedupe de proformas previas, delega al builder puro. */
 export async function assembleProformaData(params: AssembleProformaDataParams): Promise<ProformaPreview> {
   const { clienteId, periodoDesde, periodoHasta } = params
 
+  let viajesQuery = supabase
+    .from('viajes')
+    .select('id, origen, destino, fecha_programada, ingreso_cliente, referencia_origen, extensiv_transaction_id, referencia_manual')
+    .eq('cliente_id', clienteId)
+    .in('estado', VIAJE_ESTADOS_FACTURABLES)
+    .gte('fecha_programada', periodoDesde)
+    .lte('fecha_programada', periodoHasta)
+
+  let guiasQuery = supabase
+    .from('guias_paqueteria')
+    .select('id, paqueteria, tracking_number, precio, fecha, origen, extensiv_transaction_id, manual_reference')
+    .eq('cliente_id', clienteId)
+    .gte('fecha', periodoDesde)
+    .lte('fecha', periodoHasta)
+
+  // Anti-duplicados normal: solo lo aún no facturado. Se salta en modo pruebas.
+  if (!ALLOW_DUPLICATE_BILLING) {
+    viajesQuery = viajesQuery.is('facturado_en_proforma_id', null)
+    guiasQuery = guiasQuery.is('facturado_en_proforma_id', null)
+  }
+
   const [viajesRes, guiasRes, lineasPreviasRes] = await Promise.all([
-    supabase
-      .from('viajes')
-      .select('id, origen, destino, fecha_programada, ingreso_cliente, referencia_origen, extensiv_transaction_id, referencia_manual')
-      .eq('cliente_id', clienteId)
-      .in('estado', VIAJE_ESTADOS_FACTURABLES)
-      .is('facturado_en_proforma_id', null)
-      .gte('fecha_programada', periodoDesde)
-      .lte('fecha_programada', periodoHasta),
-    supabase
-      .from('guias_paqueteria')
-      .select('id, paqueteria, tracking_number, precio, fecha, origen, extensiv_transaction_id, manual_reference')
-      .eq('cliente_id', clienteId)
-      .is('facturado_en_proforma_id', null)
-      .gte('fecha', periodoDesde)
-      .lte('fecha', periodoHasta),
+    viajesQuery,
+    guiasQuery,
     supabase
       .from('proforma_periodo_lineas')
       .select('extensiv_transaction_id, extensiv_charge_label, proformas_periodo!inner(cliente_id, estado)')
@@ -291,12 +310,16 @@ export async function assembleProformaData(params: AssembleProformaDataParams): 
     manualReference:       g.manual_reference,
   }))
 
-  const csvDedupeKeysYaFacturados = new Set<string>(
-    (lineasPreviasRes.data ?? [])
-      .filter((l): l is typeof l & { extensiv_transaction_id: string; extensiv_charge_label: string } =>
-        !!l.extensiv_transaction_id && !!l.extensiv_charge_label)
-      .map(l => dedupeKey({ transactionId: l.extensiv_transaction_id, chargeLabel: l.extensiv_charge_label })),
-  )
+  // En modo pruebas (ALLOW_DUPLICATE_BILLING) el set queda vacío → las líneas
+  // del CSV ya facturadas vuelven a entrar en vez de marcarse "ya facturado".
+  const csvDedupeKeysYaFacturados = ALLOW_DUPLICATE_BILLING
+    ? new Set<string>()
+    : new Set<string>(
+        (lineasPreviasRes.data ?? [])
+          .filter((l): l is typeof l & { extensiv_transaction_id: string; extensiv_charge_label: string } =>
+            !!l.extensiv_transaction_id && !!l.extensiv_charge_label)
+          .map(l => dedupeKey({ transactionId: l.extensiv_transaction_id, chargeLabel: l.extensiv_charge_label })),
+      )
 
   return buildProformaPreview({
     clienteNombre: params.clienteNombre,
