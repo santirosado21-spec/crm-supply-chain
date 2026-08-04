@@ -310,6 +310,26 @@ migraciones están en `supabase/migrations/` y son **solo aditivas**.
 - Sin esta migración, el botón "Adjuntar evidencia" falla porque el RPC/columnas
   no existen en prod.
 
+### 30. `20260804100000_propuesta_aparta_horario.sql` ⏳ PENDIENTE — REQUIERE LIMPIEZA PREVIA
+- Reemplaza el constraint `tasks_no_overlap` para que incluya `'propuesta'` en su
+  `WHERE`. Hoy solo cubre `aceptada/en_curso/pausada`, así que una tarea recién
+  mandada **no apartaba el horario** — se podían encimar tareas sobre la cuenta
+  de almacén. En prod quedaron TASK00023/24/25 las tres el 2026-08-04 15:00-16:00.
+- Decisión de operación (2026-08-04): el horario se cierra desde que se manda la
+  tarea, la mande quien la mande, sin esperar a que almacén acepte. Si se rechaza
+  o cancela, el slot se libera solo.
+- Espejo en el cliente: `BUSY_STATUSES` en `src/hooks/useTaskAvailability.ts`
+  (ya desplegado). Las dos listas deben mantenerse iguales.
+- ⚠️ **Un EXCLUDE constraint no admite `NOT VALID`** — Postgres valida todas las
+  filas al crearlo, así que el ALTER **falla** mientras existan traslapes en
+  `propuesta`. Correr primero la query de diagnóstico incluida al final del
+  archivo de migración y resolver los traslapes (cancelar duplicados o
+  reagendar). Al 2026-08-04 quedaban 3, uno de ellos a futuro:
+  TASK00026 (propuesta) vs TASK00029 (aceptada) el 2026-08-05 15:00.
+- Sin esta migración el fix del cliente ya funciona (los slots se pintan
+  ocupados); lo que falta es el candado server-side para cuando dos personas
+  agendan exactamente al mismo tiempo.
+
 ## Cómo aplicar
 
 Desde el repo vinculado a Supabase:

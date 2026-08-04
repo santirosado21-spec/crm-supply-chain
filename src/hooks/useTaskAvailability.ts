@@ -15,7 +15,12 @@ interface ScheduleRow { day_of_week: number; start_time: string; end_time: strin
 interface BusyTask    { id: string; ref: string | null; title: string; scheduled_start: string; scheduled_end: string }
 
 const SLOT_MINUTES = 30
-const BUSY_STATUSES = ['aceptada', 'en_curso', 'pausada']
+// Una tarea apartada (propuesta) YA reserva el horario — no hay que esperar a
+// que el destinatario la acepte. Quien la manda cierra el slot en el momento.
+// Debe coincidir con el WHERE del constraint tasks_no_overlap (ver migración
+// 20260804100000_propuesta_aparta_horario.sql), que es quien lo hace cumplir
+// de verdad cuando dos personas agendan al mismo tiempo.
+const BUSY_STATUSES = ['propuesta', 'aceptada', 'en_curso', 'pausada']
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number)

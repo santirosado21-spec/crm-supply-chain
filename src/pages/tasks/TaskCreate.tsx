@@ -20,6 +20,28 @@ import type { ExtensivPickResult } from '../../lib/extensiv'
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const isAlmacen = (t?: TaskTag | null) => !!t && norm(t.label) === 'almacen'
 
+// Estándares de duración por tipo de movimiento. La duración ya no se captura a
+// mano: se deriva del movimiento elegido y es lo que se aparta en el calendario.
+const DURACION_ENTRADA = 90
+const DURACION_SALIDA  = 60
+const DURACION_DEFAULT = 60
+
+function duracionPorMovimiento(tag?: TaskTag | null): number {
+  if (!tag) return DURACION_DEFAULT
+  const l = norm(tag.label)
+  if (l === 'entrada') return DURACION_ENTRADA
+  if (l === 'salida')  return DURACION_SALIDA
+  return DURACION_DEFAULT
+}
+
+function formatDuracion(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h && m) return `${h} h ${m} min`
+  if (h)      return h === 1 ? '1 hora' : `${h} horas`
+  return `${m} min`
+}
+
 // Dimensiones de clasificación que se capturan aparte del Destino (= Área).
 const CLASS_DIMENSIONS = TAG_DIMENSIONS.filter(d => d.code !== 'area')
 
@@ -81,6 +103,21 @@ export function TaskCreate() {
 
   // Disponibilidad: almacén = cuenta de almacén; persona = destinatario; si no, el creador.
   const availabilityEmail = esAlmacen ? ALMACEN_RECEPTOR_EMAIL : (personEmail || myEmail)
+
+  // Duración estándar según el movimiento (Entrada 1h30, Salida 1h).
+  const movimientoTag = useMemo(
+    () => (byDimension.movimiento ?? []).find(t => t.id === selectedTags.movimiento) ?? null,
+    [byDimension, selectedTags.movimiento],
+  )
+  const durationMinutes = duracionPorMovimiento(movimientoTag)
+
+  // Si cambia la duración (o el calendario que se está mirando), la selección
+  // previa deja de ser válida: un slot elegido con 60 min no puede quedarse con
+  // un fin de 60 cuando ahora se necesitan 90. Se limpia para forzar reelegir.
+  useEffect(() => {
+    setScheduledStart(null)
+    setScheduledEnd(null)
+  }, [durationMinutes, availabilityEmail])
 
   useEffect(() => { getTaskCategories().then(setCategories) }, [])
   useEffect(() => { getClients() }, [getClients])
@@ -342,6 +379,11 @@ export function TaskCreate() {
                   </span>
                 )}
               </p>
+              <p className="text-[11px] text-gray-500 mb-1.5">
+                {movimientoTag
+                  ? <><strong className="text-[#1e3a5f]">{movimientoTag.label}</strong> — se aparta {formatDuracion(durationMinutes)}</>
+                  : <>Se aparta {formatDuracion(durationMinutes)}. Elige el movimiento para aplicar el estándar (Entrada 1 h 30 min · Salida 1 hora).</>}
+              </p>
               {!areaId ? (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-white py-12 text-center text-xs text-gray-400">
                   Elige primero un destino.
@@ -349,7 +391,7 @@ export function TaskCreate() {
               ) : (
                 <AvailabilityPicker
                   userEmail={availabilityEmail}
-                  durationMinutes={60}
+                  durationMinutes={durationMinutes}
                   selectedStart={scheduledStart}
                   minDate={minDate}
                   onSelect={(s, e) => { setScheduledStart(s); setScheduledEnd(e) }}
