@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Inbox, Send, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Inbox, Send, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Spinner } from '../ui/Spinner'
 import { TaskCard } from './TaskCard'
 import { useTasks } from '../../hooks/useTasks'
@@ -189,12 +188,6 @@ export function TaskInboxPanel() {
       {empty && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-12 text-center">
           <p className="text-sm text-gray-400">No hay tareas en este período.</p>
-          <Link
-            to="/calendario/nueva"
-            className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-[#1e3a5f] hover:underline"
-          >
-            <Plus size={12} /> Crear una nueva
-          </Link>
         </div>
       )}
 
