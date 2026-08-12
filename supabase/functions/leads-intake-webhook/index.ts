@@ -16,7 +16,7 @@
 //   1. Valida el shared secret.
 //   2. Parsea el payload del formulario (nombre, empresa, correo, telefono,
 //      servicio, mensaje — nombres tal cual los usa el form real).
-//   3. Inserta en `leads` con canal='landing_page', estatus='nuevo'.
+//   3. Inserta en `leads` con canal='landing_page', estatus='lead_entrante'.
 //   4. Notifica al equipo comercial vía notify-task-email (best-effort).
 //
 // Secrets (npx supabase secrets set KEY=value):
@@ -105,7 +105,7 @@ serve(async (req: Request) => {
       canal:             'landing_page',
       servicio_interes:  servicio,
       notas_comerciales: (body.mensaje ?? '').trim() || null,
-      estatus:           'nuevo',
+      estatus:           'lead_entrante',
       nivel_interes:      'frio',
       prioridad:         'media',
       created_by:        'landing-page-webhook',
