@@ -100,6 +100,16 @@ captura `actual_duration_min` automáticamente.
 - **Cuenta compartida de almacén** (`ALMACEN_RECEPTOR_EMAIL` en `src/config/almacen.ts`): no hay logins individuales por trabajador. Quienes tienen celular ven sus tareas asignadas vía el kiosko o por nombre; sin celular Guillermo dicta y la card del kiosko muestra el designado.
 - **Engineered Labor Standards** (`labor_standards`): tiempo base por tipo de tarea (Blue Yonder WLM). Se administra en `/almacen/estandares` y se usa como sugerencia al crear warehouse_task. `warehouse_tasks.actual_duration_min` captura el tiempo real al completar — base para futuras métricas de productividad.
 
+## Módulo Comercial — ahora también vive en repo propio
+
+`/comercial/*` (Seguimiento de Leads) se extrajo (2026-08-12) a
+`santirosado21-spec/crm-comercial` — frontend independiente, pero apunta al
+**mismo** Supabase de este repo (`leads`/`lead_notes`/`team_members`/`notifications`,
+mismo webhook `leads-intake-webhook`). No se migraron datos ni se reconstruyó
+auth. Este repo sigue teniendo `/comercial/*` funcionando en paralelo por
+decisión del usuario — no se ha borrado. Si en algún momento se retira de
+aquí, coordinarlo con el repo nuevo primero.
+
 ## Estado actual
 
 - Branch activo: `feat/limpieza-modulos-mx` — Fase 1 (limpieza) + Fase 2 (Calendario Almacén + restructura Task Tracker + Blue Yonder WLM subset). PR #1 contra `main` (https://github.com/santirosado21-spec/crm-supply-chain/pull/1).
